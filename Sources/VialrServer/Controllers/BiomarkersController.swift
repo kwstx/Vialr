@@ -10,6 +10,7 @@ public struct BiomarkersController: RouteCollection {
 
         biomarkersGroup.get(use: listBiomarkers)
         biomarkersGroup.post(use: logBiomarker)
+        biomarkersGroup.get(":name", "history", use: getBiomarkerHistory)
         biomarkersGroup.delete(":biomarkerId", use: deleteBiomarker)
     }
 
@@ -39,10 +40,17 @@ public struct BiomarkersController: RouteCollection {
         let payload = try req.auth.require(UserPayload.self)
         let dto = try req.content.decode(BiomarkerDTO.self)
 
+        guard dto.value.isFinite && !dto.value.isNaN else {
+            throw Abort(.badRequest, reason: "Biomarker value must be a valid number.")
+        }
+        guard !dto.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw Abort(.badRequest, reason: "Biomarker name cannot be empty.")
+        }
+
         let entity = BiomarkerEntity(
             id: dto.id ?? UUID(),
             userId: payload.userId,
-            name: dto.name,
+            name: dto.name.trimmingCharacters(in: .whitespacesAndNewlines),
             value: dto.value,
             unit: dto.unit,
             referenceRangeMin: dto.referenceRangeMin,
@@ -63,6 +71,42 @@ public struct BiomarkersController: RouteCollection {
             testDate: entity.testDate,
             labName: entity.labName,
             notes: entity.notes
+        )
+    }
+
+    public func getBiomarkerHistory(req: Request) async throws -> BiomarkerHistoryTrendDTO {
+        let payload = try req.auth.require(UserPayload.self)
+        guard let rawName = req.parameters.get("name") else {
+            throw Abort(.badRequest, reason: "Biomarker name parameter is required.")
+        }
+        let biomarkerName = rawName.removingPercentEncoding ?? rawName
+
+        let markers = try await BiomarkerEntity.query(on: req.db)
+            .filter(\.$user.$id == payload.userId)
+            .filter(\.$name == biomarkerName)
+            .sort(\.$testDate, .ascending)
+            .all()
+
+        let dtos = markers.map { b in
+            BiomarkerDTO(
+                id: b.id,
+                name: b.name,
+                value: b.value,
+                unit: b.unit,
+                referenceRangeMin: b.referenceRangeMin,
+                referenceRangeMax: b.referenceRangeMax,
+                testDate: b.testDate,
+                labName: b.labName,
+                notes: b.notes
+            )
+        }
+
+        return BiomarkerHistoryTrendDTO(
+            biomarkerName: biomarkerName,
+            unit: markers.first?.unit ?? "",
+            referenceRangeMin: markers.first?.referenceRangeMin,
+            referenceRangeMax: markers.first?.referenceRangeMax,
+            dataPoints: dtos
         )
     }
 

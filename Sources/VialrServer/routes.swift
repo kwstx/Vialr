@@ -10,15 +10,50 @@ public func routes(_ app: Application) throws {
         ["status": "healthy", "timestamp": "\(Date())"]
     }
 
-    // API v1 grouping
+    // Versioned API grouping: /api/v1
     let apiV1 = app.grouped("api", "v1")
 
+    // 1. Authentication
     try apiV1.register(collection: AuthController())
+
+    // 2. Users & Preferences
+    try apiV1.register(collection: UsersController())
+
+    // 3. Compounds
+    try apiV1.register(collection: CompoundsController())
+
+    // 4. Protocols & Revisions
     try apiV1.register(collection: ProtocolsController())
+
+    // 5. Doses & Batch Logging
     try apiV1.register(collection: DoseLogsController())
+
+    // 6. Inventory: Vials & Ancillary Supplies
     try apiV1.register(collection: VialsController())
+    try apiV1.register(collection: SuppliesController())
+
+    // 7. Reconstitution Records
+    try apiV1.register(collection: ReconstitutionController())
+
+    // 8. Injection Sites & Rotation Mapping
+    try apiV1.register(collection: InjectionSitesController())
+
+    // 9. Measurements, Vitals & Subjective Scores
+    try apiV1.register(collection: MeasurementsController())
+
+    // 10. Laboratory Panels & Biomarkers
+    try apiV1.register(collection: LabPanelsController())
     try apiV1.register(collection: BiomarkersController())
-    try apiV1.register(collection: SyncController())
-    try apiV1.register(collection: ReportsController())
+
+    // 11. Documents & Encrypted Object Storage Vault
     try apiV1.register(collection: StoredFilesController())
+
+    // 12. Reports & Clinical Summaries
+    try apiV1.register(collection: ReportsController())
+
+    // 13. Push Notifications & APNs Device Tokens
+    try apiV1.register(collection: NotificationsController())
+
+    // 14. Delta Synchronization & Outbox Conflict Engine
+    try apiV1.register(collection: SyncController())
 }

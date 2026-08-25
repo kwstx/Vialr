@@ -76,30 +76,42 @@ public struct SyncController: RouteCollection {
                 )
             }
 
+            // Zero-trust verification: dose amount must be positive
+            guard dose.actualDoseAmount > 0 else {
+                return OutboxOperationResultDTO(
+                    operationId: op.id,
+                    objectIdentifier: op.objectIdentifier,
+                    status: "rejected",
+                    canonicalServerVersion: op.version,
+                    serverTimestamp: now,
+                    message: "Dose amount must be positive"
+                )
+            }
+
             let existing = try await DoseLogEntity.query(on: req.db)
                 .filter(\.$id == op.objectIdentifier)
                 .filter(\.$user.$id == userId)
                 .first()
 
             if let existingDose = existing {
-                // Check for concurrent conflict (client base version < existing version OR server updated after client read)
                 let isConflict = op.version <= 1 && (existingDose.updatedAt ?? existingDose.createdAt ?? Date()) > op.timestamp
 
                 if isConflict && op.conflictStrategy != "lastWriteWins" {
-                    // Medical Safety Rule: NEVER silently overwrite historical dose events.
-                    // Preserve the server's record and insert client's record as a twin preserved entry.
                     let twinId = UUID()
                     let twinEntity = DoseLogEntity(
                         id: twinId,
                         userId: userId,
                         protocolId: dose.protocolId,
                         compoundId: dose.compoundId,
+                        vialId: dose.vialId,
                         scheduledDate: dose.scheduledTimestamp,
                         administeredDate: dose.actualTimestamp,
                         doseAmount: dose.actualDoseAmount,
                         doseUnit: dose.doseUnit.rawValue,
                         injectionSite: dose.injectionSiteName,
+                        injectionSiteId: dose.injectionSiteId,
                         status: dose.status.rawValue,
+                        skippedReason: dose.skippedReason,
                         notes: "[Preserved Concurrent Dose] " + dose.notes,
                         painScore: dose.subjectiveEffectScore
                     )
@@ -111,7 +123,6 @@ public struct SyncController: RouteCollection {
                     twinDomain.version = 2
                     let twinJson = (try? String(data: encoder.encode(twinDomain), encoding: .utf8))
 
-                    // Record in conflict audit table
                     let conflictEntity = SyncConflictEntity(
                         userId: userId,
                         entityType: "doseEvent",
@@ -136,12 +147,13 @@ public struct SyncController: RouteCollection {
                         message: "Concurrent dose conflict detected: both versions preserved safely"
                     )
                 } else {
-                    // Standard update / LWW
                     existingDose.administeredDate = dose.actualTimestamp
                     existingDose.doseAmount = dose.actualDoseAmount
                     existingDose.doseUnit = dose.doseUnit.rawValue
                     existingDose.injectionSite = dose.injectionSiteName
+                    existingDose.injectionSiteId = dose.injectionSiteId
                     existingDose.status = dose.status.rawValue
+                    existingDose.skippedReason = dose.skippedReason
                     existingDose.notes = dose.notes
                     existingDose.painScore = dose.subjectiveEffectScore
                     existingDose.updatedAt = now
@@ -157,18 +169,33 @@ public struct SyncController: RouteCollection {
                     )
                 }
             } else {
-                // New Dose Event creation
+                // Deduct vial volume if vial was referenced and dose is taken
+                if let vId = dose.vialId, dose.status == .taken {
+                    _ = try? await BackendValidationService.validateVialAndDeductDose(
+                        vialId: vId,
+                        compoundId: dose.compoundId,
+                        userId: userId,
+                        doseAmount: dose.actualDoseAmount,
+                        doseUnit: dose.doseUnit.rawValue,
+                        status: "taken",
+                        on: req.db
+                    )
+                }
+
                 let newDose = DoseLogEntity(
                     id: dose.id,
                     userId: userId,
                     protocolId: dose.protocolId,
                     compoundId: dose.compoundId,
+                    vialId: dose.vialId,
                     scheduledDate: dose.scheduledTimestamp,
                     administeredDate: dose.actualTimestamp,
                     doseAmount: dose.actualDoseAmount,
                     doseUnit: dose.doseUnit.rawValue,
                     injectionSite: dose.injectionSiteName,
+                    injectionSiteId: dose.injectionSiteId,
                     status: dose.status.rawValue,
+                    skippedReason: dose.skippedReason,
                     notes: dose.notes,
                     painScore: dose.subjectiveEffectScore
                 )
@@ -199,7 +226,6 @@ public struct SyncController: RouteCollection {
 
             let compoundsJson = (try? String(data: encoder.encode(proto.compounds), encoding: .utf8)) ?? "[]"
 
-            // Append protocol revision in PostgreSQL to maintain full longitudinal auditability
             let revision = ProtocolRevisionEntity(
                 userId: userId,
                 protocolId: proto.id,
@@ -259,10 +285,10 @@ public struct SyncController: RouteCollection {
                 message: "Protocol and revision snapshot recorded in PostgreSQL"
             )
 
-        // MARK: - 3. Protocol Revision Explicit Record
-        case "protocolRevision":
+        // MARK: - 3. Vials & Inventory
+        case "vial":
             guard let json = op.payload, let data = json.data(using: .utf8),
-                  let rev = try? decoder.decode(ProtocolRevision.self, from: data) else {
+                  let vial = try? decoder.decode(Vial.self, from: data) else {
                 return OutboxOperationResultDTO(
                     operationId: op.id,
                     objectIdentifier: op.objectIdentifier,
@@ -272,29 +298,115 @@ public struct SyncController: RouteCollection {
                 )
             }
 
-            let compoundsJson = (try? String(data: encoder.encode(rev.compounds), encoding: .utf8)) ?? "[]"
-            let revEntity = ProtocolRevisionEntity(
-                id: rev.id,
-                userId: userId,
-                protocolId: rev.protocolId,
-                revisionNumber: rev.revisionNumber,
-                previousRevisionId: rev.previousRevisionId,
-                name: rev.name,
-                compoundsJson: compoundsJson,
-                reasonForChange: rev.reasonForChange,
-                effectiveDate: rev.effectiveDate
-            )
-            try? await revEntity.save(on: req.db)
+            let existingVial = try await VialEntity.query(on: req.db)
+                .filter(\.$id == op.objectIdentifier)
+                .filter(\.$user.$id == userId)
+                .first()
 
-            return OutboxOperationResultDTO(
-                operationId: op.id,
-                objectIdentifier: op.objectIdentifier,
-                status: "appended",
-                canonicalServerVersion: rev.version,
-                serverTimestamp: now
-            )
+            if let v = existingVial {
+                v.currentVolumeRemainingMl = vial.currentVolumeRemainingMl
+                v.status = vial.status.rawValue
+                v.notes = vial.notes
+                v.updatedAt = now
+                try await v.save(on: req.db)
 
-        // MARK: - 4. LabPanels & LabResults (Append-Oriented Diagnostics)
+                return OutboxOperationResultDTO(
+                    operationId: op.id,
+                    objectIdentifier: op.objectIdentifier,
+                    status: "applied",
+                    canonicalServerVersion: op.version + 1,
+                    serverTimestamp: now
+                )
+            } else {
+                let newVial = VialEntity(
+                    id: vial.id,
+                    userId: userId,
+                    compoundId: vial.compoundId,
+                    lotNumber: vial.lotNumber,
+                    dryMassMg: vial.totalDryMassMg,
+                    diluentVolumeMl: vial.bacWaterAddedMl,
+                    concentrationMgMl: vial.concentrationMgMl,
+                    currentVolumeRemainingMl: vial.currentVolumeRemainingMl,
+                    expirationDate: vial.expirationDate,
+                    costUsd: vial.costUsd,
+                    status: vial.status.rawValue,
+                    notes: vial.notes
+                )
+                try await newVial.save(on: req.db)
+
+                return OutboxOperationResultDTO(
+                    operationId: op.id,
+                    objectIdentifier: op.objectIdentifier,
+                    status: "applied",
+                    canonicalServerVersion: max(1, vial.version),
+                    serverTimestamp: now
+                )
+            }
+
+        // MARK: - 4. Measurements
+        case "measurement":
+            guard let json = op.payload, let data = json.data(using: .utf8),
+                  let m = try? decoder.decode(Measurement.self, from: data) else {
+                return OutboxOperationResultDTO(
+                    operationId: op.id,
+                    objectIdentifier: op.objectIdentifier,
+                    status: "rejected",
+                    canonicalServerVersion: op.version,
+                    serverTimestamp: now
+                )
+            }
+
+            let existingM = try await MeasurementEntity.query(on: req.db)
+                .filter(\.$id == op.objectIdentifier)
+                .filter(\.$user.$id == userId)
+                .first()
+
+            if let entity = existingM {
+                entity.value = m.value
+                entity.secondaryValue = m.secondaryValue
+                entity.unit = m.unit
+                entity.status = m.status.rawValue
+                entity.notes = m.notes
+                entity.updatedAt = now
+                try await entity.save(on: req.db)
+
+                return OutboxOperationResultDTO(
+                    operationId: op.id,
+                    objectIdentifier: op.objectIdentifier,
+                    status: "applied",
+                    canonicalServerVersion: op.version + 1,
+                    serverTimestamp: now
+                )
+            } else {
+                let newM = MeasurementEntity(
+                    id: m.id,
+                    userId: userId,
+                    associatedProtocolId: m.associatedProtocolId,
+                    name: m.name,
+                    type: m.type.rawValue,
+                    category: m.category.rawValue,
+                    value: m.value,
+                    secondaryValue: m.secondaryValue,
+                    unit: m.unit,
+                    dateRecorded: m.dateRecorded,
+                    source: m.source.rawValue,
+                    referenceRangeMin: m.referenceRangeMin,
+                    referenceRangeMax: m.referenceRangeMax,
+                    status: m.status.rawValue,
+                    notes: m.notes
+                )
+                try await newM.save(on: req.db)
+
+                return OutboxOperationResultDTO(
+                    operationId: op.id,
+                    objectIdentifier: op.objectIdentifier,
+                    status: "applied",
+                    canonicalServerVersion: max(1, m.version),
+                    serverTimestamp: now
+                )
+            }
+
+        // MARK: - 5. LabPanels
         case "labPanel":
             guard let json = op.payload, let data = json.data(using: .utf8),
                   let panel = try? decoder.decode(LabPanel.self, from: data) else {
@@ -370,7 +482,7 @@ public struct SyncController: RouteCollection {
                 )
             }
 
-        // MARK: - 5. Preferences & Settings (Last-Write-Wins)
+        // MARK: - 6. Preferences & Settings (Last-Write-Wins)
         case "userPreference", "user":
             guard let json = op.payload, let data = json.data(using: .utf8),
                   let user = try? decoder.decode(User.self, from: data) else {
@@ -389,15 +501,19 @@ public struct SyncController: RouteCollection {
 
             if let u = existingUser {
                 u.displayName = user.accountInfo.displayName
+                u.timezone = user.timezone
+                let prefsData = try? encoder.encode(user.preferences)
+                u.preferencesJson = prefsData.flatMap { String(data: $0, encoding: .utf8) }
+                let unitsData = try? encoder.encode(user.units)
+                u.unitsJson = unitsData.flatMap { String(data: $0, encoding: .utf8) }
                 u.updatedAt = now
                 try await u.save(on: req.db)
 
-                let canonicalVer = max(op.version, 1) + 1
                 return OutboxOperationResultDTO(
                     operationId: op.id,
                     objectIdentifier: op.objectIdentifier,
                     status: "resolvedLWW",
-                    canonicalServerVersion: canonicalVer,
+                    canonicalServerVersion: max(op.version, 1) + 1,
                     serverTimestamp: now,
                     message: "User preferences updated using Last-Write-Wins"
                 )
@@ -407,123 +523,6 @@ public struct SyncController: RouteCollection {
                     objectIdentifier: op.objectIdentifier,
                     status: "applied",
                     canonicalServerVersion: 1,
-                    serverTimestamp: now
-                )
-            }
-
-        // MARK: - 6. Vials & Inventory
-        case "vial":
-            guard let json = op.payload, let data = json.data(using: .utf8),
-                  let vial = try? decoder.decode(Vial.self, from: data) else {
-                return OutboxOperationResultDTO(
-                    operationId: op.id,
-                    objectIdentifier: op.objectIdentifier,
-                    status: "rejected",
-                    canonicalServerVersion: op.version,
-                    serverTimestamp: now
-                )
-            }
-
-            let existingVial = try await VialEntity.query(on: req.db)
-                .filter(\.$id == op.objectIdentifier)
-                .filter(\.$user.$id == userId)
-                .first()
-
-            if let v = existingVial {
-                v.currentVolumeRemainingMl = vial.currentVolumeRemainingMl
-                v.status = vial.status.rawValue
-                v.notes = vial.notes
-                v.updatedAt = now
-                try await v.save(on: req.db)
-
-                return OutboxOperationResultDTO(
-                    operationId: op.id,
-                    objectIdentifier: op.objectIdentifier,
-                    status: "applied",
-                    canonicalServerVersion: op.version + 1,
-                    serverTimestamp: now
-                )
-            } else {
-                let newVial = VialEntity(
-                    id: vial.id,
-                    userId: userId,
-                    compoundId: vial.compoundId,
-                    lotNumber: vial.lotNumber,
-                    dryMassMg: vial.totalDryMassMg,
-                    diluentVolumeMl: vial.bacWaterAddedMl,
-                    concentrationMgMl: vial.concentrationMgMl,
-                    currentVolumeRemainingMl: vial.currentVolumeRemainingMl,
-                    expirationDate: vial.expirationDate,
-                    costUsd: vial.costUsd,
-                    status: vial.status.rawValue,
-                    notes: vial.notes
-                )
-                try await newVial.save(on: req.db)
-
-                return OutboxOperationResultDTO(
-                    operationId: op.id,
-                    objectIdentifier: op.objectIdentifier,
-                    status: "applied",
-                    canonicalServerVersion: max(1, vial.version),
-                    serverTimestamp: now
-                )
-            }
-
-        // MARK: - 7. Biomarkers
-        case "biomarker":
-            guard let json = op.payload, let data = json.data(using: .utf8),
-                  let b = try? decoder.decode(Biomarker.self, from: data) else {
-                return OutboxOperationResultDTO(
-                    operationId: op.id,
-                    objectIdentifier: op.objectIdentifier,
-                    status: "rejected",
-                    canonicalServerVersion: op.version,
-                    serverTimestamp: now
-                )
-            }
-
-            let existingB = try await BiomarkerEntity.query(on: req.db)
-                .filter(\.$id == op.objectIdentifier)
-                .filter(\.$user.$id == userId)
-                .first()
-
-            if let entity = existingB {
-                entity.value = b.value
-                entity.unit = b.unit
-                entity.referenceRangeMin = b.referenceRangeMin
-                entity.referenceRangeMax = b.referenceRangeMax
-                entity.testDate = b.dateRecorded
-                entity.notes = b.notes
-                entity.updatedAt = now
-                try await entity.save(on: req.db)
-
-                return OutboxOperationResultDTO(
-                    operationId: op.id,
-                    objectIdentifier: op.objectIdentifier,
-                    status: "applied",
-                    canonicalServerVersion: op.version + 1,
-                    serverTimestamp: now
-                )
-            } else {
-                let newB = BiomarkerEntity(
-                    id: b.id,
-                    userId: userId,
-                    name: b.name,
-                    value: b.value,
-                    unit: b.unit,
-                    referenceRangeMin: b.referenceRangeMin,
-                    referenceRangeMax: b.referenceRangeMax,
-                    testDate: b.dateRecorded,
-                    labName: "Standard Lab",
-                    notes: b.notes
-                )
-                try await newB.save(on: req.db)
-
-                return OutboxOperationResultDTO(
-                    operationId: op.id,
-                    objectIdentifier: op.objectIdentifier,
-                    status: "applied",
-                    canonicalServerVersion: max(1, b.version),
                     serverTimestamp: now
                 )
             }
@@ -540,7 +539,7 @@ public struct SyncController: RouteCollection {
         }
     }
 
-    // MARK: - Legacy Push Route (Maintained for Backward Compatibility)
+    // MARK: - Legacy Push Route
     public func pushChanges(req: Request) async throws -> HTTPStatus {
         let payload = try req.auth.require(UserPayload.self)
         let pushReq = try req.content.decode(SyncPushRequestDTO.self)

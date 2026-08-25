@@ -91,6 +91,11 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateSyncChangesMigration())
     app.migrations.add(CreateSyncConflictsMigration())
     app.migrations.add(CreateStoredFilesMigration())
+    app.migrations.add(CreateReconstitutionRecordsMigration())
+    app.migrations.add(CreateSupplyItemsMigration())
+    app.migrations.add(CreateInjectionSiteEventsMigration())
+    app.migrations.add(CreateMeasurementsMigration())
+    app.migrations.add(CreateNotificationsAndTokensMigration())
 
     // Auto-migrate if flag is passed
     if app.environment != .testing {
