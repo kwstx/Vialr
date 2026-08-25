@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// VialrInputField: Clean, distraction-free input field with generous hit target and subtle focus border.
 public struct VialrInputField: View {
     public let label: String
     public let placeholder: String
@@ -27,13 +28,13 @@ public struct VialrInputField: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(VialrTypography.subheadline)
-                .foregroundColor(VialrColors.textSecondary)
+                .vialrEyebrow()
 
             HStack(spacing: VialrSpacing.xs) {
                 if let icon = icon {
                     Image(systemName: icon)
                         .foregroundColor(VialrColors.textTertiary)
+                        .font(.system(size: 15))
                         .frame(width: 20)
                 }
 
@@ -44,29 +45,41 @@ public struct VialrInputField: View {
                     .keyboardType(isNumeric ? .decimalPad : .default)
                     #endif
 
+                if !value.isEmpty {
+                    Button {
+                        value = ""
+                        VialrHaptics.lightImpact()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(VialrColors.textMuted)
+                    }
+                }
+
                 if let unit = unit {
                     Text(unit)
                         .font(VialrTypography.footnote)
                         .fontWeight(.semibold)
-                        .foregroundColor(VialrColors.accentTeal)
+                        .foregroundColor(VialrColors.accentVitality)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(VialrColors.accentTeal.opacity(0.12))
-                        .cornerRadius(6)
+                        .background(VialrColors.accentVitality.opacity(0.12))
+                        .clipShape(Capsule())
                 }
             }
             .padding(.horizontal, VialrSpacing.md)
-            .frame(height: 50)
-            .background(VialrColors.cardSurfaceElevated)
-            .cornerRadius(VialrSpacing.radiusMd)
+            .frame(height: 52)
+            .background(VialrColors.cardSurface)
+            .clipShape(RoundedRectangle(cornerRadius: VialrSpacing.radiusMd, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: VialrSpacing.radiusMd)
+                RoundedRectangle(cornerRadius: VialrSpacing.radiusMd, style: .continuous)
                     .stroke(VialrColors.glassBorder, lineWidth: 1)
             )
         }
     }
 }
 
+/// VialrStepper: Cal AI inspired tactile numeric adjuster with circular plus/minus steppers.
 public struct VialrStepper: View {
     public let title: String
     @Binding public var value: Double
@@ -92,33 +105,37 @@ public struct VialrStepper: View {
     }
 
     public var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(VialrTypography.subheadline)
-                    .foregroundColor(VialrColors.textSecondary)
+                    .vialrEyebrow()
+
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(String(format: format, value))
                         .font(VialrTypography.metricMedium)
                         .foregroundColor(VialrColors.textPrimary)
                     Text(unit)
                         .font(VialrTypography.headline)
-                        .foregroundColor(VialrColors.accentTeal)
+                        .foregroundColor(VialrColors.accentVitality)
                 }
             }
 
             Spacer()
 
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Button {
                     decrement()
                 } label: {
                     Image(systemName: "minus")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(value > range.lowerBound ? VialrColors.textPrimary : VialrColors.textMuted)
-                        .frame(width: 38, height: 38)
-                        .background(VialrColors.cardSurfaceSelected)
+                        .frame(width: 40, height: 40)
+                        .background(VialrColors.cardSurfaceElevated)
                         .clipShape(Circle())
+                        .overlay(
+                            Circle()
+                                .stroke(VialrColors.glassBorder, lineWidth: 0.8)
+                        )
                 }
                 .disabled(value <= range.lowerBound)
 
@@ -127,31 +144,27 @@ public struct VialrStepper: View {
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(value < range.upperBound ? VialrColors.textPrimary : VialrColors.textMuted)
-                        .frame(width: 38, height: 38)
-                        .background(VialrColors.accentTeal.opacity(0.2))
+                        .foregroundColor(value < range.upperBound ? Color.black : VialrColors.textMuted)
+                        .frame(width: 40, height: 40)
+                        .background(value < range.upperBound ? VialrColors.accentVitality : VialrColors.cardSurfaceElevated)
                         .clipShape(Circle())
                 }
                 .disabled(value >= range.upperBound)
             }
         }
-        .padding(VialrSpacing.md)
+        .padding(VialrSpacing.cardPadding)
         .vialrCard()
     }
 
     private func decrement() {
         let newVal = max(range.lowerBound, value - step)
         value = newVal
-        #if os(iOS)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        #endif
+        VialrHaptics.lightImpact()
     }
 
     private func increment() {
         let newVal = min(range.upperBound, value + step)
         value = newVal
-        #if os(iOS)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        #endif
+        VialrHaptics.lightImpact()
     }
 }

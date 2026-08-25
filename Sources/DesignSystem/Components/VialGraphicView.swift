@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// VialGraphicView: Clean, modern 2D vial visualization with reconstitution state.
 public struct VialGraphicView: View {
     public let compoundName: String
     public let concentrationText: String
@@ -12,7 +13,7 @@ public struct VialGraphicView: View {
         concentrationText: String,
         fillPercentage: Double = 0.75,
         isReconstituted: Bool = true,
-        badgeColor: Color = VialrColors.accentTeal
+        badgeColor: Color = VialrColors.accentVitality
     ) {
         self.compoundName = compoundName
         self.concentrationText = concentrationText
@@ -27,11 +28,11 @@ public struct VialGraphicView: View {
             ZStack(alignment: .bottom) {
                 // Outer Vial Glass Body
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.white.opacity(0.05))
-                    .frame(width: 44, height: 68)
+                    .fill(Color.white.opacity(0.04))
+                    .frame(width: 42, height: 64)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(VialrColors.glassBorder, lineWidth: 1.5)
+                            .stroke(VialrColors.glassBorder, lineWidth: 1.2)
                     )
 
                 // Liquid fill inside glass
@@ -40,19 +41,19 @@ public struct VialGraphicView: View {
                     RoundedRectangle(cornerRadius: 6)
                         .fill(
                             LinearGradient(
-                                colors: [badgeColor.opacity(0.7), badgeColor.opacity(0.9)],
+                                colors: [badgeColor.opacity(0.65), badgeColor.opacity(0.9)],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
                         )
-                        .frame(width: 38, height: 60 * clampedFill)
+                        .frame(width: 36, height: 56 * clampedFill)
                         .padding(.bottom, 3)
                         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: fillPercentage)
                 } else {
                     // Lyophilized powder puck at the bottom
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.white.opacity(0.7))
-                        .frame(width: 38, height: 14)
+                        .fill(Color.white.opacity(0.6))
+                        .frame(width: 36, height: 14)
                         .padding(.bottom, 3)
                 }
 
@@ -60,17 +61,17 @@ public struct VialGraphicView: View {
                 VStack(spacing: 1) {
                     // Rubber septa circle
                     Capsule()
-                        .fill(Color(hex: "475569"))
+                        .fill(Color(hex: "334155"))
                         .frame(width: 14, height: 4)
 
                     // Aluminum collar
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(LinearGradient(colors: [Color.gray, Color.white.opacity(0.9), Color.gray], startPoint: .top, endPoint: .bottom))
-                        .frame(width: 24, height: 8)
+                        .fill(LinearGradient(colors: [Color.gray.opacity(0.8), Color.white.opacity(0.9), Color.gray.opacity(0.8)], startPoint: .top, endPoint: .bottom))
+                        .frame(width: 22, height: 7)
                 }
-                .offset(y: -66)
+                .offset(y: -62)
             }
-            .frame(width: 48, height: 80)
+            .frame(width: 44, height: 76)
 
             // Info Details
             VStack(alignment: .leading, spacing: 4) {
@@ -79,19 +80,19 @@ public struct VialGraphicView: View {
                         .font(VialrTypography.headline)
                         .foregroundColor(VialrColors.textPrimary)
                     Spacer()
-                    MetricBadge(isReconstituted ? .success("\(Int(fillPercentage * 100))% Vol") : .info("Dry"))
+                    MetricBadge(isReconstituted ? .success("\(Int(fillPercentage * 100))% Vol") : .neutral("Dry Powder"), showDot: true)
                 }
 
                 Text(concentrationText)
                     .font(VialrTypography.monoSub)
-                    .foregroundColor(VialrColors.accentTeal)
+                    .foregroundColor(VialrColors.accentVitality)
 
                 Text(isReconstituted ? "Reconstituted Solution" : "Lyophilized Powder")
                     .font(VialrTypography.caption)
                     .foregroundColor(VialrColors.textTertiary)
             }
         }
-        .padding(VialrSpacing.md)
+        .padding(VialrSpacing.cardPadding)
         .vialrCard()
     }
 }

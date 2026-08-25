@@ -1,50 +1,73 @@
 import SwiftUI
 
+/// Vialr Color Design System: A restrained, high-contrast palette inspired by Uber and Cal AI.
+/// Eliminates cluttered "medical app" blue gradients in favor of deep pitch blacks,
+/// rich onyx surfaces, hairline borders, and an energetic Electric Emerald vitality accent.
 public enum VialrColors {
-    // Backgrounds
-    public static let backgroundPrimary = Color(hex: "0A0D12")
-    public static let backgroundSecondary = Color(hex: "12161F")
-    public static let backgroundTertiary = Color(hex: "1A202C")
+    // MARK: - Core Foundations (Uber Monochrome & Deep Canvas)
+    public static let backgroundPrimary = Color(hex: "000000") // True pitch black for OLED depth
+    public static let backgroundSecondary = Color(hex: "090B0E") // Subtle elevated canvas
+    public static let backgroundTertiary = Color(hex: "11141A")  // Inset grouped canvas
     
-    // Surfaces & Cards
-    public static let cardSurface = Color(hex: "151A24")
-    public static let cardSurfaceElevated = Color(hex: "1E2432")
-    public static let cardSurfaceSelected = Color(hex: "242C3D")
-    public static let glassBorder = Color.white.opacity(0.08)
-    public static let subtleBorder = Color.white.opacity(0.12)
+    // MARK: - Surfaces & Cards (Cal AI Frosted & Rounded Surfaces)
+    public static let cardSurface = Color(hex: "13171F")         // Primary card background
+    public static let cardSurfaceElevated = Color(hex: "1A202C") // Hovered / modal card surface
+    public static let cardSurfaceSelected = Color(hex: "222A38") // Active selection surface
+    public static let cardSurfaceSubtle = Color(hex: "0D1015")   // Inset row / container surface
     
-    // Accents & Vibrant Signals
-    public static let accentEmerald = Color(hex: "10B981") // Vitality, safe, completed
-    public static let accentTeal = Color(hex: "14B8A6")    // Active protocol, primary branding
-    public static let accentCyan = Color(hex: "06B6D4")    // Reconstitution, water
-    public static let accentAmber = Color(hex: "F59E0B")   // Low stock, warning, scheduled
-    public static let accentRose = Color(hex: "F43F5E")    // Missed dose, critical alert
-    public static let accentViolet = Color(hex: "8B5CF6")  // Nootropic / Longevity
-    public static let accentIndigo = Color(hex: "6366F1")  // Bloodwork / Analytics
+    // MARK: - Hairline Borders (Subtle, sleek contrast)
+    public static let glassBorder = Color.white.opacity(0.07)    // Standard hairline card border
+    public static let subtleBorder = Color.white.opacity(0.12)   // Stronger outline border
+    public static let activeBorder = Color.white.opacity(0.24)   // Focused or active border
+    public static let divider = Color.white.opacity(0.06)        // Clean list dividers
     
-    // Text & Content
-    public static let textPrimary = Color.white
-    public static let textSecondary = Color(hex: "94A3B8")
-    public static let textTertiary = Color(hex: "64748B")
-    public static let textMuted = Color(hex: "475569")
+    // MARK: - Primary Vitality Accent (Cal AI Signature Electric Emerald)
+    public static let accentVitality = Color(hex: "10E79D")      // Cal AI Electric Emerald (Primary Vitality)
+    public static let accentEmerald = Color(hex: "10E79D")       // Safe, completed, active adherence
+    public static let accentTeal = Color(hex: "10E79D")          // Backwards compatibility alias for vitality
     
-    // Gradients
-    public static let primaryGradient = LinearGradient(
-        colors: [Color(hex: "10B981"), Color(hex: "06B6D4")],
+    // MARK: - Functional & Semantic Signals (Restrained)
+    public static let accentAmber = Color(hex: "FF9F0A")         // Warning, low inventory, upcoming dose
+    public static let accentRose = Color(hex: "FF453A")          // Critical alert, missed dose, error
+    public static let accentCyan = Color(hex: "38BDF8")          // Water / reconstitution volume indicator
+    public static let accentViolet = Color(hex: "A855F7")        // Longevity / cognitive marker
+    public static let accentSlate = Color(hex: "64748B")         // Neutral / completed state
+    
+    // MARK: - Typography Hierarchy (Stark White to Zinc Slate)
+    public static let textPrimary = Color(hex: "FFFFFF")         // Stark high-contrast header & body
+    public static let textSecondary = Color(hex: "94A3B8")       // Clear secondary descriptions
+    public static let textTertiary = Color(hex: "64748B")        // Muted helper labels & metadata
+    public static let textMuted = Color(hex: "334155")           // Disabled text & subtle placeholders
+    
+    // MARK: - Sleek Subtle Gradients (Non-medical, dark luxury)
+    public static let heroCardGradient = LinearGradient(
+        colors: [Color(hex: "1A2230"), Color(hex: "111620")],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
     
-    public static let heroCardGradient = LinearGradient(
-        colors: [Color(hex: "1E293B"), Color(hex: "0F172A")],
+    public static let vitalityGlowGradient = LinearGradient(
+        colors: [Color(hex: "10E79D"), Color(hex: "059669")],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
+    )
+    
+    public static let primaryGradient = LinearGradient(
+        colors: [Color(hex: "10E79D"), Color(hex: "10B981")],
+        startPoint: .leading,
+        endPoint: .trailing
     )
     
     public static let syringeFluidGradient = LinearGradient(
-        colors: [Color(hex: "06B6D4").opacity(0.8), Color(hex: "10B981").opacity(0.9)],
+        colors: [Color(hex: "10E79D").opacity(0.85), Color(hex: "059669").opacity(0.95)],
         startPoint: .leading,
         endPoint: .trailing
+    )
+    
+    public static let glassSurfaceGradient = LinearGradient(
+        colors: [Color.white.opacity(0.04), Color.white.opacity(0.01)],
+        startPoint: .top,
+        endPoint: .bottom
     )
 }
 

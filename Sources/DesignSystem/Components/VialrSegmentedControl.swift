@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// VialrSegmentedControl: Tactile, sliding pill segmented control inspired by Uber & Cal AI.
 public struct VialrSegmentedControl<T: Hashable & CustomStringConvertible>: View {
     public let items: [T]
     @Binding public var selection: T
@@ -15,12 +16,10 @@ public struct VialrSegmentedControl<T: Hashable & CustomStringConvertible>: View
             ForEach(items, id: \.self) { item in
                 let isSelected = selection == item
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
                         selection = item
                     }
-                    #if os(iOS)
-                    UISelectionFeedbackGenerator().selectionChanged()
-                    #endif
+                    VialrHaptics.selection()
                 } label: {
                     Text(item.description)
                         .font(VialrTypography.footnote)
@@ -36,18 +35,23 @@ public struct VialrSegmentedControl<T: Hashable & CustomStringConvertible>: View
                                     .matchedGeometryEffect(id: "SEGMENT_HIGHLIGHT", in: segmentAnimation)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: VialrSpacing.radiusSm)
-                                            .stroke(VialrColors.subtleBorder, lineWidth: 1)
+                                            .stroke(VialrColors.subtleBorder, lineWidth: 0.8)
                                     )
+                                    .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
                             }
                         }
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(3)
+        .padding(4)
         .background(
             RoundedRectangle(cornerRadius: VialrSpacing.radiusMd, style: .continuous)
-                .fill(VialrColors.cardSurface)
+                .fill(VialrColors.cardSurfaceSubtle)
+                .overlay(
+                    RoundedRectangle(cornerRadius: VialrSpacing.radiusMd)
+                        .stroke(VialrColors.glassBorder, lineWidth: 0.8)
+                )
         )
     }
 }

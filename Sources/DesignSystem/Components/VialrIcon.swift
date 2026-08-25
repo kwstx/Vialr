@@ -17,8 +17,11 @@ public enum VialrIconType: String, Sendable {
     case settings = "gearshape.fill"
     case report = "doc.text.fill"
     case siteRotation = "person.fill.viewfinder"
+    case trendUp = "arrow.up.right"
+    case trendDown = "arrow.down.right"
 }
 
+/// VialrIcon: Standardized icon renderer with optional circular soft backdrop.
 public struct VialrIcon: View {
     public let type: VialrIconType
     public let tintColor: Color
@@ -27,7 +30,7 @@ public struct VialrIcon: View {
 
     public init(
         _ type: VialrIconType,
-        tintColor: Color = VialrColors.accentTeal,
+        tintColor: Color = VialrColors.accentVitality,
         backgroundColor: Color? = nil,
         size: CGFloat = 20
     ) {
@@ -42,7 +45,7 @@ public struct VialrIcon: View {
             Image(systemName: type.rawValue)
                 .font(.system(size: size, weight: .semibold))
                 .foregroundColor(tintColor)
-                .frame(width: size * 2.2, height: size * 2.2)
+                .frame(width: size * 2.0, height: size * 2.0)
                 .background(bg)
                 .clipShape(Circle())
         } else {

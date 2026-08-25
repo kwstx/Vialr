@@ -39,14 +39,15 @@ public enum ToastType: Sendable {
 
     public var color: Color {
         switch self {
-        case .success: return VialrColors.accentEmerald
+        case .success: return VialrColors.accentVitality
         case .error: return VialrColors.accentRose
         case .warning: return VialrColors.accentAmber
-        case .info: return VialrColors.accentCyan
+        case .info: return VialrColors.textSecondary
         }
     }
 }
 
+/// ToastBannerView: Floating dark pill toast with hairline border and haptic feedback.
 public struct ToastBannerView: View {
     public let toast: ToastMessage
     public let onDismiss: () -> Void
@@ -59,7 +60,7 @@ public struct ToastBannerView: View {
     public var body: some View {
         HStack(spacing: VialrSpacing.sm) {
             Image(systemName: toast.type.iconName)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 18, weight: .bold))
                 .foregroundColor(toast.type.color)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -77,25 +78,26 @@ public struct ToastBannerView: View {
             Spacer()
 
             Button {
+                VialrHaptics.lightImpact()
                 onDismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundColor(VialrColors.textTertiary)
                     .padding(6)
             }
         }
         .padding(.horizontal, VialrSpacing.md)
-        .padding(.vertical, VialrSpacing.sm)
+        .padding(.vertical, VialrSpacing.sm + 2)
         .background(
-            RoundedRectangle(cornerRadius: VialrSpacing.radiusMd, style: .continuous)
+            RoundedRectangle(cornerRadius: VialrSpacing.radiusLg, style: .continuous)
                 .fill(VialrColors.cardSurfaceElevated)
                 .shadow(color: Color.black.opacity(0.4), radius: 16, x: 0, y: 8)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: VialrSpacing.radiusMd, style: .continuous)
-                .stroke(toast.type.color.opacity(0.4), lineWidth: 1)
+            RoundedRectangle(cornerRadius: VialrSpacing.radiusLg, style: .continuous)
+                .stroke(VialrColors.subtleBorder, lineWidth: 0.8)
         )
-        .padding(.horizontal, VialrSpacing.md)
+        .padding(.horizontal, VialrSpacing.screenHorizontal)
     }
 }

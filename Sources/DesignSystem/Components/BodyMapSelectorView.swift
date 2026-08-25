@@ -16,6 +16,7 @@ public struct SiteSelectionItem: Identifiable, Sendable {
     }
 }
 
+/// BodyMapSelectorView: Anatomical injection site rotation with clear rested status signals.
 public struct BodyMapSelectorView: View {
     public let sites: [SiteSelectionItem]
     @Binding public var selectedSiteId: String?
@@ -35,11 +36,10 @@ public struct BodyMapSelectorView: View {
         VStack(spacing: VialrSpacing.md) {
             // Header
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text("INJECTION SITE ROTATION")
-                        .font(VialrTypography.captionBold)
-                        .foregroundColor(VialrColors.accentTeal)
-                    Text("Select Injection Target")
+                        .vialrEyebrow()
+                    Text("Select Target Site")
                         .font(VialrTypography.title3)
                         .foregroundColor(VialrColors.textPrimary)
                 }
@@ -48,15 +48,15 @@ public struct BodyMapSelectorView: View {
                 // Rotation Status Legend
                 HStack(spacing: 8) {
                     Circle()
-                        .fill(VialrColors.accentEmerald)
-                        .frame(width: 8, height: 8)
+                        .fill(VialrColors.accentVitality)
+                        .frame(width: 6, height: 6)
                     Text("Rested")
                         .font(VialrTypography.caption)
                         .foregroundColor(VialrColors.textSecondary)
 
                     Circle()
                         .fill(VialrColors.accentAmber)
-                        .frame(width: 8, height: 8)
+                        .frame(width: 6, height: 6)
                     Text("Recent")
                         .font(VialrTypography.caption)
                         .foregroundColor(VialrColors.textSecondary)
@@ -87,8 +87,8 @@ public struct BodyMapSelectorView: View {
                     }
                 }
                 .padding(8)
-                .background(VialrColors.cardSurfaceElevated.opacity(0.6))
-                .cornerRadius(VialrSpacing.radiusMd)
+                .background(VialrColors.cardSurfaceSubtle)
+                .clipShape(RoundedRectangle(cornerRadius: VialrSpacing.radiusMd, style: .continuous))
 
                 // Thighs / Glutes (Lower Body)
                 HStack(spacing: VialrSpacing.sm) {
@@ -101,7 +101,7 @@ public struct BodyMapSelectorView: View {
                 }
             }
         }
-        .padding(VialrSpacing.md)
+        .padding(VialrSpacing.cardPadding)
         .vialrCard()
     }
 
@@ -113,15 +113,13 @@ public struct BodyMapSelectorView: View {
         Button {
             selectedSiteId = siteId
             onSelect?(item)
-            #if os(iOS)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            #endif
+            VialrHaptics.lightImpact()
         } label: {
             HStack(spacing: 8) {
                 // Status indicator
                 Circle()
                     .fill(statusColor(for: item))
-                    .frame(width: 8, height: 8)
+                    .frame(width: 7, height: 7)
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
@@ -134,9 +132,9 @@ public struct BodyMapSelectorView: View {
                                 .font(.system(size: 9, weight: .bold))
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 1)
-                                .background(VialrColors.accentEmerald.opacity(0.2))
-                                .foregroundColor(VialrColors.accentEmerald)
-                                .cornerRadius(3)
+                                .background(VialrColors.accentVitality.opacity(0.2))
+                                .foregroundColor(VialrColors.accentVitality)
+                                .clipShape(RoundedRectangle(cornerRadius: 3))
                         }
                     }
 
@@ -147,7 +145,7 @@ public struct BodyMapSelectorView: View {
                     } else {
                         Text("Never used")
                             .font(VialrTypography.caption)
-                            .foregroundColor(VialrColors.accentTeal)
+                            .foregroundColor(VialrColors.accentVitality)
                     }
                 }
 
@@ -155,17 +153,17 @@ public struct BodyMapSelectorView: View {
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(VialrColors.accentTeal)
+                        .foregroundColor(VialrColors.accentVitality)
                         .font(.system(size: 16))
                 }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .background(isSelected ? VialrColors.cardSurfaceSelected : VialrColors.cardSurfaceElevated)
-            .cornerRadius(VialrSpacing.radiusMd)
+            .clipShape(RoundedRectangle(cornerRadius: VialrSpacing.radiusMd, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: VialrSpacing.radiusMd)
-                    .stroke(isSelected ? VialrColors.accentTeal : VialrColors.glassBorder, lineWidth: isSelected ? 1.5 : 1)
+                RoundedRectangle(cornerRadius: VialrSpacing.radiusMd, style: .continuous)
+                    .stroke(isSelected ? VialrColors.accentVitality : VialrColors.glassBorder, lineWidth: isSelected ? 1.5 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -173,10 +171,10 @@ public struct BodyMapSelectorView: View {
 
     private func statusColor(for item: SiteSelectionItem) -> Color {
         guard let days = item.daysSinceLastUse else {
-            return VialrColors.accentEmerald
+            return VialrColors.accentVitality
         }
         if days >= 5 {
-            return VialrColors.accentEmerald
+            return VialrColors.accentVitality
         } else if days >= 2 {
             return VialrColors.accentAmber
         } else {

@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// VialrEmptyStateView: Cal AI spacious empty state with large typography and clean primary action.
 public struct VialrEmptyStateView: View {
     public let icon: VialrIconType
     public let title: String
@@ -25,14 +26,14 @@ public struct VialrEmptyStateView: View {
         VStack(spacing: VialrSpacing.md) {
             VialrIcon(
                 icon,
-                tintColor: VialrColors.accentTeal,
-                backgroundColor: VialrColors.accentTeal.opacity(0.12),
-                size: 30
+                tintColor: VialrColors.accentVitality,
+                backgroundColor: VialrColors.accentVitality.opacity(0.12),
+                size: 26
             )
             .padding(.bottom, VialrSpacing.xs)
 
             Text(title)
-                .font(VialrTypography.title3)
+                .font(VialrTypography.title2)
                 .foregroundColor(VialrColors.textPrimary)
                 .multilineTextAlignment(.center)
 
@@ -43,16 +44,16 @@ public struct VialrEmptyStateView: View {
                 .padding(.horizontal, VialrSpacing.xl)
 
             if let actionTitle = actionTitle, let action = action {
-                VialrButton(actionTitle, style: .secondary, action: action)
-                    .frame(maxWidth: 220)
+                VialrButton(actionTitle, style: .primary, size: .standard, isFullWidth: false, action: action)
                     .padding(.top, VialrSpacing.sm)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, VialrSpacing.xxl)
+        .padding(.vertical, VialrSpacing.xxxl)
     }
 }
 
+/// VialrSectionHeader: Uber-style section title with optional micro action button.
 public struct VialrSectionHeader: View {
     public let title: String
     public let actionTitle: String?
@@ -69,16 +70,19 @@ public struct VialrSectionHeader: View {
     }
 
     public var body: some View {
-        HStack {
+        HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(VialrTypography.title3)
+                .font(VialrTypography.title2)
                 .foregroundColor(VialrColors.textPrimary)
             Spacer()
             if let actionTitle = actionTitle, let action = action {
-                Button(action: action) {
+                Button(action: {
+                    VialrHaptics.lightImpact()
+                    action()
+                }) {
                     Text(actionTitle)
                         .font(VialrTypography.footnote)
-                        .foregroundColor(VialrColors.accentTeal)
+                        .foregroundColor(VialrColors.accentVitality)
                 }
             }
         }

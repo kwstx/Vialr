@@ -24,6 +24,8 @@ public enum SyringeSize: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// InteractiveSyringeView: Precision-engineered syringe visualization designed
+/// with Uber's stark clarity and Cal AI's refined vitality signals.
 public struct InteractiveSyringeView: View {
     public let units: Double
     public let syringeSize: SyringeSize
@@ -36,16 +38,21 @@ public struct InteractiveSyringeView: View {
     }
 
     public var body: some View {
-        VStack(spacing: VialrSpacing.sm) {
-            // Syringe Header with Callout
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
+        VStack(spacing: VialrSpacing.md) {
+            // Header with Eyebrow and Large Numerical Readout
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text("DRAW MARKING (U-100)")
-                        .font(VialrTypography.captionBold)
-                        .foregroundColor(VialrColors.accentCyan)
-                    Text("\(String(format: "%.1f", units)) Units")
-                        .font(VialrTypography.metricMedium)
-                        .foregroundColor(VialrColors.textPrimary)
+                        .vialrEyebrow()
+                    
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(String(format: "%.1f", units))
+                            .font(VialrTypography.metricLarge)
+                            .foregroundColor(VialrColors.textPrimary)
+                        Text("Units")
+                            .font(VialrTypography.title3)
+                            .foregroundColor(VialrColors.accentVitality)
+                    }
                 }
                 
                 Spacer()
@@ -57,7 +64,11 @@ public struct InteractiveSyringeView: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(VialrColors.cardSurfaceElevated)
-                        .cornerRadius(VialrSpacing.radiusSm)
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(VialrColors.glassBorder, lineWidth: 0.8)
+                        )
                 }
             }
 
@@ -67,7 +78,7 @@ public struct InteractiveSyringeView: View {
                 let height: CGFloat = 64
                 let maxUnits = syringeSize.maxUnits
                 let fillFraction = max(0.0, min(1.0, units / maxUnits))
-                let barrelWidth = width - 40 // room for needle tip & plunger handle
+                let barrelWidth = width - 42 // room for needle tip & plunger
 
                 ZStack(alignment: .leading) {
                     // Needle Tip on the left
@@ -79,7 +90,7 @@ public struct InteractiveSyringeView: View {
                         
                         // Hub (plastic connection)
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(VialrColors.accentTeal)
+                            .fill(VialrColors.accentVitality.opacity(0.8))
                             .frame(width: 8, height: 16)
                     }
                     .offset(x: 0, y: 0)
@@ -87,35 +98,35 @@ public struct InteractiveSyringeView: View {
                     // Syringe Barrel (Outer clear tube)
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.white.opacity(0.06))
+                            .fill(Color.white.opacity(0.04))
                             .frame(width: barrelWidth, height: 38)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 6)
-                                    .stroke(VialrColors.subtleBorder, lineWidth: 1.5)
+                                    .stroke(VialrColors.glassBorder, lineWidth: 1.2)
                             )
 
-                        // Fluid Fill
+                        // Fluid Fill (Vibrant Cal AI Vitality Emerald)
                         RoundedRectangle(cornerRadius: 4)
                             .fill(VialrColors.syringeFluidGradient)
                             .frame(width: max(0, (barrelWidth - 6) * fillFraction), height: 32)
                             .padding(.leading, 3)
-                            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: units)
+                            .animation(.spring(response: 0.4, dampingFraction: 0.72), value: units)
 
                         // Plunger Seal (Rubber stopper)
                         let plungerPos = max(0, (barrelWidth - 6) * fillFraction)
                         Rectangle()
-                            .fill(Color(hex: "334155"))
+                            .fill(Color(hex: "2D3748"))
                             .frame(width: 8, height: 34)
                             .cornerRadius(2)
                             .offset(x: 3 + plungerPos)
-                            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: units)
+                            .animation(.spring(response: 0.4, dampingFraction: 0.72), value: units)
 
                         // Plunger Rod extending out
                         Rectangle()
-                            .fill(Color.white.opacity(0.2))
+                            .fill(Color.white.opacity(0.18))
                             .frame(width: 28, height: 8)
                             .offset(x: 3 + plungerPos + 8)
-                            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: units)
+                            .animation(.spring(response: 0.4, dampingFraction: 0.72), value: units)
 
                         // Tick Marks Layer
                         HStack(spacing: 0) {
@@ -124,12 +135,12 @@ public struct InteractiveSyringeView: View {
                                 let isMajor = tickIndex % 2 == 0
                                 VStack {
                                     Rectangle()
-                                        .fill(Color.white.opacity(isMajor ? 0.7 : 0.35))
-                                        .frame(width: 1, height: isMajor ? 12 : 6)
+                                        .fill(Color.white.opacity(isMajor ? 0.65 : 0.25))
+                                        .frame(width: 1, height: isMajor ? 10 : 5)
                                     Spacer()
                                     Rectangle()
-                                        .fill(Color.white.opacity(isMajor ? 0.7 : 0.35))
-                                        .frame(width: 1, height: isMajor ? 12 : 6)
+                                        .fill(Color.white.opacity(isMajor ? 0.65 : 0.25))
+                                        .frame(width: 1, height: isMajor ? 10 : 5)
                                 }
                                 .frame(height: 38)
                                 if tickIndex < totalTicks {
@@ -162,7 +173,7 @@ public struct InteractiveSyringeView: View {
                     .foregroundColor(VialrColors.textTertiary)
             }
         }
-        .padding(VialrSpacing.md)
+        .padding(VialrSpacing.cardPadding)
         .vialrCard()
     }
 }
