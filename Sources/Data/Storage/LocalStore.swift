@@ -19,6 +19,7 @@ public actor LocalStore {
     public var measurements: [Measurement] = []
     public var labPanels: [LabPanel] = []
     public var documents: [Document] = []
+    public var outcomeMetrics: [OutcomeMetric] = []
 
     private var isInitialized = false
 
@@ -268,7 +269,21 @@ public actor LocalStore {
     public func deleteDocument(id: UUID) {
         documents.removeAll { $0.id == id }
     }
+
+    // MARK: - Outcome Metrics
+    public func getAllOutcomeMetrics() -> [OutcomeMetric] { outcomeMetrics }
+    public func saveOutcomeMetric(_ metric: OutcomeMetric) {
+        if let idx = outcomeMetrics.firstIndex(where: { $0.id == metric.id }) {
+            outcomeMetrics[idx] = metric
+        } else {
+            outcomeMetrics.append(metric)
+        }
+    }
+    public func deleteOutcomeMetric(id: UUID) {
+        outcomeMetrics.removeAll { $0.id == id }
+    }
 }
+
 
 
 

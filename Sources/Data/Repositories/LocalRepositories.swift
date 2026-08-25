@@ -235,6 +235,11 @@ public final class LocalCostRepository: CostRepositoryProtocol, @unchecked Senda
         return await store.getAllCosts()
     }
 
+    public func fetchForProtocol(protocolId: UUID) async throws -> [CostRecord] {
+        let all = try await fetchAll()
+        return all.filter { $0.protocolId == protocolId }
+    }
+
     public func fetchForDateRange(start: Date, end: Date) async throws -> [CostRecord] {
         let all = try await fetchAll()
         return all.filter { $0.dateIncurred >= start && $0.dateIncurred <= end }
@@ -245,9 +250,10 @@ public final class LocalCostRepository: CostRepositoryProtocol, @unchecked Senda
     }
 
     public func delete(byId id: UUID) async throws {
-        // Not used
+        await store.deleteCost(id: id)
     }
 }
+
 
 // MARK: - Stored File Repository
 public final class LocalStoredFileRepository: StoredFileRepositoryProtocol, @unchecked Sendable {
@@ -559,6 +565,85 @@ public final class LocalDocumentRepository: DocumentRepositoryProtocol, @uncheck
         await store.deleteDocument(id: id)
     }
 }
+
+// MARK: - Timeline Event Repository
+public final class LocalTimelineEventRepository: TimelineEventRepositoryProtocol, @unchecked Sendable {
+    private let store: LocalStore
+
+    public init(store: LocalStore = .shared) {
+        self.store = store
+    }
+
+    public func fetchUnifiedFeed(limit: Int? = nil) async throws -> [TimelineEvent] {
+        await store.initializeWithMockDataIfNeeded()
+        let doses = await store.getAllDoseLogs()
+        let measurements = await store.getAllMeasurements()
+        let labs = await store.getAllLabPanels()
+        let recons = await store.getAllReconstitutionRecords()
+        let docs = await store.getAllDocuments()
+        let protocols = await store.getAllProtocols()
+
+        let feed = TimelineEvent.unifiedFeed(
+            doses: doses,
+            measurements: measurements,
+            labPanels: labs,
+            reconstitutions: recons,
+            documents: docs,
+            protocols: protocols
+        )
+
+        if let max = limit {
+            return Array(feed.prefix(max))
+        }
+        return feed
+    }
+
+    public func fetchForDateRange(start: Date, end: Date) async throws -> [TimelineEvent] {
+        let all = try await fetchUnifiedFeed(limit: nil)
+        return all.filter { $0.timestamp >= start && $0.timestamp <= end }
+    }
+
+    public func fetchByCategory(_ category: TimelineCategory) async throws -> [TimelineEvent] {
+        let all = try await fetchUnifiedFeed(limit: nil)
+        return all.filter { $0.category == category }
+    }
+}
+
+// MARK: - Outcome Metric Repository
+public final class LocalOutcomeMetricRepository: OutcomeMetricRepositoryProtocol, @unchecked Sendable {
+    private let store: LocalStore
+
+    public init(store: LocalStore = .shared) {
+        self.store = store
+    }
+
+    public func fetchAll() async throws -> [OutcomeMetric] {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getAllOutcomeMetrics()
+    }
+
+    public func fetchForProtocol(protocolId: UUID) async throws -> [OutcomeMetric] {
+        let all = try await fetchAll()
+        return all.filter { $0.protocolId == protocolId }
+    }
+
+    public func fetch(byId id: UUID) async throws -> OutcomeMetric? {
+        let all = try await fetchAll()
+        return all.first(where: { $0.id == id })
+    }
+
+    public func save(_ metric: OutcomeMetric) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.saveOutcomeMetric(metric)
+    }
+
+    public func delete(byId id: UUID) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.deleteOutcomeMetric(id: id)
+    }
+}
+
+
 
 
 

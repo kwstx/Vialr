@@ -622,6 +622,243 @@ final class DomainTests: XCTestCase {
         XCTAssertEqual(decoded.sha256Checksum, "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
     }
 
+    func testTimelineEventUnifiedFeedAggregation() throws {
+        let baseDate = Date(timeIntervalSince1970: 1704096000) // Jan 1, 2024
+        let day2 = Calendar.current.date(byAdding: .day, value: 1, to: baseDate)!
+        let day3 = Calendar.current.date(byAdding: .day, value: 2, to: baseDate)!
+        let day4 = Calendar.current.date(byAdding: .day, value: 3, to: baseDate)!
+
+        // 1. Reconstitution Event (Day 1)
+        let recon = ReconstitutionRecord(
+            vialId: UUID(),
+            compoundId: UUID(),
+            compoundName: "BPC-157",
+            dryMassMg: 5.0,
+            diluentVolumeMl: 2.0,
+            reconstitutedAt: baseDate
+        )
+        let reconEvent = TimelineEvent(from: recon)
+        XCTAssertEqual(reconEvent.category, .reconstitution)
+        XCTAssertTrue(reconEvent.title.contains("Reconstituted BPC-157"))
+
+        // 2. Dose Event (Day 2)
+        let dose = DoseEvent(
+            compoundId: UUID(),
+            compoundName: "BPC-157",
+            scheduledTimestamp: day2,
+            actualTimestamp: day2,
+            plannedDoseAmount: 250.0,
+            actualDoseAmount: 250.0,
+            doseUnit: .mcg,
+            status: .taken,
+            injectionSiteName: "Abdomen - Left Upper Outer"
+        )
+        let doseEvent = TimelineEvent(from: dose)
+        XCTAssertEqual(doseEvent.category, .dose)
+        XCTAssertTrue(doseEvent.subtitle.contains("250 mcg"))
+        XCTAssertTrue(doseEvent.subtitle.contains("Abdomen"))
+
+        // 3. Weight Measurement (Day 3)
+        let weight = Measurement.weight(181.8, unit: .lbs, dateRecorded: day3)
+        let weightEvent = TimelineEvent(from: weight)
+        XCTAssertEqual(weightEvent.category, .measurement)
+        XCTAssertEqual(weightEvent.subtitle, "181.8 lbs")
+
+        // 4. Document Upload (Day 4)
+        let doc = Document.labReport(
+            title: "Quest Blood Panel",
+            fileName: "quest.pdf",
+            byteSize: 1024 * 500,
+            documentDate: day4
+        )
+        let docEvent = TimelineEvent(from: doc)
+        XCTAssertEqual(docEvent.category, .document)
+
+        // 5. Test Unified Feed Sorting
+        let feed = TimelineEvent.unifiedFeed(
+            doses: [dose],
+            measurements: [weight],
+            labPanels: [],
+            reconstitutions: [recon],
+            documents: [doc],
+            protocols: []
+        )
+
+        XCTAssertEqual(feed.count, 4)
+        // Feed must be sorted reverse-chronologically (newest first)
+        XCTAssertEqual(feed[0].category, .document)
+        XCTAssertEqual(feed[1].category, .measurement)
+        XCTAssertEqual(feed[2].category, .dose)
+        XCTAssertEqual(feed[3].category, .reconstitution)
+
+        // JSON Codable
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(doseEvent)
+        let decoded = try JSONDecoder().decode(TimelineEvent.self, from: data)
+
+        XCTAssertEqual(decoded.title, doseEvent.title)
+        XCTAssertEqual(decoded.category, .dose)
+        XCTAssertEqual(decoded.badgeText, "Taken")
+    }
+
+    func testOutcomeMetricEfficacyAndProgressCalculations() throws {
+        let protocolId = UUID()
+        let startDate = Date(timeIntervalSince1970: 1704096000)
+
+        // 1. Weight loss metric (Decrease target)
+        // Baseline: 200 lbs, Target: 180 lbs (Delta needed: -20 lbs)
+        // Current: 185 lbs (Delta achieved: -15 lbs -> 75% progress)
+        let weightMetric = OutcomeMetric(
+            protocolId: protocolId,
+            name: "Body Weight",
+            category: .bodyComposition,
+            baselineValue: 200.0,
+            baselineDate: startDate,
+            targetValue: 180.0,
+            targetDirection: .decrease,
+            unit: "lbs",
+            currentValue: 185.0,
+            priority: .primary
+        )
+
+        XCTAssertEqual(weightMetric.deltaFromBaseline, -15.0)
+        XCTAssertEqual(weightMetric.percentageChangeFromBaseline ?? 0, -7.5, accuracy: 0.001)
+        XCTAssertEqual(weightMetric.progressPercentage, 75.0, accuracy: 0.001)
+        XCTAssertFalse(weightMetric.isTargetAchieved)
+        XCTAssertEqual(weightMetric.evaluationStatus, .onTrack)
+        XCTAssertTrue(weightMetric.summaryProgressText.contains("75% achieved"))
+
+        // 2. Goal achieved state
+        var achievedMetric = weightMetric
+        achievedMetric.currentValue = 178.0 // Exceeded target of 180 lbs
+        XCTAssertTrue(achievedMetric.isTargetAchieved)
+        XCTAssertEqual(achievedMetric.evaluationStatus, .targetReached)
+
+        // 3. Biomarker elevation metric (Increase target)
+        // Baseline: 350 ng/dL -> Target: 850 ng/dL (+500 delta needed)
+        // Current: 600 ng/dL (+250 delta achieved -> 50% progress)
+        let testMetric = OutcomeMetric(
+            protocolId: protocolId,
+            name: "Total Testosterone",
+            category: .bloodBiomarker,
+            baselineValue: 350.0,
+            baselineDate: startDate,
+            targetValue: 850.0,
+            targetDirection: .increase,
+            unit: "ng/dL",
+            currentValue: 600.0,
+            linkedBiomarkerName: "Total Testosterone"
+        )
+
+        XCTAssertEqual(testMetric.deltaFromBaseline, 250.0)
+        XCTAssertEqual(testMetric.progressPercentage, 50.0, accuracy: 0.001)
+        XCTAssertEqual(testMetric.evaluationStatus, .onTrack)
+
+        // JSON Codable
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(weightMetric)
+        let decoded = try JSONDecoder().decode(OutcomeMetric.self, from: data)
+
+        XCTAssertEqual(decoded.name, "Body Weight")
+        XCTAssertEqual(decoded.baselineValue, 200.0)
+        XCTAssertEqual(decoded.targetValue, 180.0)
+        XCTAssertEqual(decoded.targetDirection, .decrease)
+        XCTAssertEqual(decoded.currentValue, 185.0)
+    }
+
+    func testCostEventAndProtocolRealCostCalculations() throws {
+        let protocolId = UUID()
+        let startDate = Calendar.current.date(byAdding: .day, value: -30, to: Date())! // 30 days elapsed
+
+        let proto = ProtocolModel(
+            id: protocolId,
+            name: "GLP-1 Metabolic Phase 1",
+            status: .active,
+            startDate: startDate,
+            endDate: nil,
+            notes: "Active weight optimization"
+        )
+
+        // 1. Compound vial expense ($160 for 2 vials)
+        let costVial1 = CostEvent(
+            title: "Tirzepatide 10mg Vial",
+            amount: 80.0,
+            category: .peptideVial,
+            protocolId: protocolId
+        )
+        let costVial2 = CostEvent(
+            title: "Tirzepatide 10mg Vial #2",
+            amount: 80.0,
+            category: .peptideVial,
+            protocolId: protocolId
+        )
+
+        // 2. Ancillary supplies ($25 for syringes & BAC water)
+        let costSupplies = CostEvent(
+            title: "100x Insulin Syringes + 30mL BAC Water",
+            amount: 25.0,
+            category: .medicalSupplies,
+            protocolId: protocolId
+        )
+
+        // 3. Baseline bloodwork panel ($120)
+        let costLabs = CostEvent(
+            title: "Quest Baseline Metabolic Panel",
+            amount: 120.0,
+            category: .bloodwork,
+            protocolId: protocolId
+        )
+
+        XCTAssertEqual(costVial1.formattedAmount, "$80.00")
+        XCTAssertEqual(costSupplies.category, .medicalSupplies)
+
+        // 4. Completed Doses (e.g. 8 weekly doses taken)
+        var doses: [DoseEvent] = []
+        for i in 0..<8 {
+            doses.append(
+                DoseEvent(
+                    protocolId: protocolId,
+                    compoundId: UUID(),
+                    compoundName: "Tirzepatide",
+                    actualDoseAmount: 2.5,
+                    status: .taken
+                )
+            )
+        }
+
+        // 5. Calculate Real Cost Summary
+        let allCosts = [costVial1, costVial2, costSupplies, costLabs]
+        let summary = ProtocolCostSummary.calculate(
+            protocolModel: proto,
+            costEvents: allCosts,
+            completedDoses: doses
+        )
+
+        // Total: 80 + 80 + 25 + 120 = $285.00
+        XCTAssertEqual(summary.totalCost, 285.0, accuracy: 0.001)
+        XCTAssertEqual(summary.totalCompoundCost, 160.0, accuracy: 0.001)
+        XCTAssertEqual(summary.totalSuppliesCost, 25.0, accuracy: 0.001)
+        XCTAssertEqual(summary.totalBloodworkCost, 120.0, accuracy: 0.001)
+
+        // Cost per day: $285 / 30 days = $9.50/day
+        XCTAssertEqual(summary.costPerDay, 9.50, accuracy: 0.05)
+
+        // Cost per dose: $285 / 8 doses = $35.625/dose
+        XCTAssertEqual(summary.costPerDoseAverage, 35.625, accuracy: 0.001)
+
+        // JSON Codable
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(costVial1)
+        let decoded = try JSONDecoder().decode(CostEvent.self, from: data)
+
+        XCTAssertEqual(decoded.title, "Tirzepatide 10mg Vial")
+        XCTAssertEqual(decoded.amount, 80.0)
+        XCTAssertEqual(decoded.protocolId, protocolId)
+    }
+
+
+
+
 
 
 

@@ -100,6 +100,22 @@ public protocol DocumentRepositoryProtocol: Sendable {
     func delete(byId id: UUID) async throws
 }
 
+public protocol TimelineEventRepositoryProtocol: Sendable {
+    func fetchUnifiedFeed(limit: Int?) async throws -> [TimelineEvent]
+    func fetchForDateRange(start: Date, end: Date) async throws -> [TimelineEvent]
+    func fetchByCategory(_ category: TimelineCategory) async throws -> [TimelineEvent]
+}
+
+public protocol OutcomeMetricRepositoryProtocol: Sendable {
+    func fetchAll() async throws -> [OutcomeMetric]
+    func fetchForProtocol(protocolId: UUID) async throws -> [OutcomeMetric]
+    func fetch(byId id: UUID) async throws -> OutcomeMetric?
+    func save(_ metric: OutcomeMetric) async throws
+    func delete(byId id: UUID) async throws
+}
+
+
+
 
 
 
@@ -112,10 +128,14 @@ public protocol SymptomRepositoryProtocol: Sendable {
 
 public protocol CostRepositoryProtocol: Sendable {
     func fetchAll() async throws -> [CostRecord]
+    func fetchForProtocol(protocolId: UUID) async throws -> [CostRecord]
     func fetchForDateRange(start: Date, end: Date) async throws -> [CostRecord]
     func save(_ costRecord: CostRecord) async throws
     func delete(byId id: UUID) async throws
 }
+
+public typealias CostEventRepositoryProtocol = CostRepositoryProtocol
+
 
 public protocol StoredFileRepositoryProtocol: Sendable {
     func fetchAll() async throws -> [StoredFileRecord]
