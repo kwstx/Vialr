@@ -1000,6 +1000,50 @@ final class DomainTests: XCTestCase {
         XCTAssertEqual(decoded.units.temperatureUnit.symbol, "°F")
         XCTAssertEqual(decoded.units.liquidVolumeUnit.symbol, "mL")
     }
+
+    func testHomeScreenDoseOrderingAndTimelineAggregation() throws {
+        let calendar = Calendar.current
+        let today = Date()
+        let bpcId = UUID()
+        let cjcId = UUID()
+
+        let dose1 = DoseLog(
+            compoundId: bpcId,
+            compoundName: "BPC-157",
+            scheduledDate: calendar.date(bySettingHour: 8, minute: 0, second: 0, of: today)!,
+            loggedDate: calendar.date(bySettingHour: 8, minute: 5, second: 0, of: today)!,
+            doseAmount: 250,
+            doseUnit: .mcg,
+            status: .taken,
+            injectionSiteName: "Abdomen - Right Upper"
+        )
+
+        let dose2 = DoseLog(
+            compoundId: cjcId,
+            compoundName: "CJC-1295 / Ipamorelin",
+            scheduledDate: calendar.date(bySettingHour: 22, minute: 0, second: 0, of: today)!,
+            doseAmount: 300,
+            doseUnit: .mcg,
+            status: .scheduled
+        )
+
+        // Verify taken vs scheduled
+        XCTAssertTrue(dose1.isTaken)
+        XCTAssertFalse(dose2.isTaken)
+        XCTAssertEqual(dose1.status, .taken)
+        XCTAssertEqual(dose2.status, .scheduled)
+
+        // Verify scheduled dates comparison
+        XCTAssertLessThan(dose1.scheduledDate, dose2.scheduledDate)
+
+        // Verify Timeline Event generation
+        let timeline1 = TimelineEvent(from: dose1)
+        let timeline2 = TimelineEvent(from: dose2)
+
+        XCTAssertEqual(timeline1.category, .dose)
+        XCTAssertEqual(timeline1.badgeText, "Taken")
+        XCTAssertEqual(timeline2.badgeText, "Scheduled")
+    }
 }
 
 

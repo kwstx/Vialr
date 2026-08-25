@@ -130,7 +130,8 @@ public struct RootNavigationView: View {
                     onOpenQuickLog: { dose in coordinator.presentSheet(.quickLog(dose)) },
                     onOpenReconstitution: { coordinator.presentSheet(.reconstitution) },
                     onOpenSiteRotation: { coordinator.presentSheet(.siteRotation) },
-                    onOpenProtocolDetail: { proto in coordinator.presentSheet(.protocolDetail(proto)) }
+                    onOpenProtocolDetail: { proto in coordinator.presentSheet(.protocolDetail(proto)) },
+                    onNavigateToTab: { tab in coordinator.selectedTab = tab }
                 )
                 .tag(AppTab.dashboard)
 
