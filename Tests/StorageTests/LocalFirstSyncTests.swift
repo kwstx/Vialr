@@ -2,6 +2,37 @@ import XCTest
 @testable import Domain
 @testable import Data
 
+// Mock API Client for testing sync network interactions
+final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
+    var shouldFail: Bool = false
+    var pushedChanges: [SyncDeltaItemDTO] = []
+    
+    func request<T: Decodable>(
+        endpoint: Endpoint,
+        body: (any Encodable)? = nil,
+        responseType: T.Type
+    ) async throws -> T {
+        if shouldFail {
+            throw NSError(domain: "NSURLErrorDomain", code: -1009, userInfo: [NSLocalizedDescriptionKey: "The Internet connection appears to be offline."])
+        }
+        
+        if case .syncPush = endpoint {
+            if let pushReq = body as? SyncPushRequestDTO {
+                pushedChanges.append(contentsOf: pushReq.changes)
+            }
+            if T.self == String.self {
+                return "OK" as! T
+            }
+        }
+        
+        if case .syncPull = endpoint {
+            return SyncPullResponseDTO(serverTimestamp: Date(), changes: []) as! T
+        }
+        
+        throw NSError(domain: "MockAPI", code: 404, userInfo: nil)
+    }
+}
+
 final class LocalFirstSyncTests: XCTestCase {
 
     func testInstantDoseLoggingWithLocalVialDeductionAndSyncQueue() async throws {
@@ -63,6 +94,76 @@ final class LocalFirstSyncTests: XCTestCase {
         XCTAssertNotNil(doseQueueItem)
         XCTAssertEqual(doseQueueItem?.action, .create)
         XCTAssertEqual(doseQueueItem?.status, .pending)
+    }
+
+    func testOfflineToOnlineSyncRecovery() async throws {
+        let store = LocalStore.shared
+        await store.clearAllSyncQueue()
+        
+        let mockApi = MockAPIClient()
+        let networkMonitor = NetworkMonitor.shared
+        let syncQueueRepo = LocalSyncQueueRepository(store: store)
+        
+        let syncEngine = SyncEngine(
+            apiClient: mockApi,
+            syncQueueRepo: syncQueueRepo,
+            networkMonitor: networkMonitor
+        )
+        
+        // 1. User is offline
+        networkMonitor.simulateNetworkStatusChange(isConnected: false)
+        XCTAssertFalse(networkMonitor.isConnected)
+        
+        // 2. User logs a dose while offline
+        let doseId = UUID()
+        let dose = DoseLog(
+            id: doseId,
+            compoundId: UUID(),
+            compoundName: "BPC-157",
+            actualDoseAmount: 250,
+            doseUnit: .mcg,
+            status: .taken
+        )
+        
+        await store.saveDoseLog(dose)
+        
+        // 3. Dose exists locally immediately with .pendingCreation state
+        let localDoses = await store.getAllDoseLogs()
+        let loggedDose = localDoses.first(where: { $0.id == doseId })
+        XCTAssertNotNil(loggedDose)
+        XCTAssertEqual(loggedDose?.syncState, .pendingCreation)
+        
+        // 4. Queue item exists in pending status
+        let pendingBefore = try await syncQueueRepo.fetchPending(limit: nil)
+        XCTAssertTrue(pendingBefore.contains(where: { $0.entityId == doseId }))
+        
+        // 5. Trigger sync while offline -> Should not fail/purge items, status becomes .offline
+        try await syncEngine.triggerSync()
+        XCTAssertEqual(syncEngine.getStatus(), .offline)
+        XCTAssertEqual(mockApi.pushedChanges.count, 0)
+        
+        // 6. Connectivity returns!
+        networkMonitor.simulateNetworkStatusChange(isConnected: true)
+        XCTAssertTrue(networkMonitor.isConnected)
+        
+        // 7. Trigger sync cycle (network restored)
+        try await syncEngine.triggerSync()
+        
+        // 8. Verify payload was uploaded to backend
+        XCTAssertGreaterThanOrEqual(mockApi.pushedChanges.count, 1)
+        let pushedDose = mockApi.pushedChanges.first(where: { $0.entityId == doseId })
+        XCTAssertNotNil(pushedDose)
+        XCTAssertEqual(pushedDose?.operation, "create")
+        
+        // 9. Local dose transitioned from .pendingCreation to .synced
+        let localDosesAfter = await store.getAllDoseLogs()
+        let syncedDose = localDosesAfter.first(where: { $0.id == doseId })
+        XCTAssertEqual(syncedDose?.syncState, .synced)
+        
+        // 10. Queue is purged of completed items
+        let pendingAfter = try await syncQueueRepo.fetchPending(limit: nil)
+        XCTAssertFalse(pendingAfter.contains(where: { $0.entityId == doseId }))
+        XCTAssertEqual(syncEngine.getStatus(), .synced)
     }
 
     func testSyncQueueLifecycleTransitions() async throws {

@@ -11,6 +11,11 @@ public enum SyncStatus: Sendable, Equatable {
         if case .syncing = self { return true }
         return false
     }
+
+    public var isOffline: Bool {
+        if case .offline = self { return true }
+        return false
+    }
 }
 
 public protocol SyncEngineProtocol: Sendable {
@@ -64,8 +69,11 @@ public struct SyncPullResponseDTO: Codable, Sendable {
 }
 
 /// Manages reliable, offline-first bidirectional synchronization between local SwiftData / SQLite storage
-/// and the cloud backend. Ensures all local mutations (dose logs, inventory, protocols) are persisted
-/// immediately and reconciled seamlessly in the background.
+/// and the cloud backend.
+///
+/// When a user logs a dose while offline, the event is immediately written to the local database
+/// and added as a pending entry in the persistent synchronization queue. Once connectivity returns,
+/// the synchronization engine automatically uploads all queued mutations to the backend.
 public final class SyncEngine: SyncEngineProtocol, @unchecked Sendable {
     public static let shared = SyncEngine()
 
@@ -74,14 +82,25 @@ public final class SyncEngine: SyncEngineProtocol, @unchecked Sendable {
     private let lock = NSLock()
     private let apiClient: APIClientProtocol
     private let syncQueueRepo: SyncQueueRepositoryProtocol
+    private let networkMonitor: NetworkMonitorProtocol
     private var isSyncInProgress = false
 
     public init(
         apiClient: APIClientProtocol = APIClient.shared,
-        syncQueueRepo: SyncQueueRepositoryProtocol = LocalSyncQueueRepository()
+        syncQueueRepo: SyncQueueRepositoryProtocol = LocalSyncQueueRepository(),
+        networkMonitor: NetworkMonitorProtocol = NetworkMonitor.shared
     ) {
         self.apiClient = apiClient
         self.syncQueueRepo = syncQueueRepo
+        self.networkMonitor = networkMonitor
+
+        // Automatically trigger sync whenever network connectivity is restored
+        self.networkMonitor.registerConnectivityRestoredHandler { [weak self] in
+            guard let self = self else { return }
+            Task {
+                try? await self.triggerSync()
+            }
+        }
     }
 
     public func getStatus() -> SyncStatus {
@@ -101,8 +120,26 @@ public final class SyncEngine: SyncEngineProtocol, @unchecked Sendable {
         try? await syncQueueRepo.enqueue(item)
     }
 
-    /// Triggers an asynchronous sync cycle: pushes queued local mutations first, then pulls remote deltas.
+    /// Triggers an asynchronous sync cycle:
+    /// 1. Verifies network connectivity. If offline, marks status as `.offline` and keeps all mutations queued.
+    /// 2. If online, pushes pending local mutations to the cloud backend.
+    /// 3. Upon 200 OK, transitions local entities to `.synced` and purges completed items from the queue.
+    /// 4. Pulls remote deltas and reconciles changes.
     public func triggerSync() async throws {
+        // 1. Check network reachability
+        guard networkMonitor.isConnected else {
+            lock.lock()
+            let pendingCount = (try? await syncQueueRepo.countPending()) ?? 0
+            if pendingCount > 0 {
+                currentStatus = .offline
+            } else {
+                currentStatus = .synced
+            }
+            lock.unlock()
+            print("[SyncEngine] Device is currently offline. Mutations remain safely preserved in local sync queue.")
+            return
+        }
+
         lock.lock()
         guard !isSyncInProgress else {
             lock.unlock()
@@ -118,14 +155,14 @@ public final class SyncEngine: SyncEngineProtocol, @unchecked Sendable {
         }
 
         do {
-            // 1. Fetch pending items from local persistent sync queue
+            // 2. Fetch pending items from local persistent sync queue
             let pendingItems = try await syncQueueRepo.fetchPending(limit: 50)
             
             lock.lock()
             currentStatus = pendingItems.isEmpty ? .synced : .syncing(pendingCount: pendingItems.count)
             lock.unlock()
 
-            // 2. Push pending mutations if any exist
+            // 3. Upload pending mutations to backend
             if !pendingItems.isEmpty {
                 for item in pendingItems {
                     try await syncQueueRepo.markInFlight(id: item.id)
@@ -144,7 +181,6 @@ public final class SyncEngine: SyncEngineProtocol, @unchecked Sendable {
 
                 let pushPayload = SyncPushRequestDTO(changes: dtoArray)
                 
-                // Attempt push to backend
                 do {
                     _ = try await apiClient.request(
                         endpoint: .syncPush,
@@ -152,13 +188,12 @@ public final class SyncEngine: SyncEngineProtocol, @unchecked Sendable {
                         responseType: String.self
                     )
 
-                    // On success, mark each queue item completed
+                    // On successful upload, mark queue items completed and transition local records to .synced
                     for item in pendingItems {
                         try await syncQueueRepo.markCompleted(id: item.id)
                     }
                     try await syncQueueRepo.purgeCompleted()
                 } catch {
-                    // On failure, mark items failed with exponential backoff
                     for item in pendingItems {
                         try await syncQueueRepo.markFailed(
                             id: item.id,
@@ -170,7 +205,7 @@ public final class SyncEngine: SyncEngineProtocol, @unchecked Sendable {
                 }
             }
 
-            // 3. Pull remote server deltas and reconcile locally
+            // 4. Pull remote server deltas and reconcile locally
             try await pullRemoteDeltas()
 
             lock.lock()
@@ -179,7 +214,11 @@ public final class SyncEngine: SyncEngineProtocol, @unchecked Sendable {
             lock.unlock()
         } catch {
             lock.lock()
-            self.currentStatus = .error(error.localizedDescription)
+            if !networkMonitor.isConnected {
+                self.currentStatus = .offline
+            } else {
+                self.currentStatus = .error(error.localizedDescription)
+            }
             lock.unlock()
             throw error
         }
@@ -187,6 +226,8 @@ public final class SyncEngine: SyncEngineProtocol, @unchecked Sendable {
 
     /// Pulls incremental updates from the remote backend and merges them locally.
     public func pullRemoteDeltas() async throws {
+        guard networkMonitor.isConnected else { return }
+        
         let sinceDate = lock.withLock { lastSyncTimestamp }
         
         do {
@@ -200,7 +241,6 @@ public final class SyncEngine: SyncEngineProtocol, @unchecked Sendable {
                 await reconcileRemoteChange(change)
             }
         } catch {
-            // If offline / network error, silently keep local data intact
             print("[SyncEngine] Pull remote deltas notice: \(error.localizedDescription)")
         }
     }
