@@ -299,19 +299,68 @@ final class DomainTests: XCTestCase {
 
 
 
-    func testVialRemainingFractionCalculation() {
+    func testVialDynamicsAndInventoryProperties() throws {
+        let vialId = UUID()
+        let compoundId = UUID()
+        let now = Date()
+
         let vial = Vial(
-            compoundId: UUID(),
-            compoundName: "BPC-157",
-            totalDryMassMg: 5.0,
+            id: vialId,
+            compoundId: compoundId,
+            compoundName: "Tirzepatide",
+            compoundCategory: .glp1Metabolic,
+            lotNumber: "LOT-TRZ-2024",
+            batchNumber: "B-902",
+            vendor: "Precision Research",
+            purityPercentage: 99.6,
+            totalDryMassMg: 10.0,
             bacWaterAddedMl: 2.0,
-            currentVolumeRemainingMl: 1.0,
-            isReconstituted: true
+            currentVolumeRemainingMl: 1.5,
+            isReconstituted: true,
+            reconstitutedDate: now,
+            expirationDate: Calendar.current.date(byAdding: .day, value: 30, to: now),
+            costUsd: 80.0,
+            status: .reconstituted,
+            notes: "High purity batch, stored in fridge door."
         )
 
-        XCTAssertEqual(vial.remainingFraction, 0.5, accuracy: 0.001)
-        XCTAssertEqual(vial.concentrationMgMl ?? 0, 2.5, accuracy: 0.001)
+        // Concentration: 10mg / 2mL = 5.0 mg/mL = 5000 mcg/mL
+        XCTAssertEqual(vial.concentrationMgMl ?? 0, 5.0, accuracy: 0.001)
+        XCTAssertEqual(vial.concentrationMcgMl ?? 0, 5000.0, accuracy: 0.001)
+
+        // Remaining fractions: 1.5mL / 2.0mL = 0.75 (75%)
+        XCTAssertEqual(vial.remainingFraction, 0.75, accuracy: 0.001)
+        XCTAssertEqual(vial.remainingPercentage, 75.0, accuracy: 0.001)
+        XCTAssertEqual(vial.remainingMassMg ?? 0, 7.5, accuracy: 0.001)
+
+        // Target dose: 2.5mg -> draw volume = 0.5 mL -> 50 U-100 units
+        XCTAssertEqual(vial.drawVolumeMl(for: 2.5, unit: .mg) ?? 0, 0.5, accuracy: 0.001)
+        XCTAssertEqual(vial.u100SyringeUnits(for: 2.5, unit: .mg) ?? 0, 50.0, accuracy: 0.001)
+
+        // Estimated remaining doses: 1.5mL / 0.5mL = 3 doses
+        XCTAssertEqual(vial.estimatedDosesRemaining(doseAmount: 2.5, unit: .mg), 3)
+
+        // Financial costs: $80 / 10mg = $8.00 per mg -> 2.5mg dose = $20.00
+        XCTAssertEqual(vial.costPerMgUsd ?? 0, 8.0, accuracy: 0.001)
+        XCTAssertEqual(vial.costPerDoseUsd(doseAmount: 2.5, unit: .mg) ?? 0, 20.0, accuracy: 0.001)
+
+        // Freshness and Expiration
+        XCTAssertFalse(vial.isExpired)
+        XCTAssertTrue(vial.isWithinOptimalFreshness(maxDays: 30))
+
+        // JSON Codable
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(vial)
+        let decoded = try JSONDecoder().decode(Vial.self, from: data)
+
+        XCTAssertEqual(decoded.id, vialId)
+        XCTAssertEqual(decoded.lotNumber, "LOT-TRZ-2024")
+        XCTAssertEqual(decoded.vendor, "Precision Research")
+        XCTAssertEqual(decoded.purityPercentage, 99.6)
+        XCTAssertEqual(decoded.costUsd, 80.0)
+        XCTAssertEqual(decoded.status, .reconstituted)
     }
+
 
     func testStoredFileRecordEncodingDecoding() throws {
         let fileId = UUID()
