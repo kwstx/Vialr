@@ -69,6 +69,17 @@ public protocol BiomarkerRepositoryProtocol: Sendable {
     func delete(byId id: UUID) async throws
 }
 
+public protocol MeasurementRepositoryProtocol: Sendable {
+    func fetchAll() async throws -> [Measurement]
+    func fetchByType(_ type: MeasurementType) async throws -> [Measurement]
+    func fetchByCategory(_ category: MeasurementCategory) async throws -> [Measurement]
+    func fetchForDateRange(start: Date, end: Date) async throws -> [Measurement]
+    func fetch(byId id: UUID) async throws -> Measurement?
+    func save(_ measurement: Measurement) async throws
+    func delete(byId id: UUID) async throws
+}
+
+
 public protocol SymptomRepositoryProtocol: Sendable {
     func fetchAll() async throws -> [SymptomLog]
     func fetchRecent(limit: Int) async throws -> [SymptomLog]

@@ -423,6 +423,51 @@ public final class LocalReconstitutionRecordRepository: ReconstitutionRecordRepo
     }
 }
 
+// MARK: - Measurement Repository
+public final class LocalMeasurementRepository: MeasurementRepositoryProtocol, @unchecked Sendable {
+    private let store: LocalStore
+
+    public init(store: LocalStore = .shared) {
+        self.store = store
+    }
+
+    public func fetchAll() async throws -> [Measurement] {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getAllMeasurements()
+    }
+
+    public func fetchByType(_ type: MeasurementType) async throws -> [Measurement] {
+        let all = try await fetchAll()
+        return all.filter { $0.type == type }
+    }
+
+    public func fetchByCategory(_ category: MeasurementCategory) async throws -> [Measurement] {
+        let all = try await fetchAll()
+        return all.filter { $0.category == category }
+    }
+
+    public func fetchForDateRange(start: Date, end: Date) async throws -> [Measurement] {
+        let all = try await fetchAll()
+        return all.filter { $0.dateRecorded >= start && $0.dateRecorded <= end }
+    }
+
+    public func fetch(byId id: UUID) async throws -> Measurement? {
+        let all = try await fetchAll()
+        return all.first(where: { $0.id == id })
+    }
+
+    public func save(_ measurement: Measurement) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.saveMeasurement(measurement)
+    }
+
+    public func delete(byId id: UUID) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.deleteMeasurement(id: id)
+    }
+}
+
+
 
 
 

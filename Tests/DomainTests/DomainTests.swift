@@ -425,6 +425,70 @@ final class DomainTests: XCTestCase {
         XCTAssertEqual(decoded.previousRecordId, recordV1.id)
     }
 
+    func testMeasurementDiversityAndFormatting() throws {
+        let date = Date(timeIntervalSince1970: 1704096000)
+
+        // 1. Body Weight
+        let weight = Measurement.weight(182.4, unit: .lbs, dateRecorded: date)
+        XCTAssertEqual(weight.type, .weight)
+        XCTAssertEqual(weight.category, .bodyComposition)
+        XCTAssertEqual(weight.formattedValue, "182.4 lbs")
+
+        // 2. Waist
+        let waist = Measurement.waist(32.5, unit: .inches, dateRecorded: date)
+        XCTAssertEqual(waist.type, .waist)
+        XCTAssertEqual(waist.formattedValue, "32.5 in")
+
+        // 3. Blood Pressure
+        let bp = Measurement.bloodPressure(systolic: 118, diastolic: 78, dateRecorded: date)
+        XCTAssertEqual(bp.type, .bloodPressure)
+        XCTAssertEqual(bp.category, .cardiovascular)
+        XCTAssertEqual(bp.formattedValue, "118/78 mmHg")
+        XCTAssertEqual(bp.status, .inRange)
+
+        // 4. Sleep
+        let sleep = Measurement.sleep(hours: 8.2, qualityScore: 9.0, dateRecorded: date)
+        XCTAssertEqual(sleep.type, .sleep)
+        XCTAssertEqual(sleep.formattedValue, "8.2 hrs")
+
+        // 5. Energy Level (Subjective 1-10)
+        let energy = Measurement.energy(level: 9.0, dateRecorded: date)
+        XCTAssertEqual(energy.type, .energy)
+        XCTAssertEqual(energy.category, .subjectiveWellbeing)
+        XCTAssertEqual(energy.formattedValue, "9 / 10")
+
+        // 6. Appetite
+        let appetite = Measurement.appetite(level: 4.0, dateRecorded: date)
+        XCTAssertEqual(appetite.type, .appetite)
+        XCTAssertEqual(appetite.formattedValue, "4 / 10")
+
+        // 7. Custom Metric
+        let custom = Measurement.custom(
+            name: "Dominant Hand Grip Strength",
+            value: 54.0,
+            unit: "kg",
+            category: .custom,
+            referenceRangeMin: 45.0,
+            referenceRangeMax: 65.0,
+            dateRecorded: date
+        )
+        XCTAssertEqual(custom.type, .custom)
+        XCTAssertEqual(custom.formattedValue, "54 kg")
+        XCTAssertEqual(custom.status, .inRange)
+
+        // JSON Codable
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(bp)
+        let decoded = try JSONDecoder().decode(Measurement.self, from: data)
+
+        XCTAssertEqual(decoded.name, "Blood Pressure")
+        XCTAssertEqual(decoded.value, 118.0)
+        XCTAssertEqual(decoded.secondaryValue, 78.0)
+        XCTAssertEqual(decoded.unit, "mmHg")
+        XCTAssertEqual(decoded.formattedValue, "118/78 mmHg")
+    }
+
+
 
 
     func testStoredFileRecordEncodingDecoding() throws {

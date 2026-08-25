@@ -16,6 +16,7 @@ public actor LocalStore {
     public var currentUser: User?
     public var injectionSiteEvents: [InjectionSiteEvent] = []
     public var reconstitutionRecords: [ReconstitutionRecord] = []
+    public var measurements: [Measurement] = []
 
     private var isInitialized = false
 
@@ -226,7 +227,21 @@ public actor LocalStore {
     public func deleteReconstitutionRecord(id: UUID) {
         reconstitutionRecords.removeAll { $0.id == id }
     }
+
+    // MARK: - Measurements
+    public func getAllMeasurements() -> [Measurement] { measurements }
+    public func saveMeasurement(_ measurement: Measurement) {
+        if let idx = measurements.firstIndex(where: { $0.id == measurement.id }) {
+            measurements[idx] = measurement
+        } else {
+            measurements.append(measurement)
+        }
+    }
+    public func deleteMeasurement(id: UUID) {
+        measurements.removeAll { $0.id == id }
+    }
 }
+
 
 
 
