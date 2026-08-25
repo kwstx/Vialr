@@ -384,5 +384,45 @@ public final class LocalInjectionSiteEventRepository: InjectionSiteEventReposito
     }
 }
 
+// MARK: - Reconstitution Record Repository
+public final class LocalReconstitutionRecordRepository: ReconstitutionRecordRepositoryProtocol, @unchecked Sendable {
+    private let store: LocalStore
+
+    public init(store: LocalStore = .shared) {
+        self.store = store
+    }
+
+    public func fetchAll() async throws -> [ReconstitutionRecord] {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getAllReconstitutionRecords()
+    }
+
+    public func fetch(byId id: UUID) async throws -> ReconstitutionRecord? {
+        let all = try await fetchAll()
+        return all.first(where: { $0.id == id })
+    }
+
+    public func fetchForVial(vialId: UUID) async throws -> [ReconstitutionRecord] {
+        let all = try await fetchAll()
+        return all.filter { $0.vialId == vialId }.sorted(by: { $0.version < $1.version })
+    }
+
+    public func fetchActiveRecord(forVial vialId: UUID) async throws -> ReconstitutionRecord? {
+        let all = try await fetchAll()
+        return all.first(where: { $0.vialId == vialId && $0.isCurrentActiveRevision })
+    }
+
+    public func save(_ record: ReconstitutionRecord) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.saveReconstitutionRecord(record)
+    }
+
+    public func delete(byId id: UUID) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.deleteReconstitutionRecord(id: id)
+    }
+}
+
+
 
 

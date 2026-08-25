@@ -361,6 +361,71 @@ final class DomainTests: XCTestCase {
         XCTAssertEqual(decoded.status, .reconstituted)
     }
 
+    func testReconstitutionRecordImmutabilityAndRevisionHistory() throws {
+        let vialId = UUID()
+        let compoundId = UUID()
+        let prepDate = Date(timeIntervalSince1970: 1704096000)
+
+        // Version 1: 5mg in 2.0mL BAC water -> 2.5mg/mL
+        let recordV1 = ReconstitutionRecord(
+            vialId: vialId,
+            compoundId: compoundId,
+            compoundName: "BPC-157",
+            dryMassMg: 5.0,
+            diluentVolumeMl: 2.0,
+            diluentType: .bacteriostaticWater,
+            diluentLotNumber: "BAC-4481",
+            reconstitutedAt: prepDate,
+            isConfirmed: true,
+            confirmedAt: prepDate,
+            version: 1,
+            effectiveFrom: prepDate
+        )
+
+        XCTAssertEqual(recordV1.concentrationMgMl, 2.5, accuracy: 0.001)
+        XCTAssertEqual(recordV1.concentrationMcgMl, 2500.0, accuracy: 0.001)
+        XCTAssertEqual(recordV1.drawVolumeMl(for: 250, unit: .mcg), 0.1, accuracy: 0.001)
+        XCTAssertEqual(recordV1.u100SyringeUnits(for: 250, unit: .mcg), 10.0, accuracy: 0.001)
+        XCTAssertTrue(recordV1.isConfirmed)
+        XCTAssertTrue(recordV1.isCurrentActiveRevision)
+        XCTAssertNil(recordV1.effectiveTo)
+
+        // Superseding Revision (e.g. Added 0.5 mL extra diluent to dilute solution)
+        let revisionDate = Calendar.current.date(byAdding: .day, value: 5, to: prepDate)!
+        let (supersededV1, recordV2) = recordV1.createSupersedingRevision(
+            newDiluentVolumeMl: 2.5,
+            revisionReason: "Added 0.5mL BAC water to dilute injection volume",
+            effectiveDate: revisionDate
+        )
+
+        // Old revision is locked with effectiveTo timestamp and pointer to new record
+        XCTAssertFalse(supersededV1.isCurrentActiveRevision)
+        XCTAssertEqual(supersededV1.effectiveTo, revisionDate)
+        XCTAssertEqual(supersededV1.supersededByRecordId, recordV2.id)
+        XCTAssertEqual(supersededV1.concentrationMgMl, 2.5, accuracy: 0.001) // Historical calculation preserved!
+
+        // New revision is active with new concentration: 5mg / 2.5mL = 2.0mg/mL
+        XCTAssertTrue(recordV2.isCurrentActiveRevision)
+        XCTAssertEqual(recordV2.version, 2)
+        XCTAssertEqual(recordV2.previousRecordId, recordV1.id)
+        XCTAssertEqual(recordV2.concentrationMgMl, 2.0, accuracy: 0.001)
+        XCTAssertEqual(recordV2.concentrationMcgMl, 2000.0, accuracy: 0.001)
+        // Under V2, 250mcg dose now draws 0.125 mL (12.5 units)
+        XCTAssertEqual(recordV2.drawVolumeMl(for: 250, unit: .mcg), 0.125, accuracy: 0.001)
+        XCTAssertEqual(recordV2.u100SyringeUnits(for: 250, unit: .mcg), 12.5, accuracy: 0.001)
+
+        // Codable serialization test
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(recordV2)
+        let decoded = try JSONDecoder().decode(ReconstitutionRecord.self, from: data)
+
+        XCTAssertEqual(decoded.id, recordV2.id)
+        XCTAssertEqual(decoded.version, 2)
+        XCTAssertEqual(decoded.concentrationMgMl, 2.0, accuracy: 0.001)
+        XCTAssertEqual(decoded.previousRecordId, recordV1.id)
+    }
+
+
 
     func testStoredFileRecordEncodingDecoding() throws {
         let fileId = UUID()

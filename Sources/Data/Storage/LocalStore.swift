@@ -15,6 +15,7 @@ public actor LocalStore {
     public var costs: [CostRecord] = []
     public var currentUser: User?
     public var injectionSiteEvents: [InjectionSiteEvent] = []
+    public var reconstitutionRecords: [ReconstitutionRecord] = []
 
     private var isInitialized = false
 
@@ -212,7 +213,21 @@ public actor LocalStore {
     public func deleteInjectionSiteEvent(id: UUID) {
         injectionSiteEvents.removeAll { $0.id == id }
     }
+
+    // MARK: - Reconstitution Records
+    public func getAllReconstitutionRecords() -> [ReconstitutionRecord] { reconstitutionRecords }
+    public func saveReconstitutionRecord(_ record: ReconstitutionRecord) {
+        if let idx = reconstitutionRecords.firstIndex(where: { $0.id == record.id }) {
+            reconstitutionRecords[idx] = record
+        } else {
+            reconstitutionRecords.append(record)
+        }
+    }
+    public func deleteReconstitutionRecord(id: UUID) {
+        reconstitutionRecords.removeAll { $0.id == id }
+    }
 }
+
 
 
 

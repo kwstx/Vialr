@@ -44,6 +44,16 @@ public protocol VialRepositoryProtocol: Sendable {
     func delete(byId id: UUID) async throws
 }
 
+public protocol ReconstitutionRecordRepositoryProtocol: Sendable {
+    func fetchAll() async throws -> [ReconstitutionRecord]
+    func fetch(byId id: UUID) async throws -> ReconstitutionRecord?
+    func fetchForVial(vialId: UUID) async throws -> [ReconstitutionRecord]
+    func fetchActiveRecord(forVial vialId: UUID) async throws -> ReconstitutionRecord?
+    func save(_ record: ReconstitutionRecord) async throws
+    func delete(byId id: UUID) async throws
+}
+
+
 public protocol SupplyRepositoryProtocol: Sendable {
     func fetchAll() async throws -> [SupplyItem]
     func fetchLowStock() async throws -> [SupplyItem]
