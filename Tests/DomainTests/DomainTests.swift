@@ -134,6 +134,114 @@ final class DomainTests: XCTestCase {
         XCTAssertEqual(decoded.notes, "Rotate injection sites daily; monitor mobility.")
     }
 
+    func testProtocolCompoundSchedulingAndTitration() throws {
+        let compoundId = UUID()
+        let protocolStart = Date(timeIntervalSince1970: 1704067200) // Jan 1, 2024 (Monday)
+
+        let item = ProtocolCompound(
+            compoundId: compoundId,
+            compoundName: "Tirzepatide",
+            doseAmount: 2.5,
+            doseUnit: .mg,
+            route: .subcutaneous,
+            scheduleRule: .everyNDays(7),
+            preferredTimeOfDay: .morning,
+            reminderEnabled: true,
+            titrationStep: TitrationRule(
+                startDose: 2.5,
+                targetDose: 10.0,
+                stepAmount: 2.5,
+                stepIntervalDays: 28
+            ),
+            foodRequirement: .fasted,
+            instructions: "Take once weekly in morning fasted state."
+        )
+
+        // Day 0: start dose = 2.5mg, scheduled = true
+        XCTAssertTrue(item.isScheduled(on: protocolStart, protocolStart: protocolStart))
+        XCTAssertEqual(item.effectiveDoseAmount(on: protocolStart, relativeTo: protocolStart), 2.5)
+
+        // Day 3: not scheduled on everyNDays(7)
+        let day3 = Calendar.current.date(byAdding: .day, value: 3, to: protocolStart)!
+        XCTAssertFalse(item.isScheduled(on: day3, protocolStart: protocolStart))
+
+        // Day 7: scheduled on everyNDays(7)
+        let day7 = Calendar.current.date(byAdding: .day, value: 7, to: protocolStart)!
+        XCTAssertTrue(item.isScheduled(on: day7, protocolStart: protocolStart))
+
+        // Day 28: first titration step (+2.5mg -> 5.0mg)
+        let day28 = Calendar.current.date(byAdding: .day, value: 28, to: protocolStart)!
+        XCTAssertEqual(item.effectiveDoseAmount(on: day28, relativeTo: protocolStart), 5.0)
+
+        // Day 84: 3 steps (+7.5mg -> 10.0mg target cap)
+        let day84 = Calendar.current.date(byAdding: .day, value: 84, to: protocolStart)!
+        XCTAssertEqual(item.effectiveDoseAmount(on: day84, relativeTo: protocolStart), 10.0)
+
+        // Summary string
+        XCTAssertTrue(item.summaryDescription.contains("Tirzepatide 2.5 mg"))
+        XCTAssertTrue(item.summaryDescription.contains("SubQ"))
+    }
+
+    func testDoseEventPlannedVsActualAndAdherence() throws {
+        let calendar = Calendar.current
+        let baseDate = Date(timeIntervalSince1970: 1704096000) // Jan 1, 2024 08:00 UTC
+        let scheduledTime = baseDate
+        let actualTakenTime = calendar.date(byAdding: .minute, value: 35, to: scheduledTime)! // 35 min late
+
+        let event = DoseEvent(
+            compoundId: UUID(),
+            compoundName: "BPC-157",
+            scheduledTimestamp: scheduledTime,
+            actualTimestamp: actualTakenTime,
+            plannedDoseAmount: 250.0,
+            actualDoseAmount: 250.0,
+            doseUnit: .mcg,
+            status: .taken,
+            injectionSiteId: "ab_l_uo",
+            injectionSiteName: "Abdomen - Left Upper Outer",
+            actualRoute: .subcutaneous,
+            plannedRoute: .subcutaneous,
+            notes: "Quick painless morning injection"
+        )
+
+        XCTAssertTrue(event.isTaken)
+        XCTAssertEqual(event.adherenceVarianceMinutes, 35)
+        XCTAssertTrue(event.isTakenOnTime(toleranceMinutes: 60))
+        XCTAssertFalse(event.isTakenOnTime(toleranceMinutes: 30))
+        XCTAssertEqual(event.dosageDeviation, 0.0)
+
+        // Test skipped dose with reason
+        let skippedEvent = DoseEvent(
+            compoundId: UUID(),
+            compoundName: "TB-500",
+            scheduledTimestamp: scheduledTime,
+            actualTimestamp: nil,
+            plannedDoseAmount: 2.5,
+            actualDoseAmount: 0.0,
+            doseUnit: .mg,
+            status: .skipped,
+            actualRoute: .subcutaneous,
+            skippedReason: "Traveling - forgot vial in hotel fridge"
+        )
+
+        XCTAssertFalse(skippedEvent.isTaken)
+        XCTAssertNil(skippedEvent.adherenceVarianceMinutes)
+        XCTAssertEqual(skippedEvent.dosageDeviation, -2.5)
+        XCTAssertEqual(skippedEvent.skippedReason, "Traveling - forgot vial in hotel fridge")
+
+        // JSON Codable verification
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(event)
+        let decoded = try JSONDecoder().decode(DoseEvent.self, from: data)
+
+        XCTAssertEqual(decoded.compoundName, "BPC-157")
+        XCTAssertEqual(decoded.status, .taken)
+        XCTAssertEqual(decoded.actualDoseAmount, 250.0)
+        XCTAssertEqual(decoded.plannedDoseAmount, 250.0)
+    }
+
+
+
 
     func testVialRemainingFractionCalculation() {
         let vial = Vial(

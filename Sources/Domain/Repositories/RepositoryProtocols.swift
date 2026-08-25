@@ -24,6 +24,9 @@ public protocol DoseLogRepositoryProtocol: Sendable {
     func delete(byId id: UUID) async throws
 }
 
+public typealias DoseEventRepositoryProtocol = DoseLogRepositoryProtocol
+
+
 public protocol VialRepositoryProtocol: Sendable {
     func fetchAll() async throws -> [Vial]
     func fetchActive() async throws -> [Vial]
