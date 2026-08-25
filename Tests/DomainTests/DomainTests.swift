@@ -27,6 +27,43 @@ final class DomainTests: XCTestCase {
         XCTAssertEqual(decoded.halfLifeHours, 120.0)
     }
 
+    func testCustomCompoundCreationAndShortCodeGeneration() throws {
+        let customCompound = Compound.custom(
+            name: "Epitalon Peptide",
+            category: .custom,
+            customCategoryName: "Telomere Extension",
+            createdByUserId: UUID(),
+            defaultUnit: .mg,
+            typicalDose: 10.0,
+            halfLifeHours: 0.5,
+            administrationRoute: .subcutaneous,
+            storageCondition: .refrigerated,
+            requiresReconstitution: true,
+            description: "Synthetic tetrapeptide for telomerase activation.",
+            instructions: "Administer 10mg daily for 10 consecutive days each quarter.",
+            tags: ["Longevity", "Anti-Aging"]
+        )
+
+        XCTAssertTrue(customCompound.isCustom)
+        XCTAssertEqual(customCompound.source, .customUserCreated)
+        XCTAssertEqual(customCompound.displayCategory, "Telomere Extension")
+        XCTAssertEqual(customCompound.displayShortCode, "EP")
+        XCTAssertTrue(customCompound.requiresReconstitution)
+        XCTAssertEqual(customCompound.effectiveIconName, "flask.fill")
+
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(customCompound)
+        let decoded = try JSONDecoder().decode(Compound.self, from: data)
+
+        XCTAssertEqual(decoded.name, "Epitalon Peptide")
+        XCTAssertTrue(decoded.isCustom)
+        XCTAssertEqual(decoded.source, .customUserCreated)
+        XCTAssertEqual(decoded.customCategoryName, "Telomere Extension")
+        XCTAssertEqual(decoded.displayCategory, "Telomere Extension")
+        XCTAssertEqual(decoded.instructions, "Administer 10mg daily for 10 consecutive days each quarter.")
+    }
+
+
     func testProtocolItemScheduleRuleDescription() {
         let daily = ScheduleRule.everyDay
         XCTAssertEqual(daily.description, "Daily")
@@ -34,6 +71,69 @@ final class DomainTests: XCTestCase {
         let cycle = ScheduleRule.cycle(daysOn: 5, daysOff: 2)
         XCTAssertEqual(cycle.description, "5 Days On / 2 Days Off")
     }
+
+    func testProtocolModelAndCompounds() throws {
+        let protoId = UUID()
+        let bpcId = UUID()
+        let tbId = UUID()
+        let calendar = Calendar.current
+        let start = calendar.date(byAdding: .day, value: -10, to: Date())!
+        let end = calendar.date(byAdding: .day, value: 20, to: Date())!
+
+        let protocolModel = ProtocolModel(
+            id: protoId,
+            name: "Joint Healing Stack",
+            status: .active,
+            startDate: start,
+            endDate: end,
+            notes: "Rotate injection sites daily; monitor mobility.",
+            compounds: [
+                ProtocolCompound(
+                    compoundId: bpcId,
+                    compoundName: "BPC-157",
+                    doseAmount: 250,
+                    doseUnit: .mcg,
+                    scheduleRule: .everyDay,
+                    preferredTimeOfDay: .morning,
+                    preferredRoute: .subcutaneous,
+                    notes: "Morning fasted dose"
+                ),
+                ProtocolCompound(
+                    compoundId: tbId,
+                    compoundName: "TB-500",
+                    doseAmount: 2.5,
+                    doseUnit: .mg,
+                    scheduleRule: .daysOfWeek([2, 5]),
+                    preferredTimeOfDay: .evening,
+                    preferredRoute: .subcutaneous,
+                    notes: "Bi-weekly loading"
+                )
+            ],
+            goalSummary: "Accelerate tendon rehabilitation"
+        )
+
+        XCTAssertEqual(protocolModel.name, "Joint Healing Stack")
+        XCTAssertEqual(protocolModel.status, .active)
+        XCTAssertTrue(protocolModel.isCurrentlyActive)
+        XCTAssertFalse(protocolModel.isOngoing)
+        XCTAssertEqual(protocolModel.compounds.count, 2)
+        XCTAssertEqual(protocolModel.items.count, 2)
+        XCTAssertEqual(protocolModel.totalPlannedDays, 30)
+        XCTAssertGreaterThan(protocolModel.progressPercentage ?? 0, 30.0)
+
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(protocolModel)
+        let decoded = try JSONDecoder().decode(ProtocolModel.self, from: data)
+
+        XCTAssertEqual(decoded.id, protoId)
+        XCTAssertEqual(decoded.name, "Joint Healing Stack")
+        XCTAssertEqual(decoded.status, .active)
+        XCTAssertEqual(decoded.compounds.count, 2)
+        XCTAssertEqual(decoded.compounds[0].compoundName, "BPC-157")
+        XCTAssertEqual(decoded.compounds[1].compoundName, "TB-500")
+        XCTAssertEqual(decoded.notes, "Rotate injection sites daily; monitor mobility.")
+    }
+
 
     func testVialRemainingFractionCalculation() {
         let vial = Vial(
