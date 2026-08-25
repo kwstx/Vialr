@@ -5,6 +5,63 @@ import Domain
 public struct MockDataFactory: Sendable {
     public init() {}
 
+    // MARK: - User
+    public var defaultUser: User {
+        User(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+            accountInfo: AccountInfo(
+                email: "alex.mercer@vialr.internal",
+                displayName: "Alex Mercer",
+                avatarUrl: nil,
+                phoneNumber: "+1 (555) 349-2018",
+                tier: .pro,
+                status: .active,
+                isEmailVerified: true
+            ),
+            preferences: UserPreferences(
+                appearanceMode: .dark,
+                enableHapticFeedback: true,
+                enableSoundEffects: true,
+                weekStartsOn: .monday,
+                defaultDoseTimeOfDay: .morning,
+                autoRotateInjectionSites: true,
+                syncWithAppleHealth: true,
+                showSafetyWarnings: true
+            ),
+            timezone: "America/New_York",
+            notificationPreferences: NotificationPreferences(
+                enableDoseReminders: true,
+                doseReminderLeadTimeMinutes: 15,
+                enableRestockAlerts: true,
+                enableStreakCelebrations: true,
+                enableDailyMorningSummary: true,
+                morningSummaryTime: "07:30",
+                enableQuietHours: false,
+                quietHoursStart: "22:00",
+                quietHoursEnd: "07:00",
+                criticalAlertsEnabled: false
+            ),
+            privacyPreferences: PrivacyPreferences(
+                requireBiometricUnlock: true,
+                biometricLockTimeoutSeconds: 60,
+                maskSensitiveDosagesOnLockScreen: true,
+                allowDiagnosticTelemetry: false,
+                enableCloudBackupEncryption: true,
+                allowClinicianDataSharing: true
+            ),
+            units: UnitPreferences(
+                massUnit: .mcg,
+                weightUnit: .lbs,
+                heightUnit: .inches,
+                bloodGlucoseUnit: .mgDl,
+                temperatureUnit: .fahrenheit,
+                liquidVolumeUnit: .milliliters
+            ),
+            createdAt: Date(timeIntervalSince1970: 1704067200), // Jan 1, 2024
+            updatedAt: Date()
+        )
+    }
+
     // MARK: - Compounds
     public var defaultCompounds: [Compound] {
         [

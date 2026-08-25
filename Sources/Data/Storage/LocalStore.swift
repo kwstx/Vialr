@@ -13,6 +13,7 @@ public actor LocalStore {
     public var biomarkers: [Biomarker] = []
     public var symptomLogs: [SymptomLog] = []
     public var costs: [CostRecord] = []
+    public var currentUser: User?
 
     private var isInitialized = false
 
@@ -21,6 +22,7 @@ public actor LocalStore {
     public func initializeWithMockDataIfNeeded() {
         guard !isInitialized else { return }
         let mock = MockDataFactory()
+        self.currentUser = mock.defaultUser
         self.compounds = mock.defaultCompounds
         self.protocols = mock.defaultProtocols
         self.doseLogs = mock.defaultDoseLogs
@@ -157,5 +159,45 @@ public actor LocalStore {
     public func deleteStoredFile(id: UUID) {
         storedFiles.removeAll { $0.id == id }
     }
+
+    // MARK: - User
+    public func getCurrentUser() -> User? { currentUser }
+    public func saveUser(_ user: User) {
+        self.currentUser = user
+    }
+    public func updatePreferences(_ preferences: UserPreferences) {
+        if var user = currentUser {
+            user.preferences = preferences
+            user.updatedAt = Date()
+            self.currentUser = user
+        }
+    }
+    public func updateNotificationPreferences(_ notificationPreferences: NotificationPreferences) {
+        if var user = currentUser {
+            user.notificationPreferences = notificationPreferences
+            user.updatedAt = Date()
+            self.currentUser = user
+        }
+    }
+    public func updatePrivacyPreferences(_ privacyPreferences: PrivacyPreferences) {
+        if var user = currentUser {
+            user.privacyPreferences = privacyPreferences
+            user.updatedAt = Date()
+            self.currentUser = user
+        }
+    }
+    public func updateUnits(_ units: UnitPreferences) {
+        if var user = currentUser {
+            user.units = units
+            user.updatedAt = Date()
+            self.currentUser = user
+        }
+    }
+    public func deleteUser(id: UUID) {
+        if currentUser?.id == id {
+            currentUser = nil
+        }
+    }
 }
+
 

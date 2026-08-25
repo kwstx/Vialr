@@ -73,3 +73,14 @@ public protocol StoredFileRepositoryProtocol: Sendable {
     func delete(byId id: UUID) async throws
 }
 
+public protocol UserRepositoryProtocol: Sendable {
+    func fetchCurrentUser() async throws -> User?
+    func saveUser(_ user: User) async throws
+    func updatePreferences(_ preferences: UserPreferences) async throws
+    func updateNotificationPreferences(_ notificationPreferences: NotificationPreferences) async throws
+    func updatePrivacyPreferences(_ privacyPreferences: PrivacyPreferences) async throws
+    func updateUnits(_ units: UnitPreferences) async throws
+    func deleteUser(byId id: UUID) async throws
+}
+
+

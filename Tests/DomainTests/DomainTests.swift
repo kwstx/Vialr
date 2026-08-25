@@ -107,5 +107,84 @@ final class DomainTests: XCTestCase {
         XCTAssertGreaterThan(StoredFileCategory.labPdf.maxAllowedSizeBytes, 10 * 1024 * 1024)
         XCTAssertGreaterThan(StoredFileCategory.userDocument.maxAllowedSizeBytes, 10 * 1024 * 1024)
     }
+
+    func testUserEncodingDecodingAndProperties() throws {
+        let userId = UUID()
+        let user = User(
+            id: userId,
+            accountInfo: AccountInfo(
+                email: "alex@example.com",
+                displayName: "Alex Mercer",
+                avatarUrl: "https://vialr.internal/avatars/alex.png",
+                phoneNumber: "+1 555-0199",
+                tier: .pro,
+                status: .active,
+                isEmailVerified: true
+            ),
+            preferences: UserPreferences(
+                appearanceMode: .dark,
+                enableHapticFeedback: true,
+                enableSoundEffects: true,
+                weekStartsOn: .monday,
+                defaultDoseTimeOfDay: .morning,
+                autoRotateInjectionSites: true,
+                syncWithAppleHealth: true,
+                showSafetyWarnings: true
+            ),
+            timezone: "America/New_York",
+            notificationPreferences: NotificationPreferences(
+                enableDoseReminders: true,
+                doseReminderLeadTimeMinutes: 30,
+                enableRestockAlerts: true,
+                enableStreakCelebrations: true,
+                enableDailyMorningSummary: true,
+                morningSummaryTime: "07:00",
+                enableQuietHours: true,
+                quietHoursStart: "22:00",
+                quietHoursEnd: "06:00",
+                criticalAlertsEnabled: true
+            ),
+            privacyPreferences: PrivacyPreferences(
+                requireBiometricUnlock: true,
+                biometricLockTimeoutSeconds: 120,
+                maskSensitiveDosagesOnLockScreen: true,
+                allowDiagnosticTelemetry: false,
+                enableCloudBackupEncryption: true,
+                allowClinicianDataSharing: true
+            ),
+            units: UnitPreferences(
+                massUnit: .mg,
+                weightUnit: .lbs,
+                heightUnit: .inches,
+                bloodGlucoseUnit: .mgDl,
+                temperatureUnit: .fahrenheit,
+                liquidVolumeUnit: .milliliters
+            )
+        )
+
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(user)
+
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(User.self, from: data)
+
+        XCTAssertEqual(decoded.id, userId)
+        XCTAssertEqual(decoded.accountInfo.email, "alex@example.com")
+        XCTAssertEqual(decoded.accountInfo.displayName, "Alex Mercer")
+        XCTAssertEqual(decoded.accountInfo.tier, .pro)
+        XCTAssertTrue(decoded.accountInfo.tier.isProOrHigher)
+        XCTAssertEqual(decoded.preferences.appearanceMode, .dark)
+        XCTAssertEqual(decoded.timezone, "America/New_York")
+        XCTAssertEqual(decoded.timeZone.identifier, "America/New_York")
+        XCTAssertEqual(decoded.notificationPreferences.doseReminderLeadTimeMinutes, 30)
+        XCTAssertEqual(decoded.privacyPreferences.biometricLockTimeoutSeconds, 120)
+        XCTAssertTrue(decoded.privacyPreferences.requireBiometricUnlock)
+        XCTAssertEqual(decoded.units.massUnit, .mg)
+        XCTAssertEqual(decoded.units.weightUnit.symbol, "lbs")
+        XCTAssertEqual(decoded.units.heightUnit.symbol, "in")
+        XCTAssertEqual(decoded.units.temperatureUnit.symbol, "°F")
+        XCTAssertEqual(decoded.units.liquidVolumeUnit.symbol, "mL")
+    }
 }
+
 

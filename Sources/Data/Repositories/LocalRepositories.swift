@@ -301,3 +301,48 @@ public final class LocalStoredFileRepository: StoredFileRepositoryProtocol, @unc
     }
 }
 
+// MARK: - User Repository
+public final class LocalUserRepository: UserRepositoryProtocol, @unchecked Sendable {
+    private let store: LocalStore
+
+    public init(store: LocalStore = .shared) {
+        self.store = store
+    }
+
+    public func fetchCurrentUser() async throws -> User? {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getCurrentUser()
+    }
+
+    public func saveUser(_ user: User) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.saveUser(user)
+    }
+
+    public func updatePreferences(_ preferences: UserPreferences) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.updatePreferences(preferences)
+    }
+
+    public func updateNotificationPreferences(_ notificationPreferences: NotificationPreferences) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.updateNotificationPreferences(notificationPreferences)
+    }
+
+    public func updatePrivacyPreferences(_ privacyPreferences: PrivacyPreferences) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.updatePrivacyPreferences(privacyPreferences)
+    }
+
+    public func updateUnits(_ units: UnitPreferences) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.updateUnits(units)
+    }
+
+    public func deleteUser(byId id: UUID) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.deleteUser(id: id)
+    }
+}
+
+
