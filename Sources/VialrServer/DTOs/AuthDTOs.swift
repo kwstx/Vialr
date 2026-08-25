@@ -23,6 +23,31 @@ public struct LoginRequest: Content, Sendable {
     }
 }
 
+public struct AppleSignInRequest: Content, Sendable {
+    public let identityToken: String
+    public let authorizationCode: String
+    public let userIdentifier: String
+    public let email: String?
+    public let fullName: String?
+    public let nonce: String?
+
+    public init(
+        identityToken: String,
+        authorizationCode: String,
+        userIdentifier: String,
+        email: String? = nil,
+        fullName: String? = nil,
+        nonce: String? = nil
+    ) {
+        self.identityToken = identityToken
+        self.authorizationCode = authorizationCode
+        self.userIdentifier = userIdentifier
+        self.email = email
+        self.fullName = fullName
+        self.nonce = nonce
+    }
+}
+
 public struct ChangePasswordRequest: Content, Sendable {
     public let currentPassword: String
     public let newPassword: String
@@ -41,15 +66,53 @@ public struct RefreshTokenRequest: Content, Sendable {
     }
 }
 
+public struct LogoutRequest: Content, Sendable {
+    public let refreshToken: String?
+
+    public init(refreshToken: String? = nil) {
+        self.refreshToken = refreshToken
+    }
+}
+
+/// Unified authentication response delivering short-lived JWT access credentials and rotating refresh tokens.
 public struct AuthResponse: Content, Sendable {
-    public let token: String
+    public let token: String // Alias to accessToken for backwards compatibility
+    public let accessToken: String
+    public let refreshToken: String
+    public let tokenType: String
+    public let expiresIn: Int // 900 seconds (15 mins)
     public let userId: UUID
     public let email: String
     public let displayName: String
     public let expiresAt: Date
 
-    public init(token: String, userId: UUID, email: String, displayName: String, expiresAt: Date = Date().addingTimeInterval(60 * 60 * 24 * 30)) {
+    public init(
+        accessToken: String,
+        refreshToken: String,
+        tokenType: String = "Bearer",
+        expiresIn: Int = 900,
+        userId: UUID,
+        email: String,
+        displayName: String,
+        expiresAt: Date? = nil
+    ) {
+        self.token = accessToken
+        self.accessToken = accessToken
+        self.refreshToken = refreshToken
+        self.tokenType = tokenType
+        self.expiresIn = expiresIn
+        self.userId = userId
+        self.email = email
+        self.displayName = displayName
+        self.expiresAt = expiresAt ?? Date().addingTimeInterval(TimeInterval(expiresIn))
+    }
+
+    public init(token: String, userId: UUID, email: String, displayName: String, expiresAt: Date = Date().addingTimeInterval(900)) {
         self.token = token
+        self.accessToken = token
+        self.refreshToken = UUID().uuidString
+        self.tokenType = "Bearer"
+        self.expiresIn = 900
         self.userId = userId
         self.email = email
         self.displayName = displayName
@@ -57,16 +120,25 @@ public struct AuthResponse: Content, Sendable {
     }
 }
 
+/// Short-lived JWT Access Token payload (15-minute standard expiration).
 public struct UserPayload: JWTPayload, Authenticatable, Sendable {
     public var expiration: ExpirationClaim
+    public var issuer: IssuerClaim
+    public var subject: SubjectClaim
     public var userId: UUID
     public var email: String
 
-    public init(userId: UUID, email: String) {
+    public init(
+        userId: UUID,
+        email: String,
+        expirationMinutes: Int = 15
+    ) {
         self.userId = userId
         self.email = email
-        // Token valid for 30 days
-        self.expiration = ExpirationClaim(value: Date().addingTimeInterval(60 * 60 * 24 * 30))
+        self.subject = SubjectClaim(value: userId.uuidString)
+        self.issuer = IssuerClaim(value: "https://api.vialr.app")
+        // Short-lived access token: 15 minutes
+        self.expiration = ExpirationClaim(value: Date().addingTimeInterval(TimeInterval(expirationMinutes * 60)))
     }
 
     public func verify(using algorithm: some JWTAlgorithm) throws {

@@ -96,6 +96,7 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateInjectionSiteEventsMigration())
     app.migrations.add(CreateMeasurementsMigration())
     app.migrations.add(CreateNotificationsAndTokensMigration())
+    app.migrations.add(CreateRefreshTokenAndAppleAuthMigration())
 
     // Auto-migrate if flag is passed
     if app.environment != .testing {

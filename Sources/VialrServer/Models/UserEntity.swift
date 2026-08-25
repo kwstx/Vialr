@@ -13,6 +13,9 @@ public final class UserEntity: Model, Content, @unchecked Sendable {
     @Field(key: "password_hash")
     public var passwordHash: String
 
+    @Field(key: "apple_user_identifier")
+    public var appleUserIdentifier: String?
+
     @Field(key: "display_name")
     public var displayName: String
 
@@ -74,12 +77,16 @@ public final class UserEntity: Model, Content, @unchecked Sendable {
     @Children(for: \.$user)
     public var notifications: [NotificationRecordEntity]
 
+    @Children(for: \.$user)
+    public var refreshTokens: [RefreshTokenEntity]
+
     public init() {}
 
     public init(
         id: UUID? = nil,
         email: String,
         passwordHash: String,
+        appleUserIdentifier: String? = nil,
         displayName: String,
         avatarUrl: String? = nil,
         phoneNumber: String? = nil,
@@ -93,6 +100,7 @@ public final class UserEntity: Model, Content, @unchecked Sendable {
         self.id = id
         self.email = email
         self.passwordHash = passwordHash
+        self.appleUserIdentifier = appleUserIdentifier
         self.displayName = displayName
         self.avatarUrl = avatarUrl
         self.phoneNumber = phoneNumber

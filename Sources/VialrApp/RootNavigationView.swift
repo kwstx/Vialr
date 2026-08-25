@@ -7,6 +7,7 @@ import Data
 public struct RootNavigationView: View {
     @Bindable public var coordinator: AppCoordinator
     public let container: AppContainer
+    @Environment(\.scenePhase) private var scenePhase
 
     // View Models
     @State private var onboardingVM = OnboardingViewModel()
@@ -53,6 +54,7 @@ public struct RootNavigationView: View {
 
     public var body: some View {
         ZStack {
+            // Main Content Router
             if !coordinator.hasCompletedOnboarding {
                 OnboardingFlowView(viewModel: onboardingVM) {
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
@@ -60,8 +62,40 @@ public struct RootNavigationView: View {
                     }
                     coordinator.showToast(title: "Welcome to Vialr", message: "Your personalized protocol suite is ready.")
                 }
+            } else if !coordinator.isAuthenticated {
+                AuthenticationView { authenticatedUser in
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        coordinator.isAuthenticated = true
+                    }
+                    coordinator.showToast(title: "Signed In", message: "Welcome back, \(authenticatedUser.accountInfo.displayName).")
+                }
             } else {
                 mainTabContent
+            }
+
+            // Privacy Blur Overlay for Multitasking / App Switcher (Prevents dosage data leakage)
+            if coordinator.securityManager.isPrivacyMaskActive {
+                ZStack {
+                    VialrColors.backgroundPrimary
+                        .ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        Image(systemName: "shield.fill")
+                            .font(.system(size: 44))
+                            .foregroundColor(VialrColors.accentTeal)
+                        Text("Vialr")
+                            .font(VialrTypography.largeHero)
+                            .foregroundColor(VialrColors.textPrimary)
+                    }
+                }
+                .transition(.opacity)
+                .zIndex(90)
+            }
+
+            // Local Biometric App Lock Gatekeeper
+            if coordinator.securityManager.isAppLocked && coordinator.isAuthenticated {
+                BiometricLockView(securityManager: coordinator.securityManager)
+                    .transition(.opacity)
+                    .zIndex(95)
             }
 
             // Toast Alert Overlay
@@ -81,6 +115,9 @@ public struct RootNavigationView: View {
         }
         .sheet(item: $coordinator.activeSheet) { sheet in
             sheetDestination(sheet)
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            coordinator.securityManager.handleScenePhaseChange(to: newPhase)
         }
     }
 
@@ -117,7 +154,9 @@ public struct RootNavigationView: View {
                 .tag(AppTab.analytics)
 
                 SettingsView(
-                    onOpenClinicianReport: { coordinator.presentSheet(.clinicianReport) }
+                    onOpenClinicianReport: { coordinator.presentSheet(.clinicianReport) },
+                    onLockApp: { coordinator.securityManager.lockApp() },
+                    onSignOut: { coordinator.signOut() }
                 )
                 .tag(AppTab.settings)
             }

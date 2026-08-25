@@ -12,9 +12,12 @@ public enum Endpoint: Sendable {
     // MARK: - 1. Auth
     case register
     case login
+    case appleSignIn
     case refreshToken
     case changePassword
     case userProfile
+    case logout
+    case revokeToken
 
     // MARK: - 2. Users
     case getMe
@@ -122,9 +125,12 @@ public enum Endpoint: Sendable {
         // Auth
         case .register: return "/api/v1/auth/register"
         case .login: return "/api/v1/auth/login"
+        case .appleSignIn: return "/api/v1/auth/apple"
         case .refreshToken: return "/api/v1/auth/refresh"
         case .changePassword: return "/api/v1/auth/password"
         case .userProfile: return "/api/v1/auth/profile"
+        case .logout: return "/api/v1/auth/logout"
+        case .revokeToken: return "/api/v1/auth/revoke"
 
         // Users
         case .getMe: return "/api/v1/users/me"
@@ -257,7 +263,7 @@ public enum Endpoint: Sendable {
              .listNotifications, .syncPull, .userProfile, .getMe:
             return .get
 
-        case .register, .login, .refreshToken, .changePassword,
+        case .register, .login, .appleSignIn, .refreshToken, .changePassword, .logout, .revokeToken,
              .createCompound, .createProtocol, .logDose, .batchLogDoses,
              .createVial, .depleteVial, .discardVial, .createSupply, .adjustSupply,
              .createReconstitutionRecord, .reviseReconstitutionRecord, .logSiteEvent,

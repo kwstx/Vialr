@@ -2,17 +2,35 @@ import SwiftUI
 import Domain
 import DesignSystem
 import Health
+import Data
 
 public struct SettingsView: View {
     @State private var enableHealthKit: Bool = true
     @State private var enableBiometrics: Bool = true
+    @State private var lockTimeout: Int = 60
     @State private var enableReminders: Bool = true
     @State private var selectedUnit: DoseUnit = .mcg
     @State private var showExportSuccess: Bool = false
-    public var onOpenClinicianReport: () -> Void
+    @State private var showSignOutAlert: Bool = false
 
-    public init(onOpenClinicianReport: @escaping () -> Void) {
+    public var onOpenClinicianReport: () -> Void
+    public var onLockApp: (() -> Void)?
+    public var onSignOut: (() -> Void)?
+
+    private let securityManager: AppSecurityManager
+
+    public init(
+        securityManager: AppSecurityManager = .shared,
+        onOpenClinicianReport: @escaping () -> Void,
+        onLockApp: (() -> Void)? = nil,
+        onSignOut: (() -> Void)? = nil
+    ) {
+        self.securityManager = securityManager
         self.onOpenClinicianReport = onOpenClinicianReport
+        self.onLockApp = onLockApp
+        self.onSignOut = onSignOut
+        _enableBiometrics = State(initialValue: securityManager.isBiometricsEnabled)
+        _lockTimeout = State(initialValue: securityManager.lockTimeoutSeconds)
     }
 
     public var body: some View {
@@ -65,6 +83,74 @@ public struct SettingsView: View {
                         }
                         .buttonStyle(.plain)
 
+                        // MARK: - Account Security & Biometrics
+                        VStack(alignment: .leading, spacing: VialrSpacing.md) {
+                            HStack {
+                                Text("SECURITY & BIOMETRICS")
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.accentTeal)
+                                Spacer()
+                                Image(systemName: "lock.shield.fill")
+                                    .foregroundColor(VialrColors.accentTeal)
+                            }
+
+                            Toggle("Require \(securityManager.supportedBiometry.rawValue) to Unlock", isOn: $enableBiometrics)
+                                .tint(VialrColors.accentTeal)
+                                .foregroundColor(VialrColors.textPrimary)
+                                .onChange(of: enableBiometrics) { _, newValue in
+                                    securityManager.isBiometricsEnabled = newValue
+                                }
+
+                            if enableBiometrics {
+                                HStack {
+                                    Text("Auto-Lock Timeout")
+                                        .foregroundColor(VialrColors.textPrimary)
+                                    Spacer()
+                                    Picker("Lock Timeout", selection: $lockTimeout) {
+                                        Text("Immediately").tag(0)
+                                        Text("1 minute").tag(60)
+                                        Text("5 minutes").tag(300)
+                                        Text("15 minutes").tag(900)
+                                    }
+                                    .pickerStyle(.menu)
+                                    .onChange(of: lockTimeout) { _, newValue in
+                                        securityManager.lockTimeoutSeconds = newValue
+                                    }
+                                }
+
+                                Button {
+                                    onLockApp?()
+                                    securityManager.lockApp()
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "lock.fill")
+                                            .foregroundColor(VialrColors.accentTeal)
+                                        Text("Lock App Now")
+                                            .font(VialrTypography.headline)
+                                            .foregroundColor(VialrColors.textPrimary)
+                                        Spacer()
+                                    }
+                                    .padding(VialrSpacing.sm)
+                                    .background(VialrColors.cardSurfaceElevated)
+                                    .cornerRadius(VialrSpacing.radiusSm)
+                                }
+                                .buttonStyle(.plain)
+                            }
+
+                            // Security Info Banner
+                            HStack(alignment: .top, spacing: VialrSpacing.xs) {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundColor(VialrColors.accentEmerald)
+                                    .font(.footnote)
+                                Text("Hardware Keychain protection active. Auth tokens are never stored in UserDefaults.")
+                                    .font(VialrTypography.caption)
+                                    .foregroundColor(VialrColors.textSecondary)
+                            }
+                            .padding(.top, VialrSpacing.xxs)
+                        }
+                        .padding(VialrSpacing.md)
+                        .vialrCard()
+
                         // Health & Integrations
                         VStack(alignment: .leading, spacing: VialrSpacing.md) {
                             Text("HEALTH INTEGRATIONS")
@@ -76,10 +162,6 @@ public struct SettingsView: View {
                                 .foregroundColor(VialrColors.textPrimary)
 
                             Toggle("Dose Reminders & Restock Alerts", isOn: $enableReminders)
-                                .tint(VialrColors.accentTeal)
-                                .foregroundColor(VialrColors.textPrimary)
-
-                            Toggle("Require Face ID / Touch ID to Unlock", isOn: $enableBiometrics)
                                 .tint(VialrColors.accentTeal)
                                 .foregroundColor(VialrColors.textPrimary)
                         }
@@ -127,6 +209,7 @@ public struct SettingsView: View {
                                 .background(VialrColors.cardSurfaceElevated)
                                 .cornerRadius(VialrSpacing.radiusSm)
                             }
+                            .buttonStyle(.plain)
 
                             if showExportSuccess {
                                 Text("Protocol archive prepared and encrypted successfully.")
@@ -137,22 +220,55 @@ public struct SettingsView: View {
                         .padding(VialrSpacing.md)
                         .vialrCard()
 
+                        // MARK: - Sign Out & Session Reset
+                        VStack(spacing: VialrSpacing.sm) {
+                            Button(role: .destructive) {
+                                showSignOutAlert = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                                    Text("Sign Out of Vialr")
+                                }
+                                .font(VialrTypography.headline)
+                                .foregroundColor(VialrColors.accentRose)
+                                .frame(maxWidth: .infinity)
+                                .padding(VialrSpacing.md)
+                                .background(VialrColors.cardSurfaceElevated)
+                                .cornerRadius(VialrSpacing.radiusMd)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: VialrSpacing.radiusMd)
+                                        .stroke(VialrColors.accentRose.opacity(0.3), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.top, VialrSpacing.xs)
+
                         // App Version Footer
                         VStack(spacing: 4) {
                             Text("Vialr for iOS — Version 1.0.0")
                                 .font(VialrTypography.footnote)
                                 .foregroundColor(VialrColors.textTertiary)
-                            Text("Built natively with Swift 6 & SwiftUI. Strict local-first security.")
+                            Text("Apple Data Protection & Secure Enclave Active")
                                 .font(VialrTypography.caption)
                                 .foregroundColor(VialrColors.textMuted)
                         }
-                        .padding(.top, VialrSpacing.md)
+                        .padding(.top, VialrSpacing.sm)
                     }
                     .padding(.horizontal, VialrSpacing.md)
                     .padding(.bottom, 100)
                 }
             }
             .navigationBarHidden(true)
+            .alert("Sign Out of Vialr?", isPresented: $showSignOutAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Sign Out", role: .destructive) {
+                    try? KeychainService.shared.clearAllAuthCredentials()
+                    onSignOut?()
+                }
+            } message: {
+                Text("This will securely clear your local authentication tokens from the iOS Keychain. Your encrypted local data remains protected.")
+            }
         }
     }
 }

@@ -33,12 +33,18 @@ public final class LocalDatabaseContainer: @unchecked Sendable {
                 let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first ?? URL(fileURLWithPath: NSTemporaryDirectory())
                 let dbURL = appSupportURL.appendingPathComponent("Vialr").appendingPathComponent("vialr_local.sqlite")
                 
-                // Ensure parent directory exists
+                // Ensure parent directory exists and apply Apple hardware Data Protection
                 try? FileManager.default.createDirectory(at: dbURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+                AppleDataProtectionManager.shared.protectDatabaseContainer(dbURL: dbURL)
                 configuration = ModelConfiguration(schema: schema, url: dbURL)
             }
 
             self.container = try ModelContainer(for: schema, configurations: [configuration])
+            if !inMemory {
+                let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first ?? URL(fileURLWithPath: NSTemporaryDirectory())
+                let dbURL = appSupportURL.appendingPathComponent("Vialr").appendingPathComponent("vialr_local.sqlite")
+                AppleDataProtectionManager.shared.protectDatabaseContainer(dbURL: dbURL)
+            }
         } catch {
             print("[LocalDatabaseContainer] Warning: Failed to initialize SwiftData ModelContainer: \(error). Falling back to in-memory store.")
             self.container = try? ModelContainer(for: Schema([

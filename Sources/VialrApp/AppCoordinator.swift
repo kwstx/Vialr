@@ -3,6 +3,7 @@ import Observation
 import Domain
 import Feature
 import DesignSystem
+import Data
 
 public enum AppTab: String, CaseIterable, Identifiable, Sendable {
     case dashboard = "Today"
@@ -58,8 +59,16 @@ public final class AppCoordinator: @unchecked Sendable {
     public var activeSheet: ActiveSheet?
     public var currentToast: ToastMessage?
     public var hasCompletedOnboarding: Bool = false
+    public var isAuthenticated: Bool = true
+    public let securityManager: AppSecurityManager
 
-    public init() {}
+    public init(securityManager: AppSecurityManager = .shared) {
+        self.securityManager = securityManager
+        // Check if user has active session in Keychain
+        if securityManager.hasActiveSession() {
+            self.isAuthenticated = true
+        }
+    }
 
     public func presentSheet(_ sheet: ActiveSheet) {
         self.activeSheet = sheet
@@ -67,6 +76,14 @@ public final class AppCoordinator: @unchecked Sendable {
 
     public func dismissSheet() {
         self.activeSheet = nil
+    }
+
+    public func signOut() {
+        try? KeychainService.shared.clearAllAuthCredentials()
+        self.isAuthenticated = false
+        self.selectedTab = .dashboard
+        self.activeSheet = nil
+        self.showToast(title: "Signed Out", message: "Keychain credentials cleared securely.", type: .info)
     }
 
     public func showToast(title: String, message: String? = nil, type: ToastType = .success) {

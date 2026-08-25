@@ -1,21 +1,79 @@
 import Vapor
 import Fluent
 import JWT
+import Domain
 
 public struct AuthController: RouteCollection {
+    private let tokenService = TokenManagementService(accessTokenLifetimeMinutes: 15, refreshTokenLifetimeDays: 60)
+    private let appleAuthService = AppleAuthService()
+
     public init() {}
 
     public func boot(routes: RoutesBuilder) throws {
         let authGroup = routes.grouped("auth")
         authGroup.post("register", use: register)
         authGroup.post("login", use: login)
+        authGroup.post("apple", use: appleSignIn)
         authGroup.post("refresh", use: refreshToken)
+        authGroup.post("logout", use: logout)
 
         let protected = authGroup.grouped(UserAuthenticator(), UserPayload.guardMiddleware())
         protected.get("profile", use: profile)
         protected.post("password", use: changePassword)
     }
 
+    // MARK: - Sign in with Apple (Primary Native Authentication)
+    public func appleSignIn(req: Request) async throws -> AuthResponse {
+        let body = try req.content.decode(AppleSignInRequest.self)
+
+        // 1. Verify Apple Identity Token JWT & Nonce
+        let verified = try appleAuthService.verifyAppleIdentityToken(
+            token: body.identityToken,
+            expectedUserIdentifier: body.userIdentifier,
+            expectedNonce: body.nonce,
+            req: req
+        )
+
+        // 2. Query user by Apple User Identifier or verified email
+        var user = try await UserEntity.query(on: req.db)
+            .filter(\.$appleUserIdentifier == verified.userIdentifier)
+            .first()
+
+        if user == nil, let verifiedEmail = verified.email ?? body.email {
+            user = try await UserEntity.query(on: req.db)
+                .filter(\.$email == verifiedEmail.lowercased())
+                .first()
+            if let existing = user {
+                existing.appleUserIdentifier = verified.userIdentifier
+                try await existing.save(on: req.db)
+            }
+        }
+
+        // 3. Create user if new
+        if user == nil {
+            let email = verified.email ?? body.email ?? "\(verified.userIdentifier)@privaterelay.appleid.com"
+            let displayName = body.fullName ?? "Apple Health Member"
+            let randomSecret = try req.password.hash(UUID().uuidString)
+
+            let newUser = UserEntity(
+                email: email.lowercased(),
+                passwordHash: randomSecret,
+                appleUserIdentifier: verified.userIdentifier,
+                displayName: displayName
+            )
+            try await newUser.save(on: req.db)
+            user = newUser
+        }
+
+        guard let authenticatedUser = user else {
+            throw Abort(.internalServerError, reason: "Failed to persist or load user account.")
+        }
+
+        let userAgent = req.headers.first(name: .userAgent)
+        return try await tokenService.issueTokenPair(for: authenticatedUser, deviceInfo: userAgent, req: req)
+    }
+
+    // MARK: - Email Register
     public func register(req: Request) async throws -> AuthResponse {
         try RegisterRequest.validate(content: req)
         let body = try req.content.decode(RegisterRequest.self)
@@ -35,21 +93,11 @@ public struct AuthController: RouteCollection {
         )
         try await user.save(on: req.db)
 
-        guard let userId = user.id else {
-            throw Abort(.internalServerError, reason: "Failed to persist user.")
-        }
-
-        let payload = UserPayload(userId: userId, email: user.email)
-        let token = try req.jwt.sign(payload)
-
-        return AuthResponse(
-            token: token,
-            userId: userId,
-            email: user.email,
-            displayName: user.displayName
-        )
+        let userAgent = req.headers.first(name: .userAgent)
+        return try await tokenService.issueTokenPair(for: user, deviceInfo: userAgent, req: req)
     }
 
+    // MARK: - Email Login
     public func login(req: Request) async throws -> AuthResponse {
         let body = try req.content.decode(LoginRequest.self)
 
@@ -64,40 +112,26 @@ public struct AuthController: RouteCollection {
             throw Abort(.unauthorized, reason: "Invalid email or password.")
         }
 
-        guard let userId = user.id else {
-            throw Abort(.internalServerError)
-        }
-
-        let payload = UserPayload(userId: userId, email: user.email)
-        let token = try req.jwt.sign(payload)
-
-        return AuthResponse(
-            token: token,
-            userId: userId,
-            email: user.email,
-            displayName: user.displayName
-        )
+        let userAgent = req.headers.first(name: .userAgent)
+        return try await tokenService.issueTokenPair(for: user, deviceInfo: userAgent, req: req)
     }
 
+    // MARK: - Rotating Refresh Token
     public func refreshToken(req: Request) async throws -> AuthResponse {
         let refreshReq = try req.content.decode(RefreshTokenRequest.self)
-        let payload = try req.jwt.verify(refreshReq.refreshToken, as: UserPayload.self)
-
-        guard let user = try await UserEntity.find(payload.userId, on: req.db) else {
-            throw Abort(.unauthorized, reason: "User associated with token no longer exists.")
-        }
-
-        let newPayload = UserPayload(userId: payload.userId, email: user.email)
-        let newToken = try req.jwt.sign(newPayload)
-
-        return AuthResponse(
-            token: newToken,
-            userId: payload.userId,
-            email: user.email,
-            displayName: user.displayName
-        )
+        let userAgent = req.headers.first(name: .userAgent)
+        return try await tokenService.rotateRefreshToken(rawRefreshToken: refreshReq.refreshToken, deviceInfo: userAgent, req: req)
     }
 
+    // MARK: - Logout & Revocation
+    public func logout(req: Request) async throws -> HTTPStatus {
+        if let body = try? req.content.decode(LogoutRequest.self), let refreshToken = body.refreshToken {
+            try await tokenService.revokeRefreshToken(rawRefreshToken: refreshToken, req: req)
+        }
+        return .ok
+    }
+
+    // MARK: - Password Management
     public func changePassword(req: Request) async throws -> HTTPStatus {
         let payload = try req.auth.require(UserPayload.self)
         let body = try req.content.decode(ChangePasswordRequest.self)
@@ -118,9 +152,13 @@ public struct AuthController: RouteCollection {
         user.passwordHash = try req.password.hash(body.newPassword)
         try await user.save(on: req.db)
 
+        // Revoke all refresh tokens on password change
+        try await tokenService.revokeAllUserTokens(userId: payload.userId, req: req)
+
         return .ok
     }
 
+    // MARK: - User Profile
     public func profile(req: Request) async throws -> UserProfileDTO {
         let payload = try req.auth.require(UserPayload.self)
         guard let user = try await UserEntity.find(payload.userId, on: req.db) else {
