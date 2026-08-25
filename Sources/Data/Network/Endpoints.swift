@@ -41,6 +41,7 @@ public enum Endpoint: Sendable {
     case updateProtocol(id: UUID)
     case deleteProtocol(id: UUID)
     case listProtocolRevisions(id: UUID)
+    case listProtocolOccurrences(id: UUID, days: Int? = nil)
 
     // MARK: - 5. Dose Logs & Events
     case listDoses
@@ -154,6 +155,7 @@ public enum Endpoint: Sendable {
         case .updateProtocol(let id): return "/api/v1/protocols/\(id.uuidString)"
         case .deleteProtocol(let id): return "/api/v1/protocols/\(id.uuidString)"
         case .listProtocolRevisions(let id): return "/api/v1/protocols/\(id.uuidString)/revisions"
+        case .listProtocolOccurrences(let id, _): return "/api/v1/protocols/\(id.uuidString)/occurrences"
 
         // Doses
         case .listDoses: return "/api/v1/doses"

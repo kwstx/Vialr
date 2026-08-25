@@ -1,5 +1,7 @@
 import Vapor
 import Fluent
+import Domain
+import CalculationEngine
 
 public struct ProtocolsController: RouteCollection {
     public init() {}
@@ -14,6 +16,7 @@ public struct ProtocolsController: RouteCollection {
         protocolsGroup.put(":protocolId", use: updateProtocol)
         protocolsGroup.delete(":protocolId", use: deleteProtocol)
         protocolsGroup.get(":protocolId", "revisions", use: listProtocolRevisions)
+        protocolsGroup.get(":protocolId", "occurrences", use: getProtocolOccurrences)
     }
 
     public func listProtocols(req: Request) async throws -> [ProtocolResponseDTO] {
@@ -233,6 +236,77 @@ public struct ProtocolsController: RouteCollection {
                 reasonForChange: r.reasonForChange,
                 effectiveDate: r.effectiveDate,
                 createdAt: r.createdAt
+            )
+        }
+    }
+
+    public func getProtocolOccurrences(req: Request) async throws -> [ExpectedDoseOccurrenceDTO] {
+        let payload = try req.auth.require(UserPayload.self)
+        guard let protoId = req.parameters.get("protocolId", as: UUID.self),
+              let entity = try await ProtocolEntity.query(on: req.db)
+                .filter(\.$id == protoId)
+                .filter(\.$user.$id == payload.userId)
+                .with(\.$compound)
+                .first() else {
+            throw Abort(.notFound, reason: "Protocol not found.")
+        }
+
+        let days = (try? req.query.get(Int.self, at: "days")) ?? 30
+        let startDate = (try? req.query.get(Date.self, at: "startDate")) ?? entity.startDate
+        let endDate = (try? req.query.get(Date.self, at: "endDate")) ?? Calendar.current.date(byAdding: .day, value: max(1, days), to: startDate) ?? startDate
+
+        // Parse schedule rule
+        let scheduleRule: ScheduleRule
+        let freq = entity.scheduleFrequency.lowercased()
+        if freq.contains("eod") || freq.contains("other") {
+            scheduleRule = .everyOtherDay
+        } else if freq.contains("5/2") || freq.contains("cycle") {
+            scheduleRule = .cycle(daysOn: 5, daysOff: 2)
+        } else if freq.contains("weekly") || freq.contains("7") {
+            scheduleRule = .everyNDays(7)
+        } else if freq.contains("prn") || freq.contains("needed") {
+            scheduleRule = .asNeeded
+        } else {
+            scheduleRule = .everyDay
+        }
+
+        let domainCompound = ProtocolCompound(
+            id: UUID(),
+            protocolId: entity.id,
+            compoundId: entity.$compound.id,
+            compoundName: entity.compound.name,
+            doseAmount: entity.doseAmount,
+            doseUnit: DoseUnit(rawValue: entity.doseUnit) ?? .mcg,
+            route: .subcutaneous,
+            scheduleRule: scheduleRule
+        )
+
+        let domainProtocol = ProtocolModel(
+            id: entity.id ?? protoId,
+            name: entity.name,
+            status: ProtocolStatus(rawValue: entity.status) ?? .active,
+            startDate: entity.startDate,
+            endDate: entity.endDate,
+            notes: entity.notes ?? "",
+            compounds: [domainCompound]
+        )
+
+        let engine = ProtocolSchedulingEngine()
+        let occurrences = engine.generateOccurrences(for: domainProtocol, in: startDate...endDate)
+
+        return occurrences.map { occ in
+            ExpectedDoseOccurrenceDTO(
+                id: occ.id,
+                protocolId: occ.protocolId,
+                protocolName: occ.protocolName,
+                compoundId: occ.compoundId,
+                compoundName: occ.compoundName,
+                scheduledTimestamp: occ.scheduledTimestamp,
+                plannedDoseAmount: occ.plannedDoseAmount,
+                doseUnit: occ.doseUnit.rawValue,
+                route: occ.route.rawValue,
+                status: occ.status.rawValue,
+                notes: occ.notes
             )
         }
     }

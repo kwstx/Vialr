@@ -1,12 +1,15 @@
 import SwiftUI
 import Domain
 import DesignSystem
+import CalculationEngine
 
 public struct ProtocolDetailView: View {
     public let protocolModel: ProtocolModel
     public var onEdit: (ProtocolModel) -> Void
     public var onToggleStatus: (ProtocolModel) -> Void
     @Environment(\.dismiss) private var dismiss
+
+    private let schedulingEngine = ProtocolSchedulingEngine()
 
     public init(
         protocolModel: ProtocolModel,
@@ -45,6 +48,17 @@ public struct ProtocolDetailView: View {
                                     .font(VialrTypography.body)
                                     .foregroundColor(VialrColors.textSecondary)
                             }
+
+                            if let end = protocolModel.endDate {
+                                HStack {
+                                    Image(systemName: "calendar")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(VialrColors.accentVitality)
+                                    Text("Ends: \(end.formatted(date: .abbreviated, time: .omitted)) (\(protocolModel.elapsedDays) of \(protocolModel.totalPlannedDays ?? 0) days)")
+                                        .font(VialrTypography.caption)
+                                        .foregroundColor(VialrColors.textSecondary)
+                                }
+                            }
                         }
                         .padding(VialrSpacing.lg)
                         .vialrCard()
@@ -53,7 +67,7 @@ public struct ProtocolDetailView: View {
                         VStack(alignment: .leading, spacing: VialrSpacing.sm) {
                             Text("COMPOUND SCHEDULE & DOSES")
                                 .font(VialrTypography.captionBold)
-                                .foregroundColor(VialrColors.accentTeal)
+                                .foregroundColor(VialrColors.accentVitality)
 
                             ForEach(protocolModel.items) { item in
                                 VStack(alignment: .leading, spacing: 8) {
@@ -62,14 +76,14 @@ public struct ProtocolDetailView: View {
                                             .font(VialrTypography.headline)
                                             .foregroundColor(VialrColors.textPrimary)
                                         Spacer()
-                                        Text("\(String(format: "%.0f", item.doseAmount)) \(item.doseUnit.rawValue)")
+                                        Text("\(String(format: item.doseUnit == .mg ? "%.2f" : "%.0f", item.doseAmount)) \(item.doseUnit.rawValue)")
                                             .font(VialrTypography.metricSmall)
-                                            .foregroundColor(VialrColors.accentEmerald)
+                                            .foregroundColor(VialrColors.accentVitality)
                                     }
 
                                     HStack(spacing: 8) {
                                         Image(systemName: item.preferredTimeOfDay.iconName)
-                                            .foregroundColor(VialrColors.accentTeal)
+                                            .foregroundColor(VialrColors.accentVitality)
                                             .font(.system(size: 13))
                                         Text(item.preferredTimeOfDay.rawValue)
                                             .font(VialrTypography.footnote)
@@ -83,6 +97,30 @@ public struct ProtocolDetailView: View {
                                             .foregroundColor(VialrColors.textSecondary)
                                     }
 
+                                    HStack(spacing: 8) {
+                                        Text("Route: \(item.route.rawValue)")
+                                            .font(VialrTypography.caption)
+                                            .foregroundColor(VialrColors.textTertiary)
+
+                                        if item.foodRequirement != .unspecified {
+                                            Text("• \(item.foodRequirement.rawValue)")
+                                                .font(VialrTypography.caption)
+                                                .foregroundColor(VialrColors.textTertiary)
+                                        }
+                                    }
+
+                                    if let _ = item.attachedVialId {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "cross.vial.fill")
+                                                .font(.system(size: 12))
+                                                .foregroundColor(VialrColors.accentVitality)
+                                            Text("Attached to inventory vial")
+                                                .font(VialrTypography.caption)
+                                                .foregroundColor(VialrColors.accentVitality)
+                                        }
+                                        .padding(.top, 2)
+                                    }
+
                                     if !item.notes.isEmpty {
                                         Text(item.notes)
                                             .font(VialrTypography.caption)
@@ -94,12 +132,57 @@ public struct ProtocolDetailView: View {
                             }
                         }
 
+                        // Upcoming Dynamically Generated Occurrences
+                        VStack(alignment: .leading, spacing: VialrSpacing.sm) {
+                            Text("UPCOMING PROJECTED DOSES")
+                                .font(VialrTypography.captionBold)
+                                .foregroundColor(VialrColors.accentVitality)
+
+                            let upcoming = schedulingEngine.upcomingOccurrences(for: [protocolModel], limit: 5)
+                            if upcoming.isEmpty {
+                                Text("No upcoming doses scheduled.")
+                                    .font(VialrTypography.caption)
+                                    .foregroundColor(VialrColors.textSecondary)
+                                    .padding(VialrSpacing.md)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .vialrCard()
+                            } else {
+                                VStack(spacing: 6) {
+                                    ForEach(upcoming) { occ in
+                                        HStack {
+                                            Image(systemName: "circle.fill")
+                                                .font(.system(size: 6))
+                                                .foregroundColor(VialrColors.accentVitality)
+
+                                            Text(occ.scheduledTimestamp.formatted(date: .abbreviated, time: .shortened))
+                                                .font(VialrTypography.captionBold)
+                                                .foregroundColor(VialrColors.textPrimary)
+
+                                            Spacer()
+
+                                            Text(occ.formattedDose)
+                                                .font(VialrTypography.monoSub)
+                                                .foregroundColor(VialrColors.accentVitality)
+
+                                            Text("• \(occ.route.shortName)")
+                                                .font(VialrTypography.caption)
+                                                .foregroundColor(VialrColors.textTertiary)
+                                        }
+                                        .padding(VialrSpacing.sm)
+                                    }
+                                }
+                                .padding(VialrSpacing.xs)
+                                .background(VialrColors.cardSurfaceElevated)
+                                .cornerRadius(VialrSpacing.radiusSm)
+                            }
+                        }
+
                         // Clinical Notes
                         if !protocolModel.notes.isEmpty {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("PROTOCOL NOTES & OBJECTIVES")
                                     .font(VialrTypography.captionBold)
-                                    .foregroundColor(VialrColors.accentTeal)
+                                    .foregroundColor(VialrColors.accentVitality)
 
                                 Text(protocolModel.notes)
                                     .font(VialrTypography.body)
@@ -132,135 +215,23 @@ public struct ProtocolDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
-                        .foregroundColor(VialrColors.accentTeal)
+                        .foregroundColor(VialrColors.accentVitality)
                 }
             }
         }
     }
 }
 
+/// CreateProtocolView wraps the guided multi-step ProtocolCreationFlowView.
 public struct CreateProtocolView: View {
     public var onSave: (ProtocolModel) -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var name: String = ""
-    @State private var goalSummary: String = ""
-    @State private var compoundName: String = "BPC-157"
-    @State private var doseAmount: Double = 250
-    @State private var doseUnit: DoseUnit = .mcg
-    @State private var selectedFrequency: String = "Daily"
-    @State private var selectedTime: TimeOfDay = .morning
-    @State private var notes: String = ""
 
     public init(onSave: @escaping (ProtocolModel) -> Void) {
         self.onSave = onSave
     }
 
     public var body: some View {
-        NavigationStack {
-            ZStack {
-                VialrColors.backgroundPrimary
-                    .ignoresSafeArea()
-
-                ScrollView {
-                    VStack(spacing: VialrSpacing.lg) {
-                        VStack(alignment: .leading, spacing: VialrSpacing.md) {
-                            Text("PROTOCOL OVERVIEW")
-                                .font(VialrTypography.captionBold)
-                                .foregroundColor(VialrColors.accentTeal)
-
-                            VialrInputField("Protocol Name", placeholder: "e.g. Tendon & Joint Recovery", value: $name)
-                            VialrInputField("Primary Goal", placeholder: "e.g. Rotator cuff healing post-op", value: $goalSummary)
-                        }
-                        .padding(VialrSpacing.md)
-                        .vialrCard()
-
-                        VStack(alignment: .leading, spacing: VialrSpacing.md) {
-                            Text("INITIAL COMPOUND SCHEDULE")
-                                .font(VialrTypography.captionBold)
-                                .foregroundColor(VialrColors.accentTeal)
-
-                            VialrInputField("Compound Name", placeholder: "e.g. BPC-157", value: $compoundName)
-
-                            VialrStepper(
-                                title: "Dose Amount",
-                                value: $doseAmount,
-                                step: doseUnit == .mcg ? 50 : 0.5,
-                                range: 1...5000,
-                                unit: doseUnit.rawValue,
-                                format: "%.0f"
-                            )
-
-                            HStack {
-                                Text("Dose Unit")
-                                    .font(VialrTypography.subheadline)
-                                    .foregroundColor(VialrColors.textSecondary)
-                                Spacer()
-                                Picker("Dose Unit", selection: $doseUnit) {
-                                    ForEach(DoseUnit.allCases) { unit in
-                                        Text(unit.rawValue).tag(unit)
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                            }
-                            .padding(VialrSpacing.sm)
-                            .background(VialrColors.cardSurfaceElevated)
-                            .cornerRadius(VialrSpacing.radiusSm)
-
-                            HStack {
-                                Text("Time of Day")
-                                    .font(VialrTypography.subheadline)
-                                    .foregroundColor(VialrColors.textSecondary)
-                                Spacer()
-                                Picker("Time of Day", selection: $selectedTime) {
-                                    ForEach(TimeOfDay.allCases) { slot in
-                                        Text(slot.rawValue).tag(slot)
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                            }
-                            .padding(VialrSpacing.sm)
-                            .background(VialrColors.cardSurfaceElevated)
-                            .cornerRadius(VialrSpacing.radiusSm)
-                        }
-                        .padding(VialrSpacing.md)
-                        .vialrCard()
-
-                        VialrButton("Create & Start Protocol", icon: "checkmark.circle.fill", style: .primary) {
-                            let item = ProtocolItem(
-                                compoundId: UUID(),
-                                compoundName: compoundName.isEmpty ? "Compound" : compoundName,
-                                doseAmount: doseAmount,
-                                doseUnit: doseUnit,
-                                scheduleRule: .everyDay,
-                                preferredTimeOfDay: selectedTime
-                            )
-                            let newProtocol = ProtocolModel(
-                                name: name.isEmpty ? "New Protocol" : name,
-                                goalSummary: goalSummary,
-                                status: .active,
-                                items: [item],
-                                startDate: Date(),
-                                notes: notes
-                            )
-                            onSave(newProtocol)
-                            dismiss()
-                        }
-                    }
-                    .padding(VialrSpacing.md)
-                }
-            }
-            .navigationTitle("New Protocol")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundColor(VialrColors.accentTeal)
-                }
-            }
-        }
+        ProtocolCreationFlowView(onProtocolCreated: onSave)
     }
 }
 
@@ -304,9 +275,9 @@ public struct ProtocolComparisonView: View {
                                     HStack {
                                         Text(item.compoundName)
                                             .font(VialrTypography.bodyMedium)
-                                            .foregroundColor(VialrColors.accentTeal)
+                                            .foregroundColor(VialrColors.accentVitality)
                                         Spacer()
-                                        Text("\(String(format: "%.0f", item.doseAmount)) \(item.doseUnit.rawValue)")
+                                        Text("\(String(format: item.doseUnit == .mg ? "%.2f" : "%.0f", item.doseAmount)) \(item.doseUnit.rawValue)")
                                             .font(VialrTypography.monoDose)
                                             .foregroundColor(VialrColors.textPrimary)
                                         Text("(\(item.scheduleRule.description))")
@@ -329,7 +300,7 @@ public struct ProtocolComparisonView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
-                        .foregroundColor(VialrColors.accentTeal)
+                        .foregroundColor(VialrColors.accentVitality)
                 }
             }
         }

@@ -155,6 +155,7 @@ public final class DashboardViewModel: @unchecked Sendable {
     private let rotationEngine = SiteRotationEngine()
     private let adherenceCalculator = AdherenceCalculator()
     private let inconsistencyDetector = InconsistencyDetector()
+    private let schedulingEngine = ProtocolSchedulingEngine()
 
     public init(
         protocolRepo: ProtocolRepositoryProtocol = LocalProtocolRepository(),
@@ -265,7 +266,7 @@ public final class DashboardViewModel: @unchecked Sendable {
             let calendar = Calendar.current
             let now = Date()
 
-            // Filter today's doses
+            // Filter today's doses from stored logs
             scheduledTodayDoses = allDoses.filter {
                 $0.status == .scheduled && calendar.isDate($0.scheduledDate, inSameDayAs: now)
             }.sorted(by: { $0.scheduledDate < $1.scheduledDate })
@@ -273,6 +274,16 @@ public final class DashboardViewModel: @unchecked Sendable {
             completedTodayDoses = allDoses.filter {
                 $0.status == .taken && calendar.isDate($0.loggedDate ?? $0.scheduledDate, inSameDayAs: now)
             }.sorted(by: { ($0.loggedDate ?? $0.scheduledDate) < ($1.loggedDate ?? $1.scheduledDate) })
+
+            // Dynamically generate today's expected occurrences from active protocol recurrence rules
+            let dynamicOccurrences = schedulingEngine.occurrencesForDate(now, protocols: activeProtocols, loggedEvents: allDoses)
+            for occ in dynamicOccurrences where occ.status == .scheduled {
+                if !scheduledTodayDoses.contains(where: { $0.protocolId == occ.protocolId && $0.compoundId == occ.compoundId }) &&
+                   !completedTodayDoses.contains(where: { $0.protocolId == occ.protocolId && $0.compoundId == occ.compoundId }) {
+                    scheduledTodayDoses.append(occ.toDoseLog())
+                }
+            }
+            scheduledTodayDoses.sort(by: { $0.scheduledDate < $1.scheduledDate })
 
             recentCompletedDoses = try await doseRepo.fetchRecent(limit: 5)
 

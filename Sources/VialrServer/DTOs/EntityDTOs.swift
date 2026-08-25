@@ -409,6 +409,46 @@ public struct ProtocolRevisionDTO: Content, Sendable {
     }
 }
 
+public struct ExpectedDoseOccurrenceDTO: Content, Sendable {
+    public let id: UUID
+    public let protocolId: UUID
+    public let protocolName: String
+    public let compoundId: UUID
+    public let compoundName: String
+    public let scheduledTimestamp: Date
+    public let plannedDoseAmount: Double
+    public let doseUnit: String
+    public let route: String
+    public let status: String
+    public let notes: String?
+
+    public init(
+        id: UUID = UUID(),
+        protocolId: UUID,
+        protocolName: String,
+        compoundId: UUID,
+        compoundName: String,
+        scheduledTimestamp: Date,
+        plannedDoseAmount: Double,
+        doseUnit: String,
+        route: String,
+        status: String = "scheduled",
+        notes: String? = nil
+    ) {
+        self.id = id
+        self.protocolId = protocolId
+        self.protocolName = protocolName
+        self.compoundId = compoundId
+        self.compoundName = compoundName
+        self.scheduledTimestamp = scheduledTimestamp
+        self.plannedDoseAmount = plannedDoseAmount
+        self.doseUnit = doseUnit
+        self.route = route
+        self.status = status
+        self.notes = notes
+    }
+}
+
 // MARK: - ==========================================
 // MARK: 4. Dose Event & Log DTOs
 // MARK: - ==========================================

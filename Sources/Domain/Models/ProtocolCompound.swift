@@ -23,11 +23,18 @@ public struct ProtocolCompound: Identifiable, Codable, Sendable, Hashable {
     public var foodRequirement: FoodRequirement
     public var instructions: String
     public var notes: String
+    public var attachedVialId: UUID?
     public var startDate: Date?
     public var endDate: Date?
     public var isActive: Bool
     public var createdAt: Date
     public var updatedAt: Date
+
+    /// Compatibility accessor for `vialId`
+    public var vialId: UUID? {
+        get { attachedVialId }
+        set { attachedVialId = newValue }
+    }
 
     /// Compatibility accessor for `preferredRoute`
     public var preferredRoute: AdministrationRoute {
@@ -56,6 +63,7 @@ public struct ProtocolCompound: Identifiable, Codable, Sendable, Hashable {
         foodRequirement: FoodRequirement = .fasted,
         instructions: String = "",
         notes: String = "",
+        attachedVialId: UUID? = nil,
         startDate: Date? = nil,
         endDate: Date? = nil,
         isActive: Bool = true,
@@ -82,6 +90,7 @@ public struct ProtocolCompound: Identifiable, Codable, Sendable, Hashable {
         self.foodRequirement = foodRequirement
         self.instructions = instructions
         self.notes = notes
+        self.attachedVialId = attachedVialId
         self.startDate = startDate
         self.endDate = endDate
         self.isActive = isActive
