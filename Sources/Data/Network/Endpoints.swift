@@ -43,6 +43,14 @@ public enum Endpoint: Sendable {
     // Reports
     case generateReport
 
+    // Encrypted Object Storage Files & Documents
+    case listFiles(category: String? = nil, vialId: UUID? = nil, biomarkerId: UUID? = nil, doseLogId: UUID? = nil)
+    case getFileMetadata(id: UUID)
+    case downloadFile(id: UUID)
+    case uploadFile
+    case relateFile(id: UUID)
+    case deleteFile(id: UUID)
+
     public var path: String {
         switch self {
         case .register: return "/api/v1/auth/register"
@@ -72,19 +80,37 @@ public enum Endpoint: Sendable {
         case .syncPull: return "/api/v1/sync/pull"
 
         case .generateReport: return "/api/v1/reports/generate"
+
+        case .listFiles(let category, let vialId, let biomarkerId, let doseLogId):
+            var queryParts: [String] = []
+            if let c = category { queryParts.append("category=\(c)") }
+            if let v = vialId { queryParts.append("vialId=\(v.uuidString)") }
+            if let b = biomarkerId { queryParts.append("biomarkerId=\(b.uuidString)") }
+            if let d = doseLogId { queryParts.append("doseLogId=\(d.uuidString)") }
+            let queryString = queryParts.isEmpty ? "" : "?\(queryParts.joined(separator: "&"))"
+            return "/api/v1/files\(queryString)"
+
+        case .getFileMetadata(let id): return "/api/v1/files/\(id.uuidString)"
+        case .downloadFile(let id): return "/api/v1/files/\(id.uuidString)/download"
+        case .uploadFile: return "/api/v1/files/upload"
+        case .relateFile(let id): return "/api/v1/files/\(id.uuidString)/relate"
+        case .deleteFile(let id): return "/api/v1/files/\(id.uuidString)"
         }
     }
 
     public var method: HTTPMethod {
         switch self {
-        case .listCompounds, .listProtocols, .listDoses, .listVials, .listBiomarkers, .syncPull, .userProfile:
+        case .listCompounds, .listProtocols, .listDoses, .listVials, .listBiomarkers, .syncPull, .userProfile, .listFiles, .getFileMetadata, .downloadFile:
             return .get
-        case .register, .login, .createCompound, .createProtocol, .logDose, .createVial, .logBiomarker, .syncPush, .generateReport:
+        case .register, .login, .createCompound, .createProtocol, .logDose, .createVial, .logBiomarker, .syncPush, .generateReport, .uploadFile:
             return .post
         case .updateProtocol, .updateDose, .updateVial:
             return .put
-        case .deleteProtocol:
+        case .relateFile:
+            return .patch
+        case .deleteProtocol, .deleteFile:
             return .delete
         }
     }
 }
+

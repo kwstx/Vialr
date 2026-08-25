@@ -35,6 +35,10 @@ public final class UserEntity: Model, Content, @unchecked Sendable {
     @Children(for: \.$user)
     public var vials: [VialEntity]
 
+    @Children(for: \.$user)
+    public var storedFiles: [StoredFileEntity]
+
+
     public init() {}
 
     public init(id: UUID? = nil, email: String, passwordHash: String, displayName: String) {

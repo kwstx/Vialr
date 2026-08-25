@@ -107,4 +107,29 @@ public struct ClinicianReportResponseDTO: Content {
     public let dosesLoggedCount: Int
     public let biomarkersCount: Int
     public let summaryText: String
+    public let storedFileId: UUID?
+    public let downloadUrl: String?
+
+    public init(
+        generatedAt: Date,
+        patientName: String,
+        activeProtocolsCount: Int,
+        adherenceRate: Double,
+        dosesLoggedCount: Int,
+        biomarkersCount: Int,
+        summaryText: String,
+        storedFileId: UUID? = nil,
+        downloadUrl: String? = nil
+    ) {
+        self.generatedAt = generatedAt
+        self.patientName = patientName
+        self.activeProtocolsCount = activeProtocolsCount
+        self.adherenceRate = adherenceRate
+        self.dosesLoggedCount = dosesLoggedCount
+        self.biomarkersCount = biomarkersCount
+        self.summaryText = summaryText
+        self.storedFileId = storedFileId
+        self.downloadUrl = downloadUrl
+    }
 }
+

@@ -44,7 +44,41 @@ public func configure(_ app: Application) async throws {
         ), as: .psql)
     }
 
-    // 5. Register Migrations
+    // 5. Configure Encrypted Object Storage Subsystem
+    app.routes.defaultMaxBodySize = "55mb"
+    let storageBackendType = Environment.get("STORAGE_BACKEND") ?? "filesystem"
+    let vaultKeySecret = Environment.get("VAULT_ENCRYPTION_KEY") ?? "vialr-master-vault-encryption-secret-key-32-chars"
+    let storageBucket = Environment.get("STORAGE_BUCKET") ?? Environment.get("S3_BUCKET") ?? "vialr-secure-vault"
+    let encryptionService = StorageEncryptionService(keyId: "vialr-vault-primary", secretKeyString: vaultKeySecret)
+
+    let storageBackend: ObjectStorageProtocol
+    if storageBackendType.lowercased() == "s3",
+       let accessKey = Environment.get("S3_ACCESS_KEY"),
+       let secretKey = Environment.get("S3_SECRET_KEY") {
+        let endpointString = Environment.get("S3_ENDPOINT") ?? "https://s3.amazonaws.com"
+        let endpointURL = URL(string: endpointString) ?? URL(string: "https://s3.amazonaws.com")!
+        let region = Environment.get("S3_REGION") ?? "us-east-1"
+        storageBackend = S3CompatibleObjectStorageService(
+            endpointURL: endpointURL,
+            region: region,
+            accessKey: accessKey,
+            secretKey: secretKey,
+            forcePathStyle: Environment.get("S3_FORCE_PATH_STYLE").flatMap(Bool.init) ?? true
+        )
+    } else {
+        let localDirString = Environment.get("STORAGE_LOCAL_PATH") ?? (NSTemporaryDirectory() + "vialr-object-store")
+        let localDirURL = URL(fileURLWithPath: localDirString)
+        let baseURL = URL(string: "http://\(app.http.server.configuration.hostname):\(app.http.server.configuration.port)")!
+        storageBackend = FileSystemObjectStorageService(rootDirectoryURL: localDirURL, baseURL: baseURL)
+    }
+
+    app.encryptedStorage = EncryptedObjectStorageService(
+        bucket: storageBucket,
+        storageBackend: storageBackend,
+        encryptionService: encryptionService
+    )
+
+    // 6. Register Migrations
     app.migrations.add(CreateUsersMigration())
     app.migrations.add(CreateCompoundsMigration())
     app.migrations.add(CreateProtocolsMigration())
@@ -53,12 +87,13 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateBiomarkersMigration())
     app.migrations.add(CreateSymptomLogsMigration())
     app.migrations.add(CreateSyncChangesMigration())
+    app.migrations.add(CreateStoredFilesMigration())
 
     // Auto-migrate if flag is passed
     if app.environment != .testing {
         try await app.autoMigrate()
     }
 
-    // 6. Register Routes
+    // 7. Register Routes
     try routes(app)
 }

@@ -60,3 +60,16 @@ public protocol CostRepositoryProtocol: Sendable {
     func save(_ costRecord: CostRecord) async throws
     func delete(byId id: UUID) async throws
 }
+
+public protocol StoredFileRepositoryProtocol: Sendable {
+    func fetchAll() async throws -> [StoredFileRecord]
+    func fetchByCategory(_ category: StoredFileCategory) async throws -> [StoredFileRecord]
+    func fetchForVial(vialId: UUID) async throws -> [StoredFileRecord]
+    func fetchForBiomarker(biomarkerId: UUID) async throws -> [StoredFileRecord]
+    func fetchForDoseLog(doseLogId: UUID) async throws -> [StoredFileRecord]
+    func fetchForProtocol(protocolId: UUID) async throws -> [StoredFileRecord]
+    func fetch(byId id: UUID) async throws -> StoredFileRecord?
+    func save(_ record: StoredFileRecord) async throws
+    func delete(byId id: UUID) async throws
+}
+

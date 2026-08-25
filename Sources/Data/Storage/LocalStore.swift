@@ -143,4 +143,19 @@ public actor LocalStore {
             costs.append(c)
         }
     }
+
+    // MARK: - Stored Files (Encrypted Object Storage Metadata)
+    public var storedFiles: [StoredFileRecord] = []
+    public func getAllStoredFiles() -> [StoredFileRecord] { storedFiles }
+    public func saveStoredFile(_ file: StoredFileRecord) {
+        if let idx = storedFiles.firstIndex(where: { $0.id == file.id }) {
+            storedFiles[idx] = file
+        } else {
+            storedFiles.append(file)
+        }
+    }
+    public func deleteStoredFile(id: UUID) {
+        storedFiles.removeAll { $0.id == id }
+    }
 }
+

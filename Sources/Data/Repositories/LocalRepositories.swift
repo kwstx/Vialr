@@ -248,3 +248,56 @@ public final class LocalCostRepository: CostRepositoryProtocol, @unchecked Senda
         // Not used
     }
 }
+
+// MARK: - Stored File Repository
+public final class LocalStoredFileRepository: StoredFileRepositoryProtocol, @unchecked Sendable {
+    private let store: LocalStore
+
+    public init(store: LocalStore = .shared) {
+        self.store = store
+    }
+
+    public func fetchAll() async throws -> [StoredFileRecord] {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getAllStoredFiles()
+    }
+
+    public func fetchByCategory(_ category: StoredFileCategory) async throws -> [StoredFileRecord] {
+        let all = try await fetchAll()
+        return all.filter { $0.category == category }
+    }
+
+    public func fetchForVial(vialId: UUID) async throws -> [StoredFileRecord] {
+        let all = try await fetchAll()
+        return all.filter { $0.vialId == vialId }
+    }
+
+    public func fetchForBiomarker(biomarkerId: UUID) async throws -> [StoredFileRecord] {
+        let all = try await fetchAll()
+        return all.filter { $0.biomarkerId == biomarkerId }
+    }
+
+    public func fetchForDoseLog(doseLogId: UUID) async throws -> [StoredFileRecord] {
+        let all = try await fetchAll()
+        return all.filter { $0.doseLogId == doseLogId }
+    }
+
+    public func fetchForProtocol(protocolId: UUID) async throws -> [StoredFileRecord] {
+        let all = try await fetchAll()
+        return all.filter { $0.protocolId == protocolId }
+    }
+
+    public func fetch(byId id: UUID) async throws -> StoredFileRecord? {
+        let all = try await fetchAll()
+        return all.first(where: { $0.id == id })
+    }
+
+    public func save(_ record: StoredFileRecord) async throws {
+        await store.saveStoredFile(record)
+    }
+
+    public func delete(byId id: UUID) async throws {
+        await store.deleteStoredFile(id: id)
+    }
+}
+

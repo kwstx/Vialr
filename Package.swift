@@ -160,6 +160,15 @@ let package = Package(
             name: "AnalyticsTests",
             dependencies: ["Analytics", "Domain", "CalculationEngine"],
             path: "Tests/AnalyticsTests"
+        ),
+        .testTarget(
+            name: "StorageTests",
+            dependencies: [
+                "Domain",
+                .product(name: "Vapor", package: "vapor"),
+                .product(name: "Fluent", package: "fluent")
+            ],
+            path: "Tests/StorageTests"
         )
     ]
 )

@@ -20,4 +20,5 @@ public func routes(_ app: Application) throws {
     try apiV1.register(collection: BiomarkersController())
     try apiV1.register(collection: SyncController())
     try apiV1.register(collection: ReportsController())
+    try apiV1.register(collection: StoredFilesController())
 }
