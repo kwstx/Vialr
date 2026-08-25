@@ -3,7 +3,7 @@ import Foundation
 /// Represents a physical inventory vial item in stock (either lyophilized dry powder or reconstituted solution).
 /// Encapsulates compound information, physical quantity, concentration dynamics, dates/shelf-life,
 /// lot/batch tracking, financial cost breakdown, and lifecycle status.
-public struct Vial: Identifiable, Codable, Sendable, Hashable {
+public struct Vial: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var userId: UUID?
     
@@ -37,6 +37,8 @@ public struct Vial: Identifiable, Codable, Sendable, Hashable {
     public var discardDate: Date?
     public var createdAt: Date
     public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
     
     // MARK: - Cost & Financial Information
     public var costUsd: Double?
@@ -78,7 +80,9 @@ public struct Vial: Identifiable, Codable, Sendable, Hashable {
         notes: String = "",
         status: VialStatus = .unopened,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.userId = userId
@@ -110,6 +114,8 @@ public struct Vial: Identifiable, Codable, Sendable, Hashable {
         self.status = status
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 
     // MARK: - Concentration & Solution Dynamics

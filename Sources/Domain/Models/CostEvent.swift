@@ -3,7 +3,7 @@ import Foundation
 /// Represents a financial expense or transaction tied to a protocol, vial, supplies, or lab test.
 /// Enables precise calculation of the real cost of a protocol (total expenditure, cost per day,
 /// cost per dose, and categorical breakdown across compounds, diagnostics, and supplies).
-public struct CostEvent: Identifiable, Codable, Sendable, Hashable {
+public struct CostEvent: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var userId: UUID?
     public var title: String
@@ -27,6 +27,8 @@ public struct CostEvent: Identifiable, Codable, Sendable, Hashable {
     public var notes: String
     public var createdAt: Date
     public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
 
     // MARK: - Compatibility Accessors for Legacy CostRecord
     public var amountUsd: Double {
@@ -64,7 +66,9 @@ public struct CostEvent: Identifiable, Codable, Sendable, Hashable {
         amortizationDays: Int? = nil,
         notes: String = "",
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.userId = userId
@@ -78,13 +82,15 @@ public struct CostEvent: Identifiable, Codable, Sendable, Hashable {
         self.compoundId = compoundId
         self.vialId = vialId
         self.doseEventId = doseEventId
-        self.labPanelId = tabPanelId
+        self.labPanelId = labPanelId
         self.receiptDocumentId = receiptDocumentId
         self.allocationType = allocationType
         self.amortizationDays = amortizationDays
         self.notes = notes
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 
     // MARK: - Compatibility Initializer for CostRecord Call Sites
@@ -97,7 +103,9 @@ public struct CostEvent: Identifiable, Codable, Sendable, Hashable {
         vendor: String = "",
         associatedVialId: UUID? = nil,
         associatedCompoundId: UUID? = nil,
-        notes: String = ""
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.init(
             id: id,
@@ -111,7 +119,9 @@ public struct CostEvent: Identifiable, Codable, Sendable, Hashable {
             protocolId: nil,
             compoundId: associatedCompoundId,
             vialId: associatedVialId,
-            notes: notes
+            notes: notes,
+            version: version,
+            syncState: syncState
         )
     }
 
@@ -255,6 +265,3 @@ public enum CostAllocationType: String, Codable, Sendable, CaseIterable, Identif
 
     public var id: String { rawValue }
 }
-
-// MARK: - Legacy Compatibility Typealias
-public typealias CostRecord = CostEvent

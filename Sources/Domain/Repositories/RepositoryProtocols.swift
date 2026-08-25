@@ -35,7 +35,6 @@ public protocol InjectionSiteEventRepositoryProtocol: Sendable {
     func delete(byId id: UUID) async throws
 }
 
-
 public protocol VialRepositoryProtocol: Sendable {
     func fetchAll() async throws -> [Vial]
     func fetchActive() async throws -> [Vial]
@@ -52,7 +51,6 @@ public protocol ReconstitutionRecordRepositoryProtocol: Sendable {
     func save(_ record: ReconstitutionRecord) async throws
     func delete(byId id: UUID) async throws
 }
-
 
 public protocol SupplyRepositoryProtocol: Sendable {
     func fetchAll() async throws -> [SupplyItem]
@@ -114,11 +112,6 @@ public protocol OutcomeMetricRepositoryProtocol: Sendable {
     func delete(byId id: UUID) async throws
 }
 
-
-
-
-
-
 public protocol SymptomRepositoryProtocol: Sendable {
     func fetchAll() async throws -> [SymptomLog]
     func fetchRecent(limit: Int) async throws -> [SymptomLog]
@@ -135,7 +128,6 @@ public protocol CostRepositoryProtocol: Sendable {
 }
 
 public typealias CostEventRepositoryProtocol = CostRepositoryProtocol
-
 
 public protocol StoredFileRepositoryProtocol: Sendable {
     func fetchAll() async throws -> [StoredFileRecord]
@@ -159,4 +151,29 @@ public protocol UserRepositoryProtocol: Sendable {
     func deleteUser(byId id: UUID) async throws
 }
 
-
+// MARK: - Synchronization Queue Repository Protocol
+public protocol SyncQueueRepositoryProtocol: Sendable {
+    /// Fetches all queue items that are pending processing.
+    func fetchPending(limit: Int?) async throws -> [SyncQueueItem]
+    
+    /// Enqueues a new sync mutation item.
+    func enqueue(_ item: SyncQueueItem) async throws
+    
+    /// Marks a queue item as currently in-flight.
+    func markInFlight(id: UUID) async throws
+    
+    /// Marks a queue item as successfully uploaded and processed.
+    func markCompleted(id: UUID) async throws
+    
+    /// Records a failed sync attempt and calculates next retry date.
+    func markFailed(id: UUID, error: String, retryable: Bool) async throws
+    
+    /// Removes completed items from the queue.
+    func purgeCompleted() async throws
+    
+    /// Returns the total count of pending sync items.
+    func countPending() async throws -> Int
+    
+    /// Clears the entire queue (used during reset / logout).
+    func clearAll() async throws
+}

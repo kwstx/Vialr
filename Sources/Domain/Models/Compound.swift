@@ -2,7 +2,7 @@ import Foundation
 
 /// Defines a compound, peptide, supplement, or medicine tracked in Vialr.
 /// Supports both curated library compounds and fully customizable user-created compounds.
-public struct Compound: Identifiable, Codable, Sendable, Hashable {
+public struct Compound: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var name: String
     public var shortCode: String
@@ -27,6 +27,8 @@ public struct Compound: Identifiable, Codable, Sendable, Hashable {
     public var iconName: String?
     public var createdAt: Date
     public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
 
     public init(
         id: UUID = UUID(),
@@ -52,7 +54,9 @@ public struct Compound: Identifiable, Codable, Sendable, Hashable {
         colorHex: String? = nil,
         iconName: String? = nil,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.name = name
@@ -78,6 +82,8 @@ public struct Compound: Identifiable, Codable, Sendable, Hashable {
         self.iconName = iconName
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 
     /// Convenience factory for creating a custom user-defined compound without requiring a database entry.
@@ -96,7 +102,9 @@ public struct Compound: Identifiable, Codable, Sendable, Hashable {
         requiresReconstitution: Bool = false,
         description: String = "",
         instructions: String = "",
-        tags: [String] = []
+        tags: [String] = [],
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) -> Compound {
         Compound(
             id: id,
@@ -115,7 +123,9 @@ public struct Compound: Identifiable, Codable, Sendable, Hashable {
             requiresReconstitution: requiresReconstitution,
             description: description,
             instructions: instructions,
-            tags: tags
+            tags: tags,
+            version: version,
+            syncState: syncState
         )
     }
 

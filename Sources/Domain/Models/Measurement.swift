@@ -2,7 +2,7 @@ import Foundation
 
 /// Represents a recorded measurement across physical body metrics, vitals, sleep,
 /// subjective scores (energy, appetite, mood), bloodwork, or custom user-defined metrics.
-public struct Measurement: Identifiable, Codable, Sendable, Hashable {
+public struct Measurement: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var userId: UUID?
     public var name: String
@@ -18,6 +18,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
     public var associatedProtocolId: UUID?
     public var notes: String
     public var createdAt: Date
+    public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
 
     // MARK: - Primary Initializer
     public init(
@@ -35,7 +38,10 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
         referenceRangeMax: Double? = nil,
         associatedProtocolId: UUID? = nil,
         notes: String = "",
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.userId = userId
@@ -52,6 +58,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
         self.associatedProtocolId = associatedProtocolId
         self.notes = notes
         self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 
     // MARK: - Convenience Static Factories
@@ -61,7 +70,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
         unit: WeightUnit = .lbs,
         dateRecorded: Date = Date(),
         source: MeasurementSource = .manualEntry,
-        notes: String = ""
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) -> Measurement {
         Measurement(
             name: "Body Weight",
@@ -71,7 +82,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
             unit: unit.symbol,
             dateRecorded: dateRecorded,
             source: source,
-            notes: notes
+            notes: notes,
+            version: version,
+            syncState: syncState
         )
     }
 
@@ -80,7 +93,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
         _ value: Double,
         unit: HeightUnit = .inches,
         dateRecorded: Date = Date(),
-        notes: String = ""
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) -> Measurement {
         Measurement(
             name: "Waist Circumference",
@@ -90,7 +105,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
             unit: unit.symbol,
             dateRecorded: dateRecorded,
             source: .manualEntry,
-            notes: notes
+            notes: notes,
+            version: version,
+            syncState: syncState
         )
     }
 
@@ -100,7 +117,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
         diastolic: Double,
         dateRecorded: Date = Date(),
         source: MeasurementSource = .manualEntry,
-        notes: String = ""
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) -> Measurement {
         Measurement(
             name: "Blood Pressure",
@@ -113,7 +132,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
             source: source,
             referenceRangeMin: 90.0,
             referenceRangeMax: 120.0,
-            notes: notes
+            notes: notes,
+            version: version,
+            syncState: syncState
         )
     }
 
@@ -123,7 +144,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
         qualityScore: Double? = nil,
         dateRecorded: Date = Date(),
         source: MeasurementSource = .appleHealth,
-        notes: String = ""
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) -> Measurement {
         Measurement(
             name: "Sleep Duration",
@@ -136,7 +159,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
             source: source,
             referenceRangeMin: 7.0,
             referenceRangeMax: 9.0,
-            notes: notes
+            notes: notes,
+            version: version,
+            syncState: syncState
         )
     }
 
@@ -144,7 +169,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
     public static func energy(
         level: Double,
         dateRecorded: Date = Date(),
-        notes: String = ""
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) -> Measurement {
         Measurement(
             name: "Energy Level",
@@ -156,7 +183,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
             source: .manualEntry,
             referenceRangeMin: 7.0,
             referenceRangeMax: 10.0,
-            notes: notes
+            notes: notes,
+            version: version,
+            syncState: syncState
         )
     }
 
@@ -164,7 +193,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
     public static func appetite(
         level: Double,
         dateRecorded: Date = Date(),
-        notes: String = ""
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) -> Measurement {
         Measurement(
             name: "Appetite / Hunger",
@@ -174,7 +205,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
             unit: "/10",
             dateRecorded: dateRecorded,
             source: .manualEntry,
-            notes: notes
+            notes: notes,
+            version: version,
+            syncState: syncState
         )
     }
 
@@ -187,7 +220,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
         referenceRangeMin: Double? = nil,
         referenceRangeMax: Double? = nil,
         dateRecorded: Date = Date(),
-        notes: String = ""
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) -> Measurement {
         Measurement(
             name: name,
@@ -199,7 +234,9 @@ public struct Measurement: Identifiable, Codable, Sendable, Hashable {
             source: .manualEntry,
             referenceRangeMin: referenceRangeMin,
             referenceRangeMax: referenceRangeMax,
-            notes: notes
+            notes: notes,
+            version: version,
+            syncState: syncState
         )
     }
 

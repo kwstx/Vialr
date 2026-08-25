@@ -2,7 +2,7 @@ import Foundation
 
 /// Represents a collection of laboratory results from a single diagnostic event (blood draw, urinalysis, salivary panel).
 /// Groups individual `LabResult` objects together with specimen dates, laboratory provider details, and clinical ranges.
-public struct LabPanel: Identifiable, Codable, Sendable, Hashable {
+public struct LabPanel: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var userId: UUID?
     public var panelName: String
@@ -18,6 +18,8 @@ public struct LabPanel: Identifiable, Codable, Sendable, Hashable {
     public var notes: String
     public var createdAt: Date
     public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
 
     public init(
         id: UUID = UUID(),
@@ -34,7 +36,9 @@ public struct LabPanel: Identifiable, Codable, Sendable, Hashable {
         fastingStatus: LabFastingStatus = .fasted,
         notes: String = "",
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.userId = userId
@@ -51,6 +55,8 @@ public struct LabPanel: Identifiable, Codable, Sendable, Hashable {
         self.notes = notes
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 
     // MARK: - Clinical Analytics Helpers

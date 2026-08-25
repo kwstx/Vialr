@@ -2,7 +2,7 @@ import Foundation
 
 /// Represents the core User model in Vialr, encompassing account details, preferences,
 /// localized timezones, notification settings, privacy controls, and measurement unit system.
-public struct User: Identifiable, Codable, Sendable, Hashable {
+public struct User: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var accountInfo: AccountInfo
     public var preferences: UserPreferences
@@ -12,6 +12,8 @@ public struct User: Identifiable, Codable, Sendable, Hashable {
     public var units: UnitPreferences
     public var createdAt: Date
     public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
 
     public init(
         id: UUID = UUID(),
@@ -22,7 +24,9 @@ public struct User: Identifiable, Codable, Sendable, Hashable {
         privacyPreferences: PrivacyPreferences = PrivacyPreferences(),
         units: UnitPreferences = UnitPreferences(),
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.accountInfo = accountInfo
@@ -33,6 +37,8 @@ public struct User: Identifiable, Codable, Sendable, Hashable {
         self.units = units
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 
     /// Convenience access to the Foundation `TimeZone` instance.
@@ -250,7 +256,7 @@ public enum HeightUnit: String, Codable, Sendable, CaseIterable, Identifiable {
     case feetInches = "Feet & Inches (ft/in)"
 
     public var id: String { rawValue }
-
+    
     public var symbol: String {
         switch self {
         case .inches: return "in"

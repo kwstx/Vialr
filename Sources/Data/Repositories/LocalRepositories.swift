@@ -61,7 +61,7 @@ public final class LocalProtocolRepository: ProtocolRepositoryProtocol, @uncheck
     }
 }
 
-// MARK: - Dose Log Repository
+// MARK: - Dose Log Repository (Instant Zero-Latency Local Writes)
 public final class LocalDoseLogRepository: DoseLogRepositoryProtocol, @unchecked Sendable {
     private let store: LocalStore
 
@@ -96,6 +96,7 @@ public final class LocalDoseLogRepository: DoseLogRepositoryProtocol, @unchecked
     }
 
     public func save(_ log: DoseLog) async throws {
+        // Writes immediately to local store, deducts vial volume, and enqueues sync
         await store.saveDoseLog(log)
     }
 
@@ -253,7 +254,6 @@ public final class LocalCostRepository: CostRepositoryProtocol, @unchecked Senda
         await store.deleteCost(id: id)
     }
 }
-
 
 // MARK: - Stored File Repository
 public final class LocalStoredFileRepository: StoredFileRepositoryProtocol, @unchecked Sendable {
@@ -643,11 +643,49 @@ public final class LocalOutcomeMetricRepository: OutcomeMetricRepositoryProtocol
     }
 }
 
+// MARK: - Synchronization Queue Repository
+public final class LocalSyncQueueRepository: SyncQueueRepositoryProtocol, @unchecked Sendable {
+    private let store: LocalStore
 
+    public init(store: LocalStore = .shared) {
+        self.store = store
+    }
 
+    public func fetchPending(limit: Int? = nil) async throws -> [SyncQueueItem] {
+        await store.getPendingSyncQueue(limit: limit)
+    }
 
+    public func enqueue(_ item: SyncQueueItem) async throws {
+        await store.enqueueSyncMutation(
+            entityType: item.entityType,
+            entityId: item.entityId,
+            action: item.action,
+            entity: item.payloadJSON ?? "{}",
+            version: item.version
+        )
+    }
 
+    public func markInFlight(id: UUID) async throws {
+        await store.markSyncItemInFlight(id: id)
+    }
 
+    public func markCompleted(id: UUID) async throws {
+        await store.markSyncItemCompleted(id: id)
+    }
 
+    public func markFailed(id: UUID, error: String, retryable: Bool) async throws {
+        await store.markSyncItemFailed(id: id, error: error, retryable: retryable)
+    }
 
+    public func purgeCompleted() async throws {
+        await store.purgeCompletedSync()
+    }
 
+    public func countPending() async throws -> Int {
+        await store.countPendingSync()
+    }
+
+    public func clearAll() async throws {
+        await store.clearAllSyncQueue()
+    }
+}

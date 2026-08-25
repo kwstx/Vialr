@@ -2,7 +2,7 @@ import Foundation
 
 /// Records where an injection was administered, connecting that anatomical location directly to a `DoseEvent`.
 /// Tracks anatomical site specifics, needle parameters, localized tissue reactions, and recovery timestamps.
-public struct InjectionSiteEvent: Identifiable, Codable, Sendable, Hashable {
+public struct InjectionSiteEvent: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var doseEventId: UUID
     public var siteId: String
@@ -23,6 +23,9 @@ public struct InjectionSiteEvent: Identifiable, Codable, Sendable, Hashable {
     public var photoFileId: UUID?
     public var notes: String
     public var createdAt: Date
+    public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
 
     public init(
         id: UUID = UUID(),
@@ -44,7 +47,10 @@ public struct InjectionSiteEvent: Identifiable, Codable, Sendable, Hashable {
         painScore: Int? = 0,
         photoFileId: UUID? = nil,
         notes: String = "",
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.doseEventId = doseEventId
@@ -66,6 +72,9 @@ public struct InjectionSiteEvent: Identifiable, Codable, Sendable, Hashable {
         self.photoFileId = photoFileId
         self.notes = notes
         self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 
     /// Convenience initializer linking directly from an `InjectionSite` and `DoseEvent`.
@@ -77,8 +86,11 @@ public struct InjectionSiteEvent: Identifiable, Codable, Sendable, Hashable {
         reaction: SiteReactionSeverity = .none,
         painScore: Int? = 0,
         photoFileId: UUID? = nil,
-        notes: String = ""
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
+        let now = Date()
         self.init(
             id: UUID(),
             doseEventId: doseEvent.id,
@@ -99,7 +111,10 @@ public struct InjectionSiteEvent: Identifiable, Codable, Sendable, Hashable {
             painScore: painScore,
             photoFileId: photoFileId,
             notes: notes,
-            createdAt: Date()
+            createdAt: now,
+            updatedAt: now,
+            version: version,
+            syncState: syncState
         )
     }
 

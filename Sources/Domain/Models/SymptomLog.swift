@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents a subjective outcome, symptom, or quality of life assessment.
-public struct SymptomLog: Identifiable, Codable, Sendable, Hashable {
+public struct SymptomLog: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var timestamp: Date
     public var energyLevel: Int // 1 to 10
@@ -13,6 +13,10 @@ public struct SymptomLog: Identifiable, Codable, Sendable, Hashable {
     public var sideEffects: [String]
     public var notes: String
     public var associatedProtocolId: UUID?
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
 
     public init(
         id: UUID = UUID(),
@@ -25,7 +29,11 @@ public struct SymptomLog: Identifiable, Codable, Sendable, Hashable {
         painScore: Int? = nil,
         sideEffects: [String] = [],
         notes: String = "",
-        associatedProtocolId: UUID? = nil
+        associatedProtocolId: UUID? = nil,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -38,6 +46,10 @@ public struct SymptomLog: Identifiable, Codable, Sendable, Hashable {
         self.sideEffects = sideEffects
         self.notes = notes
         self.associatedProtocolId = associatedProtocolId
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 
     /// Overall composite subjective well-being score from 0 to 100.

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents a quantitative health measurement or clinical biomarker (bloodwork, vitals).
-public struct Biomarker: Identifiable, Codable, Sendable, Hashable {
+public struct Biomarker: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var name: String
     public var category: BiomarkerCategory
@@ -12,6 +12,10 @@ public struct Biomarker: Identifiable, Codable, Sendable, Hashable {
     public var dateRecorded: Date
     public var source: MeasurementSource
     public var notes: String
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
 
     public init(
         id: UUID = UUID(),
@@ -23,7 +27,11 @@ public struct Biomarker: Identifiable, Codable, Sendable, Hashable {
         referenceRangeMax: Double? = nil,
         dateRecorded: Date = Date(),
         source: MeasurementSource = .manualEntry,
-        notes: String = ""
+        notes: String = "",
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.name = name
@@ -35,6 +43,10 @@ public struct Biomarker: Identifiable, Codable, Sendable, Hashable {
         self.dateRecorded = dateRecorded
         self.source = source
         self.notes = notes
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 
     public var status: BiomarkerStatus {

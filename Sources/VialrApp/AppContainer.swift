@@ -21,6 +21,7 @@ public final class AppContainer: @unchecked Sendable {
     public let biomarkerRepository: BiomarkerRepositoryProtocol
     public let symptomRepository: SymptomRepositoryProtocol
     public let costRepository: CostRepositoryProtocol
+    public let syncQueueRepository: SyncQueueRepositoryProtocol
 
     // Services
     public let healthService: HealthServiceProtocol
@@ -35,6 +36,7 @@ public final class AppContainer: @unchecked Sendable {
         biomarkerRepository: BiomarkerRepositoryProtocol = LocalBiomarkerRepository(),
         symptomRepository: SymptomRepositoryProtocol = LocalSymptomRepository(),
         costRepository: CostRepositoryProtocol = LocalCostRepository(),
+        syncQueueRepository: SyncQueueRepositoryProtocol = LocalSyncQueueRepository(),
         healthService: HealthServiceProtocol = HealthKitManager.shared,
         syncEngine: SyncEngineProtocol = SyncEngine.shared
     ) {
@@ -46,6 +48,7 @@ public final class AppContainer: @unchecked Sendable {
         self.biomarkerRepository = biomarkerRepository
         self.symptomRepository = symptomRepository
         self.costRepository = costRepository
+        self.syncQueueRepository = syncQueueRepository
         self.healthService = healthService
         self.syncEngine = syncEngine
     }

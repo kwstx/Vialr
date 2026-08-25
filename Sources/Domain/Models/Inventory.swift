@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents ancillary supplies such as syringes, bacteriostatic water, needles, and alcohol swabs.
-public struct SupplyItem: Identifiable, Codable, Sendable, Hashable {
+public struct SupplyItem: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var name: String
     public var category: SupplyCategory
@@ -10,7 +10,10 @@ public struct SupplyItem: Identifiable, Codable, Sendable, Hashable {
     public var reorderThreshold: Int
     public var costUsd: Double?
     public var notes: String
+    public var createdAt: Date
     public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
 
     public init(
         id: UUID = UUID(),
@@ -21,7 +24,10 @@ public struct SupplyItem: Identifiable, Codable, Sendable, Hashable {
         reorderThreshold: Int = 10,
         costUsd: Double? = nil,
         notes: String = "",
-        updatedAt: Date = Date()
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.name = name
@@ -31,7 +37,10 @@ public struct SupplyItem: Identifiable, Codable, Sendable, Hashable {
         self.reorderThreshold = reorderThreshold
         self.costUsd = costUsd
         self.notes = notes
+        self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 
     public var isLowStock: Bool {

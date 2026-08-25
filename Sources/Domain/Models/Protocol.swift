@@ -2,7 +2,7 @@ import Foundation
 
 /// Represents a period during which one or more compounds are being tracked.
 /// A Protocol encapsulates a start date, end date, status, notes, and associated protocol compounds.
-public struct ProtocolModel: Identifiable, Codable, Sendable, Hashable {
+public struct ProtocolModel: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var name: String
     public var status: ProtocolStatus
@@ -15,6 +15,8 @@ public struct ProtocolModel: Identifiable, Codable, Sendable, Hashable {
     public var userId: UUID?
     public var createdAt: Date
     public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
 
     /// Compatibility alias to support `items` access.
     public var items: [ProtocolCompound] {
@@ -34,7 +36,9 @@ public struct ProtocolModel: Identifiable, Codable, Sendable, Hashable {
         colorHex: String = "#10B981",
         userId: UUID? = nil,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.name = name
@@ -48,6 +52,8 @@ public struct ProtocolModel: Identifiable, Codable, Sendable, Hashable {
         self.userId = userId
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 
     /// Overloaded initializer allowing initialization with `items:` for backwards compatibility.
@@ -63,7 +69,9 @@ public struct ProtocolModel: Identifiable, Codable, Sendable, Hashable {
         colorHex: String = "#10B981",
         userId: UUID? = nil,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.init(
             id: id,
@@ -77,7 +85,9 @@ public struct ProtocolModel: Identifiable, Codable, Sendable, Hashable {
             colorHex: colorHex,
             userId: userId,
             createdAt: createdAt,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            version: version,
+            syncState: syncState
         )
     }
 

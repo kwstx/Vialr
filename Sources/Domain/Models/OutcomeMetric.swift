@@ -2,7 +2,7 @@ import Foundation
 
 /// Represents a specific quantitative or qualitative health metric evaluated against a protocol.
 /// Tracks baseline values, targets, latest progress, and clinical efficacy over the course of a tracking period.
-public struct OutcomeMetric: Identifiable, Codable, Sendable, Hashable {
+public struct OutcomeMetric: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var protocolId: UUID
     public var userId: UUID?
@@ -29,6 +29,8 @@ public struct OutcomeMetric: Identifiable, Codable, Sendable, Hashable {
     
     public var createdAt: Date
     public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
 
     // MARK: - Primary Initializer
     public init(
@@ -50,7 +52,9 @@ public struct OutcomeMetric: Identifiable, Codable, Sendable, Hashable {
         linkedBiomarkerName: String? = nil,
         evaluationNotes: String = "",
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.protocolId = protocolId
@@ -71,6 +75,8 @@ public struct OutcomeMetric: Identifiable, Codable, Sendable, Hashable {
         self.evaluationNotes = evaluationNotes
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 
     // MARK: - Progress & Efficacy Calculations

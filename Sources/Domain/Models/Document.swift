@@ -3,7 +3,7 @@ import Foundation
 /// Represents an uploaded digital file or asset (such as a laboratory bloodwork PDF,
 /// Certificate of Analysis, clinical prescription, medical note, or vial photograph).
 /// Encapsulates storage location, cryptographic checksums, OCR extraction state, and domain links.
-public struct Document: Identifiable, Codable, Sendable, Hashable {
+public struct Document: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var userId: UUID?
     public var title: String
@@ -35,6 +35,8 @@ public struct Document: Identifiable, Codable, Sendable, Hashable {
     public var uploadDate: Date
     public var createdAt: Date
     public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
 
     // MARK: - Primary Initializer
     public init(
@@ -62,7 +64,9 @@ public struct Document: Identifiable, Codable, Sendable, Hashable {
         notes: String = "",
         uploadDate: Date = Date(),
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.userId = userId
@@ -76,7 +80,7 @@ public struct Document: Identifiable, Codable, Sendable, Hashable {
         self.storageKey = storageKey.isEmpty ? "vault/users/\(userId?.uuidString ?? "shared")/docs/\(id.uuidString).enc" : storageKey
         self.sha256Checksum = sha256Checksum
         self.encryption = encryption
-        self.labPanelId = tabPanelId
+        self.labPanelId = labPanelId
         self.protocolId = protocolId
         self.vialId = vialId
         self.compoundId = compoundId
@@ -89,6 +93,8 @@ public struct Document: Identifiable, Codable, Sendable, Hashable {
         self.uploadDate = uploadDate
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 
     // MARK: - Convenience Static Factories
@@ -102,7 +108,9 @@ public struct Document: Identifiable, Codable, Sendable, Hashable {
         protocolId: UUID? = nil,
         documentDate: Date? = nil,
         pageCount: Int? = 1,
-        notes: String = ""
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) -> Document {
         Document(
             title: title,
@@ -112,11 +120,13 @@ public struct Document: Identifiable, Codable, Sendable, Hashable {
             byteSize: byteSize,
             category: .labReport,
             sha256Checksum: sha256Checksum,
-            labPanelId: tabPanelId,
+            labPanelId: labPanelId,
             protocolId: protocolId,
             pageCount: pageCount,
             documentDate: documentDate,
-            notes: notes
+            notes: notes,
+            version: version,
+            syncState: syncState
         )
     }
 
@@ -127,7 +137,9 @@ public struct Document: Identifiable, Codable, Sendable, Hashable {
         byteSize: Int64,
         vialId: UUID? = nil,
         compoundId: UUID? = nil,
-        notes: String = ""
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) -> Document {
         Document(
             title: title,
@@ -138,7 +150,9 @@ public struct Document: Identifiable, Codable, Sendable, Hashable {
             category: .certificateOfAnalysis,
             vialId: vialId,
             compoundId: compoundId,
-            notes: notes
+            notes: notes,
+            version: version,
+            syncState: syncState
         )
     }
 

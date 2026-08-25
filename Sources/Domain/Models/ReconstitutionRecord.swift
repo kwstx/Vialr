@@ -3,7 +3,7 @@ import Foundation
 /// Represents the precise preparation and chemical solution parameters for a reconstituted vial.
 /// To preserve clinical and mathematical integrity across historical dose logs, confirmed records
 /// are immutable and maintain an audited revision history.
-public struct ReconstitutionRecord: Identifiable, Codable, Sendable, Hashable {
+public struct ReconstitutionRecord: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var vialId: UUID
     public var userId: UUID?
@@ -45,6 +45,8 @@ public struct ReconstitutionRecord: Identifiable, Codable, Sendable, Hashable {
     public var photoFileId: UUID?
     public var notes: String
     public var createdAt: Date
+    public var updatedAt: Date
+    public var syncState: SyncState
 
     // MARK: - Primary Initializer
     public init(
@@ -74,7 +76,9 @@ public struct ReconstitutionRecord: Identifiable, Codable, Sendable, Hashable {
         solutionClarity: SolutionClarity = .clearColorless,
         photoFileId: UUID? = nil,
         notes: String = "",
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.vialId = vialId
@@ -107,11 +111,12 @@ public struct ReconstitutionRecord: Identifiable, Codable, Sendable, Hashable {
         self.previousRecordId = previousRecordId
         self.supersededByRecordId = supersededByRecordId
         self.revisionReason = revisionReason
-        
         self.solutionClarity = solutionClarity
         self.photoFileId = photoFileId
         self.notes = notes
         self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.syncState = syncState
     }
 
     // MARK: - Mathematical Helpers
@@ -144,6 +149,7 @@ public struct ReconstitutionRecord: Identifiable, Codable, Sendable, Hashable {
         updatedSelf.effectiveTo = effectiveDate
         updatedSelf.isCurrentActiveRevision = false
         updatedSelf.supersededByRecordId = newRecordId
+        updatedSelf.updatedAt = effectiveDate
         
         // 2. Create the child revision
         let newRevision = ReconstitutionRecord(
@@ -173,7 +179,9 @@ public struct ReconstitutionRecord: Identifiable, Codable, Sendable, Hashable {
             solutionClarity: self.solutionClarity,
             photoFileId: self.photoFileId,
             notes: "Revision \(self.version + 1): \(revisionReason)",
-            createdAt: effectiveDate
+            createdAt: effectiveDate,
+            updatedAt: effectiveDate,
+            syncState: .pendingCreation
         )
         
         return (superseded: updatedSelf, newRevision: newRevision)

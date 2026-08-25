@@ -2,7 +2,7 @@ import Foundation
 
 /// Represents a secure file record whose binary contents reside in encrypted object storage
 /// while its structured metadata, relationships, and integrity checksums reside in PostgreSQL.
-public struct StoredFileRecord: Identifiable, Codable, Sendable, Hashable {
+public struct StoredFileRecord: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var userId: UUID
     public var category: StoredFileCategory
@@ -24,7 +24,9 @@ public struct StoredFileRecord: Identifiable, Codable, Sendable, Hashable {
     // Extensible Metadata (e.g. dimensions, page count, notes)
     public var metadata: [String: String]
     public var createdAt: Date
-    public var updatedAt: Date?
+    public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
 
     public init(
         id: UUID = UUID(),
@@ -44,7 +46,9 @@ public struct StoredFileRecord: Identifiable, Codable, Sendable, Hashable {
         symptomLogId: UUID? = nil,
         metadata: [String: String] = [:],
         createdAt: Date = Date(),
-        updatedAt: Date? = nil
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.userId = userId
@@ -64,5 +68,7 @@ public struct StoredFileRecord: Identifiable, Codable, Sendable, Hashable {
         self.metadata = metadata
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 }

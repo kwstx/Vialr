@@ -3,7 +3,7 @@ import Foundation
 /// Represents a recorded dose event capturing what actually happened vs what was planned.
 /// While the planned schedule defines expectations, DoseEvent captures the ground-truth
 /// execution (actual timestamp, actual dosage, site, vial, skipped reasons), enabling exact adherence analytics.
-public struct DoseEvent: Identifiable, Codable, Sendable, Hashable {
+public struct DoseEvent: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var protocolId: UUID?
     public var protocolCompoundId: UUID?
@@ -27,6 +27,8 @@ public struct DoseEvent: Identifiable, Codable, Sendable, Hashable {
     public var loggedByUserId: UUID?
     public var createdAt: Date
     public var updatedAt: Date
+    public var version: Int
+    public var syncState: SyncState
 
     // MARK: - Compatibility Accessors for Legacy DoseLog Interface
     public var scheduledDate: Date {
@@ -78,7 +80,9 @@ public struct DoseEvent: Identifiable, Codable, Sendable, Hashable {
         notes: String = "",
         loggedByUserId: UUID? = nil,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.id = id
         self.protocolId = protocolId
@@ -103,6 +107,8 @@ public struct DoseEvent: Identifiable, Codable, Sendable, Hashable {
         self.loggedByUserId = loggedByUserId
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.version = version
+        self.syncState = syncState
     }
 
     // MARK: - Compatibility Initializer for Existing Call Sites
@@ -124,7 +130,9 @@ public struct DoseEvent: Identifiable, Codable, Sendable, Hashable {
         notes: String = "",
         skippedReason: String? = nil,
         subjectiveEffectScore: Int? = nil,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        version: Int = 1,
+        syncState: SyncState = .synced
     ) {
         self.init(
             id: id,
@@ -149,7 +157,9 @@ public struct DoseEvent: Identifiable, Codable, Sendable, Hashable {
             notes: notes,
             loggedByUserId: nil,
             createdAt: createdAt,
-            updatedAt: createdAt
+            updatedAt: createdAt,
+            version: version,
+            syncState: syncState
         )
     }
 
@@ -210,7 +220,3 @@ public enum DoseEventStatus: String, Codable, Sendable, CaseIterable, Identifiab
         }
     }
 }
-
-// MARK: - Compatibility Typealiases
-public typealias DoseLog = DoseEvent
-public typealias DoseStatus = DoseEventStatus
