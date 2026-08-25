@@ -567,6 +567,62 @@ final class DomainTests: XCTestCase {
         XCTAssertEqual(decoded.fastingStatus, .fasted)
     }
 
+    func testDocumentPropertiesAndSerialization() throws {
+        let docId = UUID()
+        let labPanelId = UUID()
+        let protocolId = UUID()
+        let drawDate = Date(timeIntervalSince1970: 1704096000)
+
+        // 1. Lab Report PDF
+        let labDoc = Document.labReport(
+            title: "Quest Comprehensive Metabolic & Hormone Panel",
+            fileName: "quest_labs_jan2024.pdf",
+            byteSize: 1024 * 1024 * 3, // 3 MB
+            sha256Checksum: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+            labPanelId: labPanelId,
+            protocolId: protocolId,
+            documentDate: drawDate,
+            pageCount: 4,
+            notes: "Fasted morning draw @ 8:00 AM"
+        )
+
+        XCTAssertEqual(labDoc.category, .labReport)
+        XCTAssertEqual(labDoc.fileExtension, "pdf")
+        XCTAssertEqual(labDoc.mimeType, "application/pdf")
+        XCTAssertTrue(labDoc.isPDF)
+        XCTAssertFalse(labDoc.isImage)
+        XCTAssertEqual(labDoc.pageCount, 4)
+        XCTAssertEqual(labDoc.labPanelId, labPanelId)
+        XCTAssertTrue(labDoc.formattedFileSize.contains("3"))
+
+        // 2. Certificate of Analysis (CoA)
+        let vialId = UUID()
+        let compoundId = UUID()
+        let coaDoc = Document.certificateOfAnalysis(
+            title: "Tirzepatide 10mg HPLC Purity Report",
+            fileName: "tirzepatide_batch_902_coa.pdf",
+            byteSize: 512 * 1024,
+            vialId: vialId,
+            compoundId: compoundId,
+            notes: "Purity verified at 99.6%"
+        )
+
+        XCTAssertEqual(coaDoc.category, .certificateOfAnalysis)
+        XCTAssertEqual(coaDoc.vialId, vialId)
+        XCTAssertEqual(coaDoc.compoundId, compoundId)
+
+        // JSON Codable
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(labDoc)
+        let decoded = try JSONDecoder().decode(Document.self, from: data)
+
+        XCTAssertEqual(decoded.title, "Quest Comprehensive Metabolic & Hormone Panel")
+        XCTAssertEqual(decoded.fileName, "quest_labs_jan2024.pdf")
+        XCTAssertEqual(decoded.category, .labReport)
+        XCTAssertEqual(decoded.sha256Checksum, "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
+    }
+
+
 
 
 

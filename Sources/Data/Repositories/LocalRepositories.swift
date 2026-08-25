@@ -511,6 +511,56 @@ public final class LocalLabPanelRepository: LabPanelRepositoryProtocol, @uncheck
     }
 }
 
+// MARK: - Document Repository
+public final class LocalDocumentRepository: DocumentRepositoryProtocol, @unchecked Sendable {
+    private let store: LocalStore
+
+    public init(store: LocalStore = .shared) {
+        self.store = store
+    }
+
+    public func fetchAll() async throws -> [Document] {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getAllDocuments()
+    }
+
+    public func fetchByCategory(_ category: DocumentCategory) async throws -> [Document] {
+        let all = try await fetchAll()
+        return all.filter { $0.category == category }
+    }
+
+    public func fetchForLabPanel(labPanelId: UUID) async throws -> [Document] {
+        let all = try await fetchAll()
+        return all.filter { $0.labPanelId == labPanelId }
+    }
+
+    public func fetchForProtocol(protocolId: UUID) async throws -> [Document] {
+        let all = try await fetchAll()
+        return all.filter { $0.protocolId == protocolId }
+    }
+
+    public func fetchForVial(vialId: UUID) async throws -> [Document] {
+        let all = try await fetchAll()
+        return all.filter { $0.vialId == vialId }
+    }
+
+    public func fetch(byId id: UUID) async throws -> Document? {
+        let all = try await fetchAll()
+        return all.first(where: { $0.id == id })
+    }
+
+    public func save(_ document: Document) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.saveDocument(document)
+    }
+
+    public func delete(byId id: UUID) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.deleteDocument(id: id)
+    }
+}
+
+
 
 
 

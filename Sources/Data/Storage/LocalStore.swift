@@ -18,6 +18,7 @@ public actor LocalStore {
     public var reconstitutionRecords: [ReconstitutionRecord] = []
     public var measurements: [Measurement] = []
     public var labPanels: [LabPanel] = []
+    public var documents: [Document] = []
 
     private var isInitialized = false
 
@@ -254,7 +255,21 @@ public actor LocalStore {
     public func deleteLabPanel(id: UUID) {
         labPanels.removeAll { $0.id == id }
     }
+
+    // MARK: - Documents
+    public func getAllDocuments() -> [Document] { documents }
+    public func saveDocument(_ document: Document) {
+        if let idx = documents.firstIndex(where: { $0.id == document.id }) {
+            documents[idx] = document
+        } else {
+            documents.append(document)
+        }
+    }
+    public func deleteDocument(id: UUID) {
+        documents.removeAll { $0.id == id }
+    }
 }
+
 
 
 

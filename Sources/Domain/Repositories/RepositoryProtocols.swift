@@ -89,6 +89,18 @@ public protocol LabPanelRepositoryProtocol: Sendable {
     func delete(byId id: UUID) async throws
 }
 
+public protocol DocumentRepositoryProtocol: Sendable {
+    func fetchAll() async throws -> [Document]
+    func fetchByCategory(_ category: DocumentCategory) async throws -> [Document]
+    func fetchForLabPanel(labPanelId: UUID) async throws -> [Document]
+    func fetchForProtocol(protocolId: UUID) async throws -> [Document]
+    func fetchForVial(vialId: UUID) async throws -> [Document]
+    func fetch(byId id: UUID) async throws -> Document?
+    func save(_ document: Document) async throws
+    func delete(byId id: UUID) async throws
+}
+
+
 
 
 public protocol SymptomRepositoryProtocol: Sendable {
