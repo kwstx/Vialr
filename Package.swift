@@ -165,6 +165,7 @@ let package = Package(
             name: "StorageTests",
             dependencies: [
                 "Domain",
+                "Data",
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "Fluent", package: "fluent")
             ],

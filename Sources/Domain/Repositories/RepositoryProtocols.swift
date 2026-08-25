@@ -177,3 +177,38 @@ public protocol SyncQueueRepositoryProtocol: Sendable {
     /// Clears the entire queue (used during reset / logout).
     func clearAll() async throws
 }
+
+// MARK: - Outbox Repository Protocol
+public protocol OutboxRepositoryProtocol: Sendable {
+    /// Fetches pending Outbox operations ordered chronologically.
+    func fetchPending(limit: Int?) async throws -> [OutboxOperation]
+    
+    /// Enqueues an Outbox operation.
+    func enqueue(_ operation: OutboxOperation) async throws
+    
+    /// Marks an Outbox operation as currently in-flight.
+    func markInFlight(id: UUID) async throws
+    
+    /// Marks an Outbox operation as completed with canonical server version.
+    func markCompleted(id: UUID, canonicalVersion: Int?, serverTimestamp: Date?) async throws
+    
+    /// Records a failed sync attempt and sets retry schedule.
+    func markFailed(id: UUID, error: String, retryable: Bool) async throws
+    
+    /// Purges successfully completed operations.
+    func purgeCompleted() async throws
+    
+    /// Returns count of pending operations.
+    func countPending() async throws -> Int
+    
+    /// Clears the entire outbox.
+    func clearAll() async throws
+}
+
+// MARK: - Protocol Revision Repository Protocol
+public protocol ProtocolRevisionRepositoryProtocol: Sendable {
+    func fetchRevisions(forProtocol protocolId: UUID) async throws -> [ProtocolRevision]
+    func fetch(byId id: UUID) async throws -> ProtocolRevision?
+    func save(_ revision: ProtocolRevision) async throws
+}
+

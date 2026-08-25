@@ -82,11 +82,14 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateUsersMigration())
     app.migrations.add(CreateCompoundsMigration())
     app.migrations.add(CreateProtocolsMigration())
+    app.migrations.add(CreateProtocolRevisionsMigration())
     app.migrations.add(CreateDoseLogsMigration())
     app.migrations.add(CreateVialsMigration())
     app.migrations.add(CreateBiomarkersMigration())
+    app.migrations.add(CreateLabPanelsMigration())
     app.migrations.add(CreateSymptomLogsMigration())
     app.migrations.add(CreateSyncChangesMigration())
+    app.migrations.add(CreateSyncConflictsMigration())
     app.migrations.add(CreateStoredFilesMigration())
 
     // Auto-migrate if flag is passed

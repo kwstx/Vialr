@@ -689,3 +689,74 @@ public final class LocalSyncQueueRepository: SyncQueueRepositoryProtocol, @unche
         await store.clearAllSyncQueue()
     }
 }
+
+// MARK: - Local Outbox Repository
+public final class LocalOutboxRepository: OutboxRepositoryProtocol, @unchecked Sendable {
+    private let store: LocalStore
+
+    public init(store: LocalStore = .shared) {
+        self.store = store
+    }
+
+    public func fetchPending(limit: Int? = nil) async throws -> [OutboxOperation] {
+        await store.getPendingOutboxOperations(limit: limit)
+    }
+
+    public func enqueue(_ operation: OutboxOperation) async throws {
+        await store.enqueueOutboxMutation(
+            objectIdentifier: operation.objectIdentifier,
+            entityType: operation.entityType,
+            operationType: operation.operationType,
+            entity: operation.payload ?? "{}",
+            version: operation.version,
+            conflictStrategy: operation.conflictStrategy
+        )
+    }
+
+    public func markInFlight(id: UUID) async throws {
+        await store.markOutboxInFlight(id: id)
+    }
+
+    public func markCompleted(id: UUID, canonicalVersion: Int? = nil, serverTimestamp: Date? = nil) async throws {
+        await store.markOutboxCompleted(id: id, canonicalVersion: canonicalVersion, serverTimestamp: serverTimestamp)
+    }
+
+    public func markFailed(id: UUID, error: String, retryable: Bool) async throws {
+        await store.markOutboxFailed(id: id, error: error, retryable: retryable)
+    }
+
+    public func purgeCompleted() async throws {
+        await store.purgeCompletedOutbox()
+    }
+
+    public func countPending() async throws -> Int {
+        await store.countPendingOutbox()
+    }
+
+    public func clearAll() async throws {
+        await store.clearAllOutbox()
+    }
+}
+
+// MARK: - Local Protocol Revision Repository
+public final class LocalProtocolRevisionRepository: ProtocolRevisionRepositoryProtocol, @unchecked Sendable {
+    private let store: LocalStore
+
+    public init(store: LocalStore = .shared) {
+        self.store = store
+    }
+
+    public func fetchRevisions(forProtocol protocolId: UUID) async throws -> [ProtocolRevision] {
+        await store.getProtocolRevisions(forProtocol: protocolId)
+    }
+
+    public func fetch(byId id: UUID) async throws -> ProtocolRevision? {
+        let revs = await store.protocolRevisions
+        return revs.first(where: { $0.id == id })
+    }
+
+    public func save(_ revision: ProtocolRevision) async throws {
+        await store.saveProtocolRevision(revision)
+    }
+}
+

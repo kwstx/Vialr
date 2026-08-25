@@ -36,9 +36,10 @@ public enum Endpoint: Sendable {
     case listBiomarkers
     case logBiomarker
 
-    // Offline Delta Sync
+    // Offline Delta & Outbox Sync
     case syncPush
     case syncPull(since: Date?)
+    case syncOutbox
 
     // Reports
     case generateReport
@@ -78,8 +79,10 @@ public enum Endpoint: Sendable {
 
         case .syncPush: return "/api/v1/sync/push"
         case .syncPull: return "/api/v1/sync/pull"
+        case .syncOutbox: return "/api/v1/sync/outbox"
 
         case .generateReport: return "/api/v1/reports/generate"
+
 
         case .listFiles(let category, let vialId, let biomarkerId, let doseLogId):
             var queryParts: [String] = []
@@ -102,7 +105,7 @@ public enum Endpoint: Sendable {
         switch self {
         case .listCompounds, .listProtocols, .listDoses, .listVials, .listBiomarkers, .syncPull, .userProfile, .listFiles, .getFileMetadata, .downloadFile:
             return .get
-        case .register, .login, .createCompound, .createProtocol, .logDose, .createVial, .logBiomarker, .syncPush, .generateReport, .uploadFile:
+        case .register, .login, .createCompound, .createProtocol, .logDose, .createVial, .logBiomarker, .syncPush, .syncOutbox, .generateReport, .uploadFile:
             return .post
         case .updateProtocol, .updateDose, .updateVial:
             return .put

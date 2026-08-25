@@ -29,6 +29,8 @@ public actor LocalStore {
     public var outcomeMetrics: [OutcomeMetric] = []
     public var storedFiles: [StoredFileRecord] = []
     public var syncQueue: [SyncQueueItem] = []
+    public var outboxOperations: [OutboxOperation] = []
+    public var protocolRevisions: [ProtocolRevision] = []
 
     private var isInitialized = false
 
@@ -175,7 +177,7 @@ public actor LocalStore {
     // MARK: - Protocols
     public func getAllProtocols() -> [ProtocolModel] { protocols }
 
-    public func saveProtocol(_ inputProto: ProtocolModel) {
+    public func saveProtocol(_ inputProto: ProtocolModel, changeReason: String = "Protocol update") {
         var proto = inputProto
         proto.updatedAt = Date()
         let isNew = !protocols.contains(where: { $0.id == proto.id })
@@ -191,6 +193,28 @@ public actor LocalStore {
         } else {
             protocols.append(proto)
         }
+
+        // Longitudinal Protocol Tracking: Record append-oriented ProtocolRevision
+        let revision = ProtocolRevision(
+            protocolId: proto.id,
+            revisionNumber: proto.version,
+            name: proto.name,
+            compounds: proto.compounds,
+            reasonForChange: changeReason,
+            changedByUserId: proto.userId,
+            effectiveDate: proto.startDate,
+            version: proto.version
+        )
+        protocolRevisions.append(revision)
+
+        enqueueOutboxMutation(
+            objectIdentifier: revision.id,
+            entityType: .protocolRevision,
+            operationType: .append,
+            entity: revision,
+            version: revision.version,
+            conflictStrategy: .appendRecord
+        )
 
         enqueueSyncMutation(
             entityType: "protocol",
@@ -786,7 +810,28 @@ public actor LocalStore {
         }
     }
 
-    // MARK: - Synchronization Queue Operations
+    // MARK: - Protocol Revisions (Append-Oriented Protocol Tracking)
+    public func getProtocolRevisions(forProtocol protocolId: UUID) -> [ProtocolRevision] {
+        protocolRevisions.filter { $0.protocolId == protocolId }.sorted(by: { $0.revisionNumber < $1.revisionNumber })
+    }
+
+    public func saveProtocolRevision(_ revision: ProtocolRevision) {
+        if let idx = protocolRevisions.firstIndex(where: { $0.id == revision.id }) {
+            protocolRevisions[idx] = revision
+        } else {
+            protocolRevisions.append(revision)
+        }
+        enqueueOutboxMutation(
+            objectIdentifier: revision.id,
+            entityType: .protocolRevision,
+            operationType: .append,
+            entity: revision,
+            version: revision.version,
+            conflictStrategy: .appendRecord
+        )
+    }
+
+    // MARK: - Synchronization Queue & Outbox Operations
     public func enqueueSyncMutation<T: Encodable>(
         entityType: String,
         entityId: UUID,
@@ -802,10 +847,54 @@ public actor LocalStore {
             version: version
         )
         syncQueue.append(item)
+
+        // Mirror in Outbox with safety-oriented conflict policy
+        let entityTypeEnum = OutboxEntityType(rawValue: entityType) ?? .custom
+        let opTypeEnum = OutboxOperationType(rawValue: action.rawValue) ?? .create
+        let strategy = OutboxOperation.defaultStrategy(for: entityTypeEnum)
+        let outboxOp = OutboxOperation.create(
+            objectIdentifier: entityId,
+            entityType: entityTypeEnum,
+            operationType: opTypeEnum,
+            entity: entity,
+            version: version,
+            conflictStrategy: strategy
+        )
+        outboxOperations.append(outboxOp)
+    }
+
+    public func enqueueOutboxMutation<T: Encodable>(
+        objectIdentifier: UUID,
+        entityType: OutboxEntityType,
+        operationType: OutboxOperationType,
+        entity: T,
+        version: Int = 1,
+        conflictStrategy: ConflictStrategy? = nil
+    ) {
+        let op = OutboxOperation.create(
+            objectIdentifier: objectIdentifier,
+            entityType: entityType,
+            operationType: operationType,
+            entity: entity,
+            version: version,
+            conflictStrategy: conflictStrategy
+        )
+        outboxOperations.append(op)
     }
 
     public func getPendingSyncQueue(limit: Int? = nil) -> [SyncQueueItem] {
         let pending = syncQueue.filter { $0.status == .pending || ($0.status == .failed && ($0.nextRetryAt ?? Date()) <= Date()) }
+        if let limit = limit {
+            return Array(pending.prefix(limit))
+        }
+        return pending
+    }
+
+    public func getPendingOutboxOperations(limit: Int? = nil) -> [OutboxOperation] {
+        let pending = outboxOperations.filter {
+            $0.status == .pending || ($0.status == .failed && ($0.nextRetryAt ?? Date()) <= Date())
+        }.sorted(by: { $0.timestamp < $1.timestamp })
+        
         if let limit = limit {
             return Array(pending.prefix(limit))
         }
@@ -817,15 +906,50 @@ public actor LocalStore {
             syncQueue[idx].status = .inFlight
             syncQueue[idx].attempts += 1
         }
+        if let idx = outboxOperations.firstIndex(where: { $0.id == id }) {
+            outboxOperations[idx].status = .inFlight
+            outboxOperations[idx].retryCount += 1
+        }
+    }
+
+    public func markOutboxInFlight(id: UUID) {
+        if let idx = outboxOperations.firstIndex(where: { $0.id == id }) {
+            outboxOperations[idx].status = .inFlight
+            outboxOperations[idx].retryCount += 1
+        }
     }
 
     public func markSyncItemCompleted(id: UUID) {
         if let idx = syncQueue.firstIndex(where: { $0.id == id }) {
             let item = syncQueue[idx]
             syncQueue[idx].status = .completed
-            
-            // Mark matching entity in memory as .synced
             markEntitySynced(type: item.entityType, id: item.entityId)
+        }
+        if let idx = outboxOperations.firstIndex(where: { $0.id == id }) {
+            let op = outboxOperations[idx]
+            outboxOperations[idx].status = .completed
+            markEntitySynced(type: op.entityType.rawValue, id: op.objectIdentifier)
+        }
+    }
+
+    public func markOutboxCompleted(id: UUID, canonicalVersion: Int? = nil, serverTimestamp: Date? = nil) {
+        if let idx = outboxOperations.firstIndex(where: { $0.id == id }) {
+            let op = outboxOperations[idx]
+            outboxOperations[idx].status = .completed
+            outboxOperations[idx].canonicalServerVersion = canonicalVersion
+            outboxOperations[idx].serverTimestamp = serverTimestamp
+            
+            if let ver = canonicalVersion {
+                applyCanonicalServerVersion(
+                    operationId: id,
+                    objectIdentifier: op.objectIdentifier,
+                    entityType: op.entityType,
+                    canonicalVersion: ver,
+                    serverTimestamp: serverTimestamp ?? Date()
+                )
+            } else {
+                markEntitySynced(type: op.entityType.rawValue, id: op.objectIdentifier)
+            }
         }
     }
 
@@ -840,18 +964,151 @@ public actor LocalStore {
                 markEntitySyncFailed(type: syncQueue[idx].entityType, id: syncQueue[idx].entityId)
             }
         }
+        if let idx = outboxOperations.firstIndex(where: { $0.id == id }) {
+            outboxOperations[idx].lastError = error
+            if retryable && outboxOperations[idx].retryCount < outboxOperations[idx].maxRetries {
+                outboxOperations[idx].status = .pending
+                outboxOperations[idx].nextRetryAt = Date().addingTimeInterval(outboxOperations[idx].backoffDelaySeconds)
+            } else {
+                outboxOperations[idx].status = .failed
+                markEntitySyncFailed(type: outboxOperations[idx].entityType.rawValue, id: outboxOperations[idx].objectIdentifier)
+            }
+        }
+    }
+
+    public func markOutboxFailed(id: UUID, error: String, retryable: Bool) {
+        if let idx = outboxOperations.firstIndex(where: { $0.id == id }) {
+            outboxOperations[idx].lastError = error
+            if retryable && outboxOperations[idx].retryCount < outboxOperations[idx].maxRetries {
+                outboxOperations[idx].status = .pending
+                outboxOperations[idx].nextRetryAt = Date().addingTimeInterval(outboxOperations[idx].backoffDelaySeconds)
+            } else {
+                outboxOperations[idx].status = .failed
+                markEntitySyncFailed(type: outboxOperations[idx].entityType.rawValue, id: outboxOperations[idx].objectIdentifier)
+            }
+        }
     }
 
     public func purgeCompletedSync() {
         syncQueue.removeAll { $0.status == .completed }
+        outboxOperations.removeAll { $0.status == .completed }
+    }
+
+    public func purgeCompletedOutbox() {
+        outboxOperations.removeAll { $0.status == .completed }
     }
 
     public func countPendingSync() -> Int {
         syncQueue.filter { $0.status == .pending || $0.status == .inFlight }.count
     }
 
+    public func countPendingOutbox() -> Int {
+        outboxOperations.filter { $0.status == .pending || $0.status == .inFlight }.count
+    }
+
     public func clearAllSyncQueue() {
         syncQueue.removeAll()
+        outboxOperations.removeAll()
+    }
+
+    public func clearAllOutbox() {
+        outboxOperations.removeAll()
+    }
+
+    /// Applies the canonical server version and timestamp returned by PostgreSQL after operation validation.
+    public func applyCanonicalServerVersion(
+        operationId: UUID,
+        objectIdentifier: UUID,
+        entityType: OutboxEntityType,
+        canonicalVersion: Int,
+        serverTimestamp: Date
+    ) {
+        switch entityType {
+        case .doseEvent:
+            if let idx = doseLogs.firstIndex(where: { $0.id == objectIdentifier }) {
+                doseLogs[idx].version = canonicalVersion
+                doseLogs[idx].updatedAt = serverTimestamp
+                doseLogs[idx].syncState = .synced
+            }
+        case .vial:
+            if let idx = vials.firstIndex(where: { $0.id == objectIdentifier }) {
+                vials[idx].version = canonicalVersion
+                vials[idx].updatedAt = serverTimestamp
+                vials[idx].syncState = .synced
+            }
+        case .protocolModel:
+            if let idx = protocols.firstIndex(where: { $0.id == objectIdentifier }) {
+                protocols[idx].version = canonicalVersion
+                protocols[idx].updatedAt = serverTimestamp
+                protocols[idx].syncState = .synced
+            }
+        case .protocolRevision:
+            if let idx = protocolRevisions.firstIndex(where: { $0.id == objectIdentifier }) {
+                protocolRevisions[idx].version = canonicalVersion
+                protocolRevisions[idx].updatedAt = serverTimestamp
+                protocolRevisions[idx].syncState = .synced
+            }
+        case .biomarker:
+            if let idx = biomarkers.firstIndex(where: { $0.id == objectIdentifier }) {
+                biomarkers[idx].version = canonicalVersion
+                biomarkers[idx].updatedAt = serverTimestamp
+                biomarkers[idx].syncState = .synced
+            }
+        case .labPanel:
+            if let idx = labPanels.firstIndex(where: { $0.id == objectIdentifier }) {
+                labPanels[idx].version = canonicalVersion
+                labPanels[idx].updatedAt = serverTimestamp
+                labPanels[idx].syncState = .synced
+            }
+        case .compound:
+            if let idx = compounds.firstIndex(where: { $0.id == objectIdentifier }) {
+                compounds[idx].version = canonicalVersion
+                compounds[idx].updatedAt = serverTimestamp
+                compounds[idx].syncState = .synced
+            }
+        case .userPreference, .user:
+            if var u = currentUser, u.id == objectIdentifier {
+                u.version = canonicalVersion
+                u.updatedAt = serverTimestamp
+                u.syncState = .synced
+                self.currentUser = u
+            }
+        default:
+            markEntitySynced(type: entityType.rawValue, id: objectIdentifier)
+        }
+    }
+
+    /// Preserves a concurrent twin / conflicting record when server detects a conflict on historical medical data.
+    public func applyConflictPreservedRecord(entityType: OutboxEntityType, primaryId: UUID, secondaryPayloadJson: String) {
+        guard let data = secondaryPayloadJson.data(using: .utf8) else { return }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        switch entityType {
+        case .doseEvent:
+            if var twinDose = try? decoder.decode(DoseEvent.self, from: data) {
+                twinDose.syncState = .synced
+                if !doseLogs.contains(where: { $0.id == twinDose.id }) {
+                    doseLogs.append(twinDose)
+                }
+            }
+        case .labPanel:
+            if var twinPanel = try? decoder.decode(LabPanel.self, from: data) {
+                twinPanel.syncState = .synced
+                if !labPanels.contains(where: { $0.id == twinPanel.id }) {
+                    labPanels.append(twinPanel)
+                }
+            }
+        case .biomarker:
+            if var twinB = try? decoder.decode(Biomarker.self, from: data) {
+                twinB.syncState = .synced
+                if !biomarkers.contains(where: { $0.id == twinB.id }) {
+                    biomarkers.append(twinB)
+                }
+            }
+        default:
+            break
+        }
     }
 
     // MARK: - Internal Sync State Mutators
@@ -869,6 +1126,10 @@ public actor LocalStore {
             if let idx = protocols.firstIndex(where: { $0.id == id }) {
                 protocols[idx].syncState = .synced
             }
+        case "protocolRevision":
+            if let idx = protocolRevisions.firstIndex(where: { $0.id == id }) {
+                protocolRevisions[idx].syncState = .synced
+            }
         case "vial":
             if let idx = vials.firstIndex(where: { $0.id == id }) {
                 vials[idx].syncState = .synced
@@ -880,6 +1141,10 @@ public actor LocalStore {
         case "biomarker":
             if let idx = biomarkers.firstIndex(where: { $0.id == id }) {
                 biomarkers[idx].syncState = .synced
+            }
+        case "labPanel":
+            if let idx = labPanels.firstIndex(where: { $0.id == id }) {
+                labPanels[idx].syncState = .synced
             }
         case "measurement":
             if let idx = measurements.firstIndex(where: { $0.id == id }) {
@@ -905,3 +1170,4 @@ public actor LocalStore {
         }
     }
 }
+

@@ -94,10 +94,46 @@ public struct SyncQueueItem: Identifiable, Codable, Sendable, Hashable {
         return try? decoder.decode(T.self, from: data)
     }
 
-    /// Calculates exponential backoff delay in seconds for retries (e.g. 2s, 4s, 8s, 16s...).
-    public var backoffDelaySeconds: TimeInterval {
-        let base: Double = 2.0
-        let exponent = min(Double(attempts), 6.0)
-        return pow(base, exponent)
+    /// Converts this item to an OutboxOperation.
+    public func toOutboxOperation(conflictStrategy: ConflictStrategy? = nil) -> OutboxOperation {
+        let entityEnum = OutboxEntityType(rawValue: entityType) ?? .custom
+        let opEnum = OutboxOperationType(rawValue: action.rawValue) ?? .create
+        let statusEnum = OutboxStatus(rawValue: status.rawValue) ?? .pending
+        let strategy = conflictStrategy ?? OutboxOperation.defaultStrategy(for: entityEnum)
+
+        return OutboxOperation(
+            id: id,
+            objectIdentifier: entityId,
+            entityType: entityEnum,
+            operationType: opEnum,
+            version: version,
+            timestamp: queuedAt,
+            payload: payloadJSON,
+            conflictStrategy: strategy,
+            status: statusEnum,
+            retryCount: attempts,
+            maxRetries: maxAttempts,
+            lastError: lastError,
+            nextRetryAt: nextRetryAt
+        )
+    }
+
+    /// Initializes a SyncQueueItem from an OutboxOperation.
+    public init(from outbox: OutboxOperation) {
+        self.init(
+            id: outbox.id,
+            entityType: outbox.entityType.rawValue,
+            entityId: outbox.objectIdentifier,
+            action: SyncAction(rawValue: outbox.operationType.rawValue) ?? .create,
+            payloadJSON: outbox.payload,
+            version: outbox.version,
+            queuedAt: outbox.timestamp,
+            attempts: outbox.retryCount,
+            maxAttempts: outbox.maxRetries,
+            lastError: outbox.lastError,
+            status: SyncQueueStatus(rawValue: outbox.status.rawValue) ?? .pending,
+            nextRetryAt: outbox.nextRetryAt
+        )
     }
 }
+
