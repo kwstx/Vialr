@@ -489,6 +489,86 @@ final class DomainTests: XCTestCase {
     }
 
 
+    func testLabPanelAndLabResultAggregation() throws {
+        let panelId = UUID()
+        let protocolId = UUID()
+        let drawDate = Date(timeIntervalSince1970: 1704096000)
+
+        let result1 = LabResult(
+            panelId: panelId,
+            biomarkerName: "Total Testosterone",
+            category: .hormones,
+            value: 840.0,
+            unit: "ng/dL",
+            referenceRangeMin: 250.0,
+            referenceRangeMax: 1100.0,
+            referenceRangeText: "250 - 1100 ng/dL"
+        )
+
+        let result2 = LabResult(
+            panelId: panelId,
+            biomarkerName: "Fasting Blood Glucose",
+            category: .metabolic,
+            value: 86.0,
+            unit: "mg/dL",
+            referenceRangeMin: 70.0,
+            referenceRangeMax: 99.0
+        )
+
+        let result3 = LabResult(
+            panelId: panelId,
+            biomarkerName: "hs-CRP (High-Sensitivity)",
+            category: .inflammatory,
+            value: 4.2,
+            unit: "mg/L",
+            referenceRangeMin: 0.0,
+            referenceRangeMax: 3.0 // High / Elevated
+        )
+
+        XCTAssertTrue(result1.isNormal)
+        XCTAssertEqual(result1.flag, .inRange)
+        XCTAssertEqual(result1.formattedValue, "840 ng/dL")
+
+        XCTAssertTrue(result2.isNormal)
+        XCTAssertEqual(result2.flag, .inRange)
+
+        XCTAssertFalse(result3.isNormal)
+        XCTAssertEqual(result3.flag, .high)
+
+        let panel = LabPanel(
+            id: panelId,
+            panelName: "Comprehensive Hormone & Metabolic Diagnostic",
+            labName: "Labcorp",
+            collectionDate: drawDate,
+            status: .completed,
+            results: [result1, result2, result3],
+            orderingPhysician: "Dr. Alexander Vance, MD",
+            associatedProtocolId: protocolId,
+            fastingStatus: .fasted
+        )
+
+        XCTAssertEqual(panel.resultCount, 3)
+        XCTAssertTrue(panel.hasAbnormalResults)
+        XCTAssertEqual(panel.abnormalResults.count, 1)
+        XCTAssertEqual(panel.abnormalResults.first?.biomarkerName, "hs-CRP (High-Sensitivity)")
+
+        let lookup = panel.result(forBiomarker: "Testosterone")
+        XCTAssertNotNil(lookup)
+        XCTAssertEqual(lookup?.value, 840.0)
+
+        // JSON Codable
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(panel)
+        let decoded = try JSONDecoder().decode(LabPanel.self, from: data)
+
+        XCTAssertEqual(decoded.id, panelId)
+        XCTAssertEqual(decoded.panelName, "Comprehensive Hormone & Metabolic Diagnostic")
+        XCTAssertEqual(decoded.results.count, 3)
+        XCTAssertEqual(decoded.fastingStatus, .fasted)
+    }
+
+
+
 
 
     func testStoredFileRecordEncodingDecoding() throws {

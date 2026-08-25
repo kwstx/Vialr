@@ -79,6 +79,17 @@ public protocol MeasurementRepositoryProtocol: Sendable {
     func delete(byId id: UUID) async throws
 }
 
+public protocol LabPanelRepositoryProtocol: Sendable {
+    func fetchAll() async throws -> [LabPanel]
+    func fetchRecent(limit: Int) async throws -> [LabPanel]
+    func fetchForDateRange(start: Date, end: Date) async throws -> [LabPanel]
+    func fetchForProtocol(protocolId: UUID) async throws -> [LabPanel]
+    func fetch(byId id: UUID) async throws -> LabPanel?
+    func save(_ panel: LabPanel) async throws
+    func delete(byId id: UUID) async throws
+}
+
+
 
 public protocol SymptomRepositoryProtocol: Sendable {
     func fetchAll() async throws -> [SymptomLog]

@@ -467,6 +467,51 @@ public final class LocalMeasurementRepository: MeasurementRepositoryProtocol, @u
     }
 }
 
+// MARK: - Lab Panel Repository
+public final class LocalLabPanelRepository: LabPanelRepositoryProtocol, @unchecked Sendable {
+    private let store: LocalStore
+
+    public init(store: LocalStore = .shared) {
+        self.store = store
+    }
+
+    public func fetchAll() async throws -> [LabPanel] {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getAllLabPanels()
+    }
+
+    public func fetchRecent(limit: Int) async throws -> [LabPanel] {
+        let all = try await fetchAll()
+        return Array(all.sorted(by: { $0.collectionDate > $1.collectionDate }).prefix(limit))
+    }
+
+    public func fetchForDateRange(start: Date, end: Date) async throws -> [LabPanel] {
+        let all = try await fetchAll()
+        return all.filter { $0.collectionDate >= start && $0.collectionDate <= end }
+    }
+
+    public func fetchForProtocol(protocolId: UUID) async throws -> [LabPanel] {
+        let all = try await fetchAll()
+        return all.filter { $0.associatedProtocolId == protocolId }
+    }
+
+    public func fetch(byId id: UUID) async throws -> LabPanel? {
+        let all = try await fetchAll()
+        return all.first(where: { $0.id == id })
+    }
+
+    public func save(_ panel: LabPanel) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.saveLabPanel(panel)
+    }
+
+    public func delete(byId id: UUID) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.deleteLabPanel(id: id)
+    }
+}
+
+
 
 
 

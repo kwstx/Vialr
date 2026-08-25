@@ -17,6 +17,7 @@ public actor LocalStore {
     public var injectionSiteEvents: [InjectionSiteEvent] = []
     public var reconstitutionRecords: [ReconstitutionRecord] = []
     public var measurements: [Measurement] = []
+    public var labPanels: [LabPanel] = []
 
     private var isInitialized = false
 
@@ -240,7 +241,21 @@ public actor LocalStore {
     public func deleteMeasurement(id: UUID) {
         measurements.removeAll { $0.id == id }
     }
+
+    // MARK: - Lab Panels
+    public func getAllLabPanels() -> [LabPanel] { labPanels }
+    public func saveLabPanel(_ panel: LabPanel) {
+        if let idx = labPanels.firstIndex(where: { $0.id == panel.id }) {
+            labPanels[idx] = panel
+        } else {
+            labPanels.append(panel)
+        }
+    }
+    public func deleteLabPanel(id: UUID) {
+        labPanels.removeAll { $0.id == id }
+    }
 }
+
 
 
 
