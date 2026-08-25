@@ -14,6 +14,7 @@ public actor LocalStore {
     public var symptomLogs: [SymptomLog] = []
     public var costs: [CostRecord] = []
     public var currentUser: User?
+    public var injectionSiteEvents: [InjectionSiteEvent] = []
 
     private var isInitialized = false
 
@@ -198,6 +199,20 @@ public actor LocalStore {
             currentUser = nil
         }
     }
+
+    // MARK: - Injection Site Events
+    public func getAllInjectionSiteEvents() -> [InjectionSiteEvent] { injectionSiteEvents }
+    public func saveInjectionSiteEvent(_ event: InjectionSiteEvent) {
+        if let idx = injectionSiteEvents.firstIndex(where: { $0.id == event.id }) {
+            injectionSiteEvents[idx] = event
+        } else {
+            injectionSiteEvents.append(event)
+        }
+    }
+    public func deleteInjectionSiteEvent(id: UUID) {
+        injectionSiteEvents.removeAll { $0.id == id }
+    }
 }
+
 
 

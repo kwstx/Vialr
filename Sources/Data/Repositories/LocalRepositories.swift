@@ -345,4 +345,44 @@ public final class LocalUserRepository: UserRepositoryProtocol, @unchecked Senda
     }
 }
 
+// MARK: - Injection Site Event Repository
+public final class LocalInjectionSiteEventRepository: InjectionSiteEventRepositoryProtocol, @unchecked Sendable {
+    private let store: LocalStore
+
+    public init(store: LocalStore = .shared) {
+        self.store = store
+    }
+
+    public func fetchAll() async throws -> [InjectionSiteEvent] {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getAllInjectionSiteEvents()
+    }
+
+    public func fetchRecent(limit: Int) async throws -> [InjectionSiteEvent] {
+        let all = try await fetchAll()
+        return Array(all.sorted(by: { $0.timestamp > $1.timestamp }).prefix(limit))
+    }
+
+    public func fetchForDoseEvent(doseEventId: UUID) async throws -> InjectionSiteEvent? {
+        let all = try await fetchAll()
+        return all.first(where: { $0.doseEventId == doseEventId })
+    }
+
+    public func fetchForSite(siteId: String) async throws -> [InjectionSiteEvent] {
+        let all = try await fetchAll()
+        return all.filter { $0.siteId == siteId }
+    }
+
+    public func save(_ event: InjectionSiteEvent) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.saveInjectionSiteEvent(event)
+    }
+
+    public func delete(byId id: UUID) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.deleteInjectionSiteEvent(id: id)
+    }
+}
+
+
 

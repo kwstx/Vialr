@@ -26,6 +26,15 @@ public protocol DoseLogRepositoryProtocol: Sendable {
 
 public typealias DoseEventRepositoryProtocol = DoseLogRepositoryProtocol
 
+public protocol InjectionSiteEventRepositoryProtocol: Sendable {
+    func fetchAll() async throws -> [InjectionSiteEvent]
+    func fetchRecent(limit: Int) async throws -> [InjectionSiteEvent]
+    func fetchForDoseEvent(doseEventId: UUID) async throws -> InjectionSiteEvent?
+    func fetchForSite(siteId: String) async throws -> [InjectionSiteEvent]
+    func save(_ event: InjectionSiteEvent) async throws
+    func delete(byId id: UUID) async throws
+}
+
 
 public protocol VialRepositoryProtocol: Sendable {
     func fetchAll() async throws -> [Vial]

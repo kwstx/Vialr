@@ -240,6 +240,62 @@ final class DomainTests: XCTestCase {
         XCTAssertEqual(decoded.plannedDoseAmount, 250.0)
     }
 
+    func testInjectionSiteEventConnectingToDoseEvent() throws {
+        let doseEventId = UUID()
+        let compoundId = UUID()
+        let timestamp = Date(timeIntervalSince1970: 1704096000)
+
+        let doseEvent = DoseEvent(
+            id: doseEventId,
+            compoundId: compoundId,
+            compoundName: "BPC-157",
+            scheduledTimestamp: timestamp,
+            actualTimestamp: timestamp,
+            plannedDoseAmount: 250.0,
+            actualDoseAmount: 250.0,
+            doseUnit: .mcg,
+            status: .taken,
+            injectionSiteId: "ab_r_uo",
+            injectionSiteName: "Abdomen - Right Upper Outer",
+            actualRoute: .subcutaneous
+        )
+
+        let site = InjectionSite.standardSites.first(where: { $0.id == "ab_r_uo" })!
+        let siteEvent = InjectionSiteEvent(
+            site: site,
+            doseEvent: doseEvent,
+            needleGauge: "31G",
+            needleLength: "5/16\"",
+            reaction: .none,
+            painScore: 1,
+            notes: "Smooth injection, no resistance."
+        )
+
+        XCTAssertEqual(siteEvent.doseEventId, doseEventId)
+        XCTAssertEqual(siteEvent.siteId, "ab_r_uo")
+        XCTAssertEqual(siteEvent.siteName, "Abdomen - Right Upper Outer")
+        XCTAssertEqual(siteEvent.region, .abdomen)
+        XCTAssertEqual(siteEvent.side, .right)
+        XCTAssertEqual(siteEvent.quadrant, .upperOuter)
+        XCTAssertEqual(siteEvent.route, .subcutaneous)
+        XCTAssertEqual(siteEvent.compoundName, "BPC-157")
+        XCTAssertEqual(siteEvent.doseAmount, 250.0)
+        XCTAssertEqual(siteEvent.reaction, .none)
+        XCTAssertFalse(siteEvent.reaction.requiresRest)
+        XCTAssertTrue(siteEvent.isFullyRested)
+
+        // Codable serialization test
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(siteEvent)
+        let decoded = try JSONDecoder().decode(InjectionSiteEvent.self, from: data)
+
+        XCTAssertEqual(decoded.id, siteEvent.id)
+        XCTAssertEqual(decoded.doseEventId, doseEventId)
+        XCTAssertEqual(decoded.siteId, "ab_r_uo")
+        XCTAssertEqual(decoded.painScore, 1)
+    }
+
+
 
 
 
