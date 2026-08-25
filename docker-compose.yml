@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 16 Relational Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: vialr-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-vialr}
+      POSTGRES_USER: ${DATABASE_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+    ports:
+      - "${DATABASE_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USERNAME:-postgres} -d ${DATABASE_NAME:-vialr}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Swift / Vapor Backend API Service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vialr-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: development
+      PORT: 8080
+      HOST: 0.0.0.0
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: ${DATABASE_USERNAME:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+      DATABASE_NAME: ${DATABASE_NAME:-vialr}
+      JWT_SECRET: ${JWT_SECRET:-vialr-secret-jwt-key-minimum-32-chars-long-2026}
+    ports:
+      - "${PORT:-8080}:8080"
+
+volumes:
+  postgres_data:
+    driver: local

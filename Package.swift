@@ -11,6 +11,7 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
+        // MARK: - iOS Client Target & Libraries
         .library(name: "VialrApp", targets: ["VialrApp"]),
         .library(name: "DesignSystem", targets: ["DesignSystem"]),
         .library(name: "Domain", targets: ["Domain"]),
@@ -19,9 +20,16 @@ let package = Package(
         .library(name: "Health", targets: ["Health"]),
         .library(name: "Analytics", targets: ["Analytics"]),
         .library(name: "Feature", targets: ["Feature"]),
+
+        // MARK: - Backend Server Executable
+        .executable(name: "VialrServer", targets: ["VialrServer"])
     ],
     dependencies: [
-        // Pure native standard library & Apple frameworks (SwiftUI, Observation, Charts, HealthKit)
+        // MARK: - Vapor Backend Ecosystem
+        .package(url: "https://github.com/vapor/vapor.git", from: "4.99.0"),
+        .package(url: "https://github.com/vapor/fluent.git", from: "4.9.0"),
+        .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.8.0"),
+        .package(url: "https://github.com/vapor/jwt.git", from: "5.0.0")
     ],
     targets: [
         // MARK: - Core Domain Models & Rules
@@ -33,7 +41,7 @@ let package = Package(
                 .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
-        
+
         // MARK: - Design System & UI Components
         .target(
             name: "DesignSystem",
@@ -43,7 +51,7 @@ let package = Package(
                 .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
-        
+
         // MARK: - Calculation Engine (Reconstitution, Site Rotation, Depletion)
         .target(
             name: "CalculationEngine",
@@ -53,8 +61,8 @@ let package = Package(
                 .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
-        
-        // MARK: - Data Layer (Persistence, Mocking, Sync)
+
+        // MARK: - Data Layer (Persistence, Networking, Remote Sync)
         .target(
             name: "Data",
             dependencies: ["Domain"],
@@ -63,7 +71,7 @@ let package = Package(
                 .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
-        
+
         // MARK: - HealthKit Integration
         .target(
             name: "Health",
@@ -73,7 +81,7 @@ let package = Package(
                 .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
-        
+
         // MARK: - Analytics Engine
         .target(
             name: "Analytics",
@@ -83,7 +91,7 @@ let package = Package(
                 .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
-        
+
         // MARK: - Feature Modules (Screens & Flows)
         .target(
             name: "Feature",
@@ -100,8 +108,8 @@ let package = Package(
                 .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
-        
-        // MARK: - Main Application Coordinator & Entry
+
+        // MARK: - Main iOS Application Coordinator & Entry
         .target(
             name: "VialrApp",
             dependencies: [
@@ -118,7 +126,25 @@ let package = Package(
                 .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
-        
+
+        // MARK: - Backend Server (Vapor 4 & PostgreSQL Fluent)
+        .executableTarget(
+            name: "VialrServer",
+            dependencies: [
+                .product(name: "Vapor", package: "vapor"),
+                .product(name: "Fluent", package: "fluent"),
+                .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
+                .product(name: "JWT", package: "jwt"),
+                "Domain",
+                "CalculationEngine",
+                "Analytics"
+            ],
+            path: "Sources/VialrServer",
+            swiftSettings: [
+                .enableUpcomingFeature("StrictConcurrency")
+            ]
+        ),
+
         // MARK: - Unit Tests
         .testTarget(
             name: "CalculationEngineTests",
