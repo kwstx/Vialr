@@ -84,9 +84,21 @@ public protocol MeasurementRepositoryProtocol: Sendable {
     func fetchAll() async throws -> [Measurement]
     func fetchByType(_ type: MeasurementType) async throws -> [Measurement]
     func fetchByCategory(_ category: MeasurementCategory) async throws -> [Measurement]
+    func fetchForMetric(code: String) async throws -> [Measurement]
+    func fetchForProtocol(protocolId: UUID) async throws -> [Measurement]
     func fetchForDateRange(start: Date, end: Date) async throws -> [Measurement]
     func fetch(byId id: UUID) async throws -> Measurement?
     func save(_ measurement: Measurement) async throws
+    func delete(byId id: UUID) async throws
+}
+
+public protocol MetricDefinitionRepositoryProtocol: Sendable {
+    func fetchAll() async throws -> [MetricDefinition]
+    func fetchBuiltIn() async throws -> [MetricDefinition]
+    func fetchCustom() async throws -> [MetricDefinition]
+    func fetch(byCode code: String) async throws -> MetricDefinition?
+    func fetch(byId id: UUID) async throws -> MetricDefinition?
+    func save(_ definition: MetricDefinition) async throws
     func delete(byId id: UUID) async throws
 }
 

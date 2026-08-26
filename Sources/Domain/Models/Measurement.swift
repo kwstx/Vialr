@@ -2,7 +2,7 @@ import Foundation
 
 /// Represents a recorded measurement across physical body metrics, vitals, sleep,
 /// subjective scores (energy, appetite, mood), bloodwork, or custom user-defined metrics.
-public struct Measurement: SyncableRecord, Identifiable, Codable, Sendable, Hashable {
+public struct Measurement: SyncableRecord, TimeSeriesDataPoint, Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var userId: UUID?
     public var name: String
@@ -16,11 +16,19 @@ public struct Measurement: SyncableRecord, Identifiable, Codable, Sendable, Hash
     public var referenceRangeMin: Double?
     public var referenceRangeMax: Double?
     public var associatedProtocolId: UUID?
+    public var customMetricId: UUID?
+    public var customMetricCode: String?
     public var notes: String
     public var createdAt: Date
     public var updatedAt: Date
     public var version: Int
     public var syncState: SyncState
+
+    /// Canonical timestamp for TimeSeriesDataPoint conformance.
+    public var timestamp: Date {
+        get { dateRecorded }
+        set { dateRecorded = newValue }
+    }
 
     // MARK: - Primary Initializer
     public init(
@@ -37,6 +45,8 @@ public struct Measurement: SyncableRecord, Identifiable, Codable, Sendable, Hash
         referenceRangeMin: Double? = nil,
         referenceRangeMax: Double? = nil,
         associatedProtocolId: UUID? = nil,
+        customMetricId: UUID? = nil,
+        customMetricCode: String? = nil,
         notes: String = "",
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
@@ -56,6 +66,8 @@ public struct Measurement: SyncableRecord, Identifiable, Codable, Sendable, Hash
         self.referenceRangeMin = referenceRangeMin
         self.referenceRangeMax = referenceRangeMax
         self.associatedProtocolId = associatedProtocolId
+        self.customMetricId = customMetricId
+        self.customMetricCode = customMetricCode
         self.notes = notes
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -311,6 +323,7 @@ public enum MeasurementCategory: String, Codable, Sendable, CaseIterable, Identi
     case metabolic = "Metabolic & Glucose"
     case sleepRecovery = "Sleep & Recovery"
     case subjectiveWellbeing = "Subjective & Well-Being"
+    case athletic = "Athletic & Performance"
     case bloodwork = "Bloodwork / Lab"
     case custom = "Custom Metrics"
 

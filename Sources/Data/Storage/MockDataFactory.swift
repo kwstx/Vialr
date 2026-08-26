@@ -750,5 +750,200 @@ public struct MockDataFactory: Sendable {
 
         return events
     }
+
+    // MARK: - Metric Definitions
+    public var defaultMetricDefinitions: [MetricDefinition] {
+        var defs = MetricDefinition.allBuiltIns
+
+        // Add user-defined custom metrics
+        defs.append(
+            MetricDefinition.custom(
+                name: "Grip Strength (Dominant)",
+                category: .athletic,
+                defaultUnit: "lbs",
+                supportedUnits: ["lbs", "kg"],
+                referenceRangeMin: 100.0,
+                referenceRangeMax: 150.0,
+                targetDirection: .increase,
+                iconName: "hand.raised.fill",
+                colorHex: "#10B981",
+                metricDescription: "Isometric dominant hand dynamometer grip strength.",
+                preferredAggregation: .maximum,
+                decimalPlaces: 1
+            )
+        )
+
+        defs.append(
+            MetricDefinition.custom(
+                name: "Morning Fasting Ketones",
+                category: .metabolic,
+                defaultUnit: "mmol/L",
+                supportedUnits: ["mmol/L"],
+                referenceRangeMin: 0.5,
+                referenceRangeMax: 3.0,
+                targetDirection: .increase,
+                iconName: "flame.fill",
+                colorHex: "#F59E0B",
+                metricDescription: "Capillary blood beta-hydroxybutyrate level.",
+                preferredAggregation: .average,
+                decimalPlaces: 2
+            )
+        )
+
+        return defs
+    }
+
+    // MARK: - Generic Time-Series Measurements (30-Day Longitudinal Tracking)
+    public var defaultMeasurements: [Measurement] {
+        let cal = Calendar.current
+        let now = Date()
+        var items: [Measurement] = []
+
+        // Tirzepatide & CJC Protocol ID reference
+        let protocolId = UUID(uuidString: "77777777-7777-7777-7777-777777777771")
+
+        // 30 days of daily metrics
+        for dayOffset in (0...30).reversed() {
+            guard let date = cal.date(byAdding: .day, value: -dayOffset, to: now) else { continue }
+            let t = Double(30 - dayOffset) / 30.0 // 0.0 at start, 1.0 today
+
+            // 1. Body Weight (Declining from 196.4 lbs to 184.2 lbs with minor natural noise)
+            let noiseW = sin(Double(dayOffset) * 1.5) * 0.4
+            let weightVal = 196.4 - (12.2 * t) + noiseW
+            items.append(
+                Measurement(
+                    name: "Body Weight",
+                    type: .weight,
+                    category: .bodyComposition,
+                    value: (weightVal * 10).rounded() / 10,
+                    unit: "lbs",
+                    dateRecorded: date,
+                    source: dayOffset % 4 == 0 ? .appleHealth : .manualEntry,
+                    associatedProtocolId: protocolId,
+                    customMetricCode: "body_weight",
+                    notes: dayOffset == 30 ? "Baseline weigh-in before Protocol Cycle 1" : ""
+                )
+            )
+
+            // 2. Fasting Blood Glucose (Declining from 102 mg/dL to 84 mg/dL)
+            let noiseG = cos(Double(dayOffset) * 2.1) * 2.0
+            let glucoseVal = 102.0 - (18.0 * t) + noiseG
+            items.append(
+                Measurement(
+                    name: "Fasting Blood Glucose",
+                    type: .bloodGlucose,
+                    category: .metabolic,
+                    value: glucoseVal.rounded(),
+                    unit: "mg/dL",
+                    dateRecorded: date,
+                    source: .deviceSync,
+                    referenceRangeMin: 70.0,
+                    referenceRangeMax: 99.0,
+                    associatedProtocolId: protocolId,
+                    customMetricCode: "fasting_glucose"
+                )
+            )
+
+            // 3. Resting Heart Rate (Settling from 68 bpm to 61 bpm)
+            let rhrVal = 68.0 - (7.0 * t) + (Double(dayOffset % 3) - 1.0)
+            items.append(
+                Measurement(
+                    name: "Resting Heart Rate",
+                    type: .restingHeartRate,
+                    category: .cardiovascular,
+                    value: rhrVal.rounded(),
+                    unit: "bpm",
+                    dateRecorded: date,
+                    source: .appleHealth,
+                    referenceRangeMin: 50.0,
+                    referenceRangeMax: 75.0,
+                    associatedProtocolId: protocolId,
+                    customMetricCode: "resting_heart_rate"
+                )
+            )
+
+            // 4. Sleep Duration (Rising from 6.4 hrs to 7.9 hrs)
+            let sleepVal = 6.4 + (1.5 * t) + (sin(Double(dayOffset)) * 0.3)
+            items.append(
+                Measurement(
+                    name: "Sleep Duration",
+                    type: .sleep,
+                    category: .sleepRecovery,
+                    value: (sleepVal * 10).rounded() / 10,
+                    secondaryValue: min(10.0, max(5.0, 6.0 + (3.0 * t))),
+                    unit: "hrs",
+                    dateRecorded: date,
+                    source: .appleHealth,
+                    referenceRangeMin: 7.0,
+                    referenceRangeMax: 9.0,
+                    associatedProtocolId: protocolId,
+                    customMetricCode: "sleep_duration"
+                )
+            )
+
+            // 5. Subjective Energy Level (Rising from 5.0 to 8.5 / 10)
+            if dayOffset % 2 == 0 {
+                let energyVal = min(10.0, max(1.0, 5.0 + (3.5 * t) + (cos(Double(dayOffset)) * 0.5)))
+                items.append(
+                    Measurement(
+                        name: "Energy Level",
+                        type: .energy,
+                        category: .subjectiveWellbeing,
+                        value: (energyVal * 10).rounded() / 10,
+                        unit: "/10",
+                        dateRecorded: date,
+                        source: .manualEntry,
+                        referenceRangeMin: 7.0,
+                        referenceRangeMax: 10.0,
+                        associatedProtocolId: protocolId,
+                        customMetricCode: "energy_level"
+                    )
+                )
+            }
+
+            // 6. Local Knee Pain Index on BPC-157 (Decreasing from 7.0 to 1.0 / 10)
+            if dayOffset % 3 == 0 {
+                let painVal = max(1.0, 7.0 - (6.0 * t))
+                items.append(
+                    Measurement(
+                        name: "Pain Index",
+                        type: .pain,
+                        category: .subjectiveWellbeing,
+                        value: (painVal * 10).rounded() / 10,
+                        unit: "/10",
+                        dateRecorded: date,
+                        source: .manualEntry,
+                        referenceRangeMin: 0.0,
+                        referenceRangeMax: 2.0,
+                        associatedProtocolId: protocolId,
+                        customMetricCode: "pain_index",
+                        notes: dayOffset == 30 ? "Pre-BPC-157 knee patellar tendonitis baseline" : "Post-injection evaluation"
+                    )
+                )
+            }
+
+            // 7. Custom Metric: Grip Strength (Dominant)
+            if dayOffset % 5 == 0 {
+                let gripVal = 105.0 + (17.0 * t) + (Double(dayOffset % 2) * 1.5)
+                items.append(
+                    Measurement(
+                        name: "Grip Strength (Dominant)",
+                        type: .custom,
+                        category: .custom,
+                        value: (gripVal * 10).rounded() / 10,
+                        unit: "lbs",
+                        dateRecorded: date,
+                        source: .manualEntry,
+                        referenceRangeMin: 100.0,
+                        referenceRangeMax: 150.0,
+                        associatedProtocolId: protocolId,
+                        customMetricCode: "custom_grip_strength_dominant"
+                    )
+                )
+            }
+        }
+
+        return items
+    }
 }
 

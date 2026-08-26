@@ -4,8 +4,17 @@ import Domain
 import DesignSystem
 import Analytics
 
+public enum AnalyticsSubTab: String, CaseIterable, Identifiable {
+    case results = "Results Tracking"
+    case intelligence = "Intelligence & PK"
+
+    public var id: String { rawValue }
+}
+
 public struct AnalyticsView: View {
     @Bindable public var viewModel: AnalyticsViewModel
+    @State private var selectedSubTab: AnalyticsSubTab = .results
+    @State private var resultsViewModel = ResultsTrackingViewModel()
 
     public init(viewModel: AnalyticsViewModel) {
         self.viewModel = viewModel
@@ -17,45 +26,77 @@ public struct AnalyticsView: View {
                 VialrColors.backgroundPrimary
                     .ignoresSafeArea()
 
-                ScrollView {
-                    VStack(spacing: VialrSpacing.lg) {
-                        // Header
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("INTELLIGENCE & TRENDS")
+                VStack(spacing: 0) {
+                    // Segmented Sub-Tab Switcher
+                    HStack(spacing: 6) {
+                        ForEach(AnalyticsSubTab.allCases) { tab in
+                            let isSel = selectedSubTab == tab
+                            Button {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    selectedSubTab = tab
+                                }
+                            } label: {
+                                Text(tab.rawValue)
                                     .font(VialrTypography.captionBold)
-                                    .foregroundColor(VialrColors.accentTeal)
-                                Text("Analytics & Insights")
-                                    .font(VialrTypography.largeHero)
-                                    .foregroundColor(VialrColors.textPrimary)
+                                    .foregroundColor(isSel ? VialrColors.backgroundPrimary : VialrColors.textSecondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(isSel ? VialrColors.accentTeal : Color.clear)
+                                    .cornerRadius(8)
                             }
-                            Spacer()
-                        }
-                        .padding(.top, VialrSpacing.sm)
-
-                        // Adherence Summary Card
-                        if let adh = viewModel.adherenceReport {
-                            adherenceSummaryCard(adh)
-                        }
-
-                        // Pharmacokinetic Serum Half-Life Clearance Chart
-                        serumClearanceChartSection
-
-                        // Biomarkers Chart
-                        biomarkersOverviewSection
-
-                        // AI Correlation Insights
-                        if !viewModel.correlationInsights.isEmpty {
-                            correlationInsightsSection
-                        }
-
-                        // Financial Cost Burn Rate
-                        if let spend = viewModel.spendSummary {
-                            spendAnalyticsSection(spend)
                         }
                     }
+                    .padding(4)
+                    .background(VialrColors.cardBackground)
+                    .cornerRadius(10)
                     .padding(.horizontal, VialrSpacing.md)
-                    .padding(.bottom, 100)
+                    .padding(.top, VialrSpacing.xs)
+                    .padding(.bottom, VialrSpacing.sm)
+
+                    if selectedSubTab == .results {
+                        ResultsTrackingView(viewModel: resultsViewModel)
+                    } else {
+                        ScrollView {
+                            VStack(spacing: VialrSpacing.lg) {
+                                // Header
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("INTELLIGENCE & TRENDS")
+                                            .font(VialrTypography.captionBold)
+                                            .foregroundColor(VialrColors.accentTeal)
+                                        Text("Analytics & Insights")
+                                            .font(VialrTypography.largeHero)
+                                            .foregroundColor(VialrColors.textPrimary)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.top, VialrSpacing.sm)
+
+                                // Adherence Summary Card
+                                if let adh = viewModel.adherenceReport {
+                                    adherenceSummaryCard(adh)
+                                }
+
+                                // Pharmacokinetic Serum Half-Life Clearance Chart
+                                serumClearanceChartSection
+
+                                // Biomarkers Chart
+                                biomarkersOverviewSection
+
+                                // AI Correlation Insights
+                                if !viewModel.correlationInsights.isEmpty {
+                                    correlationInsightsSection
+                                }
+
+                                // Financial Cost Burn Rate
+                                if let spend = viewModel.spendSummary {
+                                    spendAnalyticsSection(spend)
+                                }
+                            }
+                            .padding(.horizontal, VialrSpacing.md)
+                            .padding(.bottom, 100)
+                        }
+                    }
                 }
             }
             .navigationBarHidden(true)

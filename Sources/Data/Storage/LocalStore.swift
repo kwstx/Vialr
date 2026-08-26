@@ -32,6 +32,7 @@ public actor LocalStore {
     public var outboxOperations: [OutboxOperation] = []
     public var protocolRevisions: [ProtocolRevision] = []
     public var inventoryEvents: [InventoryEvent] = []
+    public var metricDefinitions: [MetricDefinition] = []
 
     private var isInitialized = false
 
@@ -51,6 +52,8 @@ public actor LocalStore {
         self.costs = mock.defaultCosts
         self.injectionSiteEvents = mock.defaultInjectionSiteEvents
         self.inventoryEvents = mock.defaultInventoryEvents
+        self.measurements = mock.defaultMeasurements
+        self.metricDefinitions = mock.defaultMetricDefinitions
         self.isInitialized = true
     }
 
@@ -711,6 +714,36 @@ public actor LocalStore {
                 version: deleted.version + 1
             )
         }
+    }
+
+    public func getMeasurementsForMetric(code: String) -> [Measurement] {
+        measurements.filter { m in
+            if let customCode = m.customMetricCode, customCode == code { return true }
+            if m.type.rawValue.lowercased() == code.lowercased() || m.name.lowercased() == code.lowercased() { return true }
+            return false
+        }.sorted(by: { $0.dateRecorded < $1.dateRecorded })
+    }
+
+    public func getMeasurementsForProtocol(protocolId: UUID) -> [Measurement] {
+        measurements.filter { $0.associatedProtocolId == protocolId }
+            .sorted(by: { $0.dateRecorded < $1.dateRecorded })
+    }
+
+    // MARK: - Metric Definitions
+    public func getAllMetricDefinitions() -> [MetricDefinition] { metricDefinitions }
+
+    public func saveMetricDefinition(_ inputDef: MetricDefinition) {
+        var def = inputDef
+        def.updatedAt = Date()
+        if let idx = metricDefinitions.firstIndex(where: { $0.id == def.id }) {
+            metricDefinitions[idx] = def
+        } else {
+            metricDefinitions.append(def)
+        }
+    }
+
+    public func deleteMetricDefinition(id: UUID) {
+        metricDefinitions.removeAll(where: { $0.id == id })
     }
 
     // MARK: - Lab Panels

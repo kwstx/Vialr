@@ -507,6 +507,16 @@ public final class LocalMeasurementRepository: MeasurementRepositoryProtocol, @u
         return all.filter { $0.category == category }
     }
 
+    public func fetchForMetric(code: String) async throws -> [Measurement] {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getMeasurementsForMetric(code: code)
+    }
+
+    public func fetchForProtocol(protocolId: UUID) async throws -> [Measurement] {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getMeasurementsForProtocol(protocolId: protocolId)
+    }
+
     public func fetchForDateRange(start: Date, end: Date) async throws -> [Measurement] {
         let all = try await fetchAll()
         return all.filter { $0.dateRecorded >= start && $0.dateRecorded <= end }
@@ -525,6 +535,50 @@ public final class LocalMeasurementRepository: MeasurementRepositoryProtocol, @u
     public func delete(byId id: UUID) async throws {
         await store.initializeWithMockDataIfNeeded()
         await store.deleteMeasurement(id: id)
+    }
+}
+
+// MARK: - Metric Definition Repository
+public final class LocalMetricDefinitionRepository: MetricDefinitionRepositoryProtocol, @unchecked Sendable {
+    private let store: LocalStore
+
+    public init(store: LocalStore = .shared) {
+        self.store = store
+    }
+
+    public func fetchAll() async throws -> [MetricDefinition] {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getAllMetricDefinitions()
+    }
+
+    public func fetchBuiltIn() async throws -> [MetricDefinition] {
+        let all = try await fetchAll()
+        return all.filter { !$0.isCustom }
+    }
+
+    public func fetchCustom() async throws -> [MetricDefinition] {
+        let all = try await fetchAll()
+        return all.filter { $0.isCustom }
+    }
+
+    public func fetch(byCode code: String) async throws -> MetricDefinition? {
+        let all = try await fetchAll()
+        return all.first(where: { $0.code.lowercased() == code.lowercased() })
+    }
+
+    public func fetch(byId id: UUID) async throws -> MetricDefinition? {
+        let all = try await fetchAll()
+        return all.first(where: { $0.id == id })
+    }
+
+    public func save(_ definition: MetricDefinition) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.saveMetricDefinition(definition)
+    }
+
+    public func delete(byId id: UUID) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.deleteMetricDefinition(id: id)
     }
 }
 
