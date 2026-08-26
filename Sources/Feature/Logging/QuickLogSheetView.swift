@@ -71,13 +71,21 @@ public struct QuickLogSheetView: View {
                             SiteSelectionItem(
                                 id: s.id,
                                 name: s.name,
-                                shortLabel: s.name.replacingOccurrences(of: "Abdomen - ", with: ""),
+                                shortLabel: s.shortName,
+                                region: s.region,
+                                side: s.side,
+                                coordinates: s.coordinates,
                                 daysSinceLastUse: s.id == "ab_r_uo" ? 8 : (s.id == "ab_l_uo" ? 1 : 4),
                                 isRecommended: s.id == "ab_r_uo"
                             )
                         }
 
-                        BodyMapSelectorView(sites: siteItems, selectedSiteId: $selectedSiteId)
+                        BodyMapSelectorView(
+                            sites: siteItems,
+                            selectedSiteId: $selectedSiteId,
+                            lastSiteId: "ab_l_uo",
+                            nextSiteId: "ab_r_uo"
+                        )
 
                         // Reconstituted Vial Selection (if available)
                         if !availableVials.isEmpty {

@@ -153,6 +153,7 @@ public final class DashboardViewModel: @unchecked Sendable {
     private let supplyRepo: SupplyRepositoryProtocol
     private let biomarkerRepo: BiomarkerRepositoryProtocol
     private let userRepo: UserRepositoryProtocol
+    private let siteEventRepo: InjectionSiteEventRepositoryProtocol
     private let rotationEngine = SiteRotationEngine()
     private let adherenceCalculator = AdherenceCalculator()
     private let inconsistencyDetector = InconsistencyDetector()
@@ -174,6 +175,7 @@ public final class DashboardViewModel: @unchecked Sendable {
         self.supplyRepo = supplyRepo
         self.biomarkerRepo = biomarkerRepo
         self.userRepo = userRepo
+        self.siteEventRepo = siteEventRepo
         self.doseLoggingEngine = doseLoggingEngine ?? DoseLoggingEngine(
             doseRepo: doseRepo,
             vialRepo: vialRepo,
@@ -307,8 +309,15 @@ public final class DashboardViewModel: @unchecked Sendable {
             }
 
             // Site Rotation Recommendation
-            let siteStatuses = rotationEngine.analyzeRotation(history: allDoses)
-            recommendedSite = siteStatuses.first(where: { $0.isRecommended })?.site ?? InjectionSite.standardSites.first
+            let siteEvents = (try? await siteEventRepo.fetchAll()) ?? []
+            let strategy = currentUser?.preferences.siteRotationStrategy ?? .bilateralAlternating
+            let rotationResult: SiteRotationResult
+            if !siteEvents.isEmpty {
+                rotationResult = rotationEngine.evaluateNextSite(siteEvents: siteEvents, strategy: strategy)
+            } else {
+                rotationResult = rotationEngine.evaluateRotation(history: allDoses, strategy: strategy)
+            }
+            recommendedSite = rotationResult.nextSite
 
             // Adherence & Streak
             let adhReport = adherenceCalculator.calculateAdherence(logs: allDoses)

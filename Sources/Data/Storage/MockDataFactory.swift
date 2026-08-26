@@ -546,4 +546,55 @@ public struct MockDataFactory: Sendable {
             )
         ]
     }
+
+    // MARK: - Injection Site Events (Longitudinal Protocol-Independent Site History)
+    public var defaultInjectionSiteEvents: [InjectionSiteEvent] {
+        let cal = Calendar.current
+        let now = Date()
+        let bpcId = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let tbId = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+
+        let sites = [
+            ("ab_l_uo", "Abdomen - Left Upper Outer", BodyRegion.abdomen, BodySide.left, Quadrant.upperOuter),
+            ("ab_r_uo", "Abdomen - Right Upper Outer", BodyRegion.abdomen, BodySide.right, Quadrant.upperOuter),
+            ("ab_r_lo", "Abdomen - Right Lower Outer", BodyRegion.abdomen, BodySide.right, Quadrant.lowerOuter),
+            ("ab_l_lo", "Abdomen - Left Lower Outer", BodyRegion.abdomen, BodySide.left, Quadrant.lowerOuter),
+            ("thigh_l_outer", "Left Thigh - Outer Mid", BodyRegion.thigh, BodySide.left, Quadrant.upperOuter),
+            ("delt_l", "Left Deltoid", BodyRegion.deltoid, BodySide.left, nil)
+        ]
+
+        var events: [InjectionSiteEvent] = []
+
+        // Past 10 administrations across multiple protocols and compounds
+        for dayOffset in (1...10).reversed() {
+            let logDate = cal.date(byAdding: .day, value: -dayOffset, to: now)!
+            let site = sites[dayOffset % sites.count]
+            let isTb = dayOffset % 4 == 0
+
+            events.append(
+                InjectionSiteEvent(
+                    id: UUID(),
+                    doseEventId: UUID(),
+                    siteId: site.0,
+                    siteName: site.1,
+                    region: site.2,
+                    side: site.3,
+                    quadrant: site.4,
+                    route: .subcutaneous,
+                    timestamp: logDate,
+                    compoundId: isTb ? tbId : bpcId,
+                    compoundName: isTb ? "TB-500" : "BPC-157",
+                    doseAmount: isTb ? 2.5 : 250,
+                    doseUnit: isTb ? .mg : .mcg,
+                    needleGauge: "31G",
+                    needleLength: "5/16\"",
+                    reaction: dayOffset == 3 ? .mildRedness : .none,
+                    painScore: dayOffset == 3 ? 1 : 0,
+                    notes: dayOffset == 3 ? "Slight post-injection redness, cleared within 30 min." : "SubQ administration, smooth draw."
+                )
+            )
+        }
+
+        return events
+    }
 }

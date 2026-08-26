@@ -223,9 +223,7 @@ public final class DoseLoggingEngine: DoseLoggingEngineProtocol, @unchecked Send
 
     // MARK: - 2. Confirmation Context Preparation
     public func prepareConfirmationRequest(for occurrence: ExpectedDoseOccurrence) async throws -> DoseConfirmationRequest {
-        let history = try await doseRepo.fetchAll()
-        let siteStatuses = siteRotationEngine.analyzeRotation(history: history)
-        let recommendedSite = siteStatuses.first(where: { $0.isRecommended })?.site ?? InjectionSite.standardSites.first
+        let recommendedSite = await getRecommendedSite() ?? InjectionSite.standardSites.first
 
         var targetVialId = occurrence.attachedVialId
         if targetVialId == nil {
@@ -253,9 +251,7 @@ public final class DoseLoggingEngine: DoseLoggingEngineProtocol, @unchecked Send
     }
 
     public func prepareConfirmationRequest(for scheduledDose: DoseLog) async throws -> DoseConfirmationRequest {
-        let history = try await doseRepo.fetchAll()
-        let siteStatuses = siteRotationEngine.analyzeRotation(history: history)
-        let recommendedSite = siteStatuses.first(where: { $0.isRecommended })?.site ?? InjectionSite.standardSites.first
+        let recommendedSite = await getRecommendedSite() ?? InjectionSite.standardSites.first
 
         var targetVialId = scheduledDose.vialId
         if targetVialId == nil {
@@ -288,9 +284,7 @@ public final class DoseLoggingEngine: DoseLoggingEngineProtocol, @unchecked Send
             throw DoseLoggingError.protocolCompoundNotFound
         }
 
-        let history = try await doseRepo.fetchAll()
-        let siteStatuses = siteRotationEngine.analyzeRotation(history: history)
-        let recommendedSite = siteStatuses.first(where: { $0.isRecommended })?.site ?? InjectionSite.standardSites.first
+        let recommendedSite = await getRecommendedSite() ?? InjectionSite.standardSites.first
 
         let activeVials = try await vialRepo.fetchActive()
         let targetVial = compound.attachedVialId ?? activeVials.first(where: { $0.compoundId == compoundId && $0.isReconstituted })?.id
@@ -314,6 +308,17 @@ public final class DoseLoggingEngine: DoseLoggingEngineProtocol, @unchecked Send
             scheduledTimestamp: Date(),
             notes: compound.notes
         )
+    }
+
+    private func getRecommendedSite() async -> InjectionSite? {
+        let events = (try? await siteEventRepo.fetchAll()) ?? []
+        if !events.isEmpty {
+            let result = siteRotationEngine.evaluateNextSite(siteEvents: events)
+            return result.nextSite
+        }
+        let history = (try? await doseRepo.fetchAll()) ?? []
+        let result = siteRotationEngine.evaluateRotation(history: history)
+        return result.nextSite
     }
 
     // MARK: - 3. Quick 1-Tap Direct Log

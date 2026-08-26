@@ -317,7 +317,10 @@ public struct DoseConfirmationSheetView: View {
                     SiteSelectionItem(
                         id: s.id,
                         name: s.name,
-                        shortLabel: s.name.replacingOccurrences(of: "Abdomen - ", with: ""),
+                        shortLabel: s.shortName,
+                        region: s.region,
+                        side: s.side,
+                        coordinates: s.coordinates,
                         daysSinceLastUse: s.id == request.injectionSiteId ? 8 : 4,
                         isRecommended: s.id == request.injectionSiteId
                     )

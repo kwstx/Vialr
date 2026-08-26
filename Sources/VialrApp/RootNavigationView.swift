@@ -44,7 +44,8 @@ public struct RootNavigationView: View {
         ))
 
         _siteRotationVM = State(initialValue: SiteRotationViewModel(
-            doseRepo: container.doseLogRepository
+            doseRepo: container.doseLogRepository,
+            siteEventRepo: container.injectionSiteEventRepository
         ))
 
         _analyticsVM = State(initialValue: AnalyticsViewModel(

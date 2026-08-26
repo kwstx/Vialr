@@ -105,6 +105,7 @@ public struct UserPreferences: Codable, Sendable, Hashable {
     public var weekStartsOn: Weekday
     public var defaultDoseTimeOfDay: TimeOfDay
     public var autoRotateInjectionSites: Bool
+    public var siteRotationStrategy: SiteRotationStrategy
     public var syncWithAppleHealth: Bool
     public var showSafetyWarnings: Bool
 
@@ -115,6 +116,7 @@ public struct UserPreferences: Codable, Sendable, Hashable {
         weekStartsOn: Weekday = .monday,
         defaultDoseTimeOfDay: TimeOfDay = .morning,
         autoRotateInjectionSites: Bool = true,
+        siteRotationStrategy: SiteRotationStrategy = .bilateralAlternating,
         syncWithAppleHealth: Bool = true,
         showSafetyWarnings: Bool = true
     ) {
@@ -124,6 +126,7 @@ public struct UserPreferences: Codable, Sendable, Hashable {
         self.weekStartsOn = weekStartsOn
         self.defaultDoseTimeOfDay = defaultDoseTimeOfDay
         self.autoRotateInjectionSites = autoRotateInjectionSites
+        self.siteRotationStrategy = siteRotationStrategy
         self.syncWithAppleHealth = syncWithAppleHealth
         self.showSafetyWarnings = showSafetyWarnings
     }

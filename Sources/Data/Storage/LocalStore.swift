@@ -48,6 +48,7 @@ public actor LocalStore {
         self.biomarkers = mock.defaultBiomarkers
         self.symptomLogs = mock.defaultSymptomLogs
         self.costs = mock.defaultCosts
+        self.injectionSiteEvents = mock.defaultInjectionSiteEvents
         self.isInitialized = true
     }
 
