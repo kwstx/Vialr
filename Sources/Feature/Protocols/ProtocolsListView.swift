@@ -29,45 +29,49 @@ public struct ProtocolsListView: View {
                 VialrColors.backgroundPrimary
                     .ignoresSafeArea()
 
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(spacing: VialrSpacing.lg) {
                         // Top Bar Actions
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("PROTOCOLS")
-                                    .font(VialrTypography.captionBold)
-                                    .foregroundColor(VialrColors.accentTeal)
+                                    .vialrEyebrow()
                                 Text("Protocols & Stacks")
                                     .font(VialrTypography.largeHero)
                                     .foregroundColor(VialrColors.textPrimary)
+                                    .tracking(-0.5)
                             }
 
                             Spacer()
 
                             Button {
+                                VialrHaptics.lightImpact()
                                 onCompareProtocols()
                             } label: {
                                 Image(systemName: "arrow.left.arrow.right")
-                                    .font(.system(size: 15, weight: .semibold))
+                                    .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(VialrColors.textPrimary)
-                                    .frame(width: 44, height: 44)
+                                    .frame(width: 40, height: 40)
                                     .background(VialrColors.cardSurfaceElevated)
                                     .clipShape(Circle())
                                     .overlay(Circle().stroke(VialrColors.glassBorder, lineWidth: 1))
                             }
+                            .accessibilityLabel("Compare Protocols")
 
                             Button {
+                                VialrHaptics.mediumImpact()
                                 onCreateProtocol()
                             } label: {
                                 Image(systemName: "plus")
-                                    .font(.system(size: 16, weight: .bold))
+                                    .font(.system(size: 15, weight: .bold))
                                     .foregroundColor(Color.black)
-                                    .frame(width: 44, height: 44)
-                                    .background(VialrColors.accentTeal)
+                                    .frame(width: 40, height: 40)
+                                    .background(VialrColors.accentVitality)
                                     .clipShape(Circle())
                             }
+                            .accessibilityLabel("Create New Protocol")
                         }
-                        .padding(.top, VialrSpacing.sm)
+                        .padding(.top, VialrSpacing.xs)
 
                         // Filter Segmented Pill
                         VialrSegmentedControl(items: ProtocolFilter.allCases, selection: $viewModel.selectedFilter)
@@ -76,13 +80,15 @@ public struct ProtocolsListView: View {
                         if viewModel.filteredProtocols.isEmpty {
                             emptyProtocolsView
                         } else {
-                            ForEach(viewModel.filteredProtocols) { proto in
-                                protocolCard(proto)
+                            VStack(spacing: VialrSpacing.sm) {
+                                ForEach(viewModel.filteredProtocols) { proto in
+                                    protocolCard(proto)
+                                }
                             }
                         }
                     }
-                    .padding(.horizontal, VialrSpacing.md)
-                    .padding(.bottom, 100)
+                    .padding(.horizontal, VialrSpacing.screenHorizontal)
+                    .padding(.bottom, 110)
                 }
             }
             .navigationBarHidden(true)
@@ -94,19 +100,21 @@ public struct ProtocolsListView: View {
 
     private func protocolCard(_ proto: ProtocolModel) -> some View {
         Button {
+            VialrHaptics.lightImpact()
             onSelectProtocol(proto)
         } label: {
             VStack(alignment: .leading, spacing: VialrSpacing.md) {
                 HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(proto.name)
-                            .font(VialrTypography.title3)
+                            .font(VialrTypography.headline)
                             .foregroundColor(VialrColors.textPrimary)
 
                         if !proto.goalSummary.isEmpty {
                             Text(proto.goalSummary)
-                                .font(VialrTypography.subheadline)
+                                .font(VialrTypography.caption)
                                 .foregroundColor(VialrColors.textSecondary)
+                                .lineLimit(1)
                         }
                     }
 
@@ -119,25 +127,25 @@ public struct ProtocolsListView: View {
                 VStack(spacing: 6) {
                     ForEach(proto.items) { item in
                         HStack {
-                            Image(systemName: "circle.fill")
-                                .font(.system(size: 6))
-                                .foregroundColor(VialrColors.accentTeal)
+                            Circle()
+                                .fill(VialrColors.accentVitality)
+                                .frame(width: 6, height: 6)
 
                             Text(item.compoundName)
-                                .font(VialrTypography.bodyMedium)
+                                .font(VialrTypography.footnote)
                                 .foregroundColor(VialrColors.textPrimary)
 
                             Spacer()
 
                             Text("\(String(format: "%.0f", item.doseAmount)) \(item.doseUnit.rawValue)")
                                 .font(VialrTypography.monoDose)
-                                .foregroundColor(VialrColors.accentEmerald)
+                                .foregroundColor(VialrColors.accentVitality)
 
                             Text("• \(item.scheduleRule.description)")
                                 .font(VialrTypography.caption)
                                 .foregroundColor(VialrColors.textTertiary)
                         }
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 3)
                     }
                 }
                 .padding(VialrSpacing.sm)
@@ -147,7 +155,7 @@ public struct ProtocolsListView: View {
                 // Footer metadata
                 HStack {
                     Image(systemName: "calendar")
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundColor(VialrColors.textTertiary)
                     Text("Started \(proto.startDate.formatted(date: .abbreviated, time: .omitted))")
                         .font(VialrTypography.caption)
@@ -156,11 +164,11 @@ public struct ProtocolsListView: View {
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 10, weight: .bold))
                         .foregroundColor(VialrColors.textTertiary)
                 }
             }
-            .padding(VialrSpacing.md)
+            .padding(VialrSpacing.cardPadding)
             .vialrCard()
         }
         .buttonStyle(.plain)
@@ -184,22 +192,22 @@ public struct ProtocolsListView: View {
     private var emptyProtocolsView: some View {
         VStack(spacing: VialrSpacing.md) {
             Image(systemName: "folder.badge.plus")
-                .font(.system(size: 44))
+                .font(.system(size: 36))
                 .foregroundColor(VialrColors.textTertiary)
             Text("No Protocols in this category")
-                .font(VialrTypography.title3)
+                .font(VialrTypography.headline)
                 .foregroundColor(VialrColors.textPrimary)
             Text("Create a new protocol or switch filters to view saved stacks.")
                 .font(VialrTypography.footnote)
                 .foregroundColor(VialrColors.textSecondary)
                 .multilineTextAlignment(.center)
 
-            VialrButton("Create New Protocol", icon: "plus", style: .primary) {
+            VialrButton("Create New Protocol", icon: "plus", style: .vitality, size: .compact) {
                 onCreateProtocol()
             }
-            .frame(maxWidth: 240)
+            .frame(maxWidth: 220)
         }
-        .padding(VialrSpacing.xxl)
+        .padding(VialrSpacing.xl)
         .frame(maxWidth: .infinity)
     }
 }

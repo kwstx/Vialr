@@ -12,6 +12,8 @@ public struct DashboardView: View {
     public var onOpenTimeline: (() -> Void)?
     public var onNavigateToTab: ((AppTab) -> Void)?
 
+    @Namespace private var dashboardNamespace
+
     public init(
         viewModel: DashboardViewModel,
         onOpenQuickLog: @escaping (DoseLog?) -> Void,
@@ -39,31 +41,33 @@ public struct DashboardView: View {
                     .ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: VialrSpacing.sectionSpacing) {
-                        // 1. Top Header (Current Date + Small Greeting)
+                    VStack(spacing: VialrSpacing.lg) {
+                        // 1. Top Header Bar (Date + Minimal Greeting)
                         headerSection
 
-                        // 2. Primary Hero Action: Next Dose ("What do I need to do now?")
+                        // 2. Primary Hero Action Card ("What do I need to do right now?")
                         if let nextDose = viewModel.nextUpcomingDose {
                             heroNextDoseCard(nextDose)
+                                .transition(VialrAnimations.modalTransition)
                         } else {
                             allDosesCompletedHeroCard
+                                .transition(VialrAnimations.modalTransition)
                         }
 
-                        // 3. Current Protocol
+                        // 3. Current Protocol Stack & Cycle Progression
                         currentProtocolSection
 
-                        // 4. Compact Progress Section (3 High-Signal Metrics)
-                        compactProgressSection
+                        // 4. Three High-Signal Numerical Metrics
+                        glanceableMetricsSection
 
-                        // 5. Inventory Status & Upcoming Events
-                        inventoryAndUpcomingSection
+                        // 5. Supplies & Horizon Status
+                        suppliesAndHorizonSection
 
-                        // 6. Chronological "Today" Section
-                        todayChronologicalSection
+                        // 6. Chronological Today Timeline
+                        todayTimelineSection
                     }
                     .padding(.horizontal, VialrSpacing.screenHorizontal)
-                    .padding(.bottom, 110) // Space for sleek floating tab bar
+                    .padding(.bottom, 110) // Space for floating tab bar
                 }
             }
             .navigationBarHidden(true)
@@ -71,22 +75,23 @@ public struct DashboardView: View {
                 await viewModel.loadDashboardData()
             }
             .refreshable {
+                VialrHaptics.lightImpact()
                 await viewModel.loadDashboardData()
             }
         }
     }
 
-    // MARK: - 1. Top Header Bar (Date + Greeting)
+    // MARK: - 1. Top Header Bar (Date + Greeting + Fast Actions)
     private var headerSection: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(viewModel.formattedCurrentDate)
                     .font(VialrTypography.eyebrow)
                     .tracking(1.4)
                     .foregroundColor(VialrColors.accentVitality)
 
                 Text(viewModel.greeting)
-                    .font(VialrTypography.screenTitle)
+                    .font(VialrTypography.largeHero)
                     .foregroundColor(VialrColors.textPrimary)
                     .tracking(-0.5)
             }
@@ -94,37 +99,33 @@ public struct DashboardView: View {
             Spacer()
 
             HStack(spacing: 8) {
-                // Quick Bloodwork Button
+                // Quick Lab Results Action
                 Button {
                     VialrHaptics.lightImpact()
                     onOpenBloodwork?()
                 } label: {
                     Image(systemName: "drop.fill")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundColor(VialrColors.accentRose)
-                        .frame(width: 44, height: 44)
+                        .frame(width: 40, height: 40)
                         .background(VialrColors.cardSurfaceElevated)
                         .clipShape(Circle())
-                        .overlay(
-                            Circle().stroke(VialrColors.glassBorder, lineWidth: 1)
-                        )
+                        .overlay(Circle().stroke(VialrColors.glassBorder, lineWidth: 1))
                 }
-                .accessibilityLabel("Open Bloodwork & Lab Results Hub")
+                .accessibilityLabel("Open Bloodwork & Lab Hub")
 
-                // Quick Calculator Action Button
+                // Quick Reconstitution Calculator Action
                 Button {
                     VialrHaptics.lightImpact()
                     onOpenReconstitution()
                 } label: {
                     Image(systemName: "plus.forwardslash.minus")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundColor(VialrColors.textPrimary)
-                        .frame(width: 44, height: 44)
+                        .frame(width: 40, height: 40)
                         .background(VialrColors.cardSurfaceElevated)
                         .clipShape(Circle())
-                        .overlay(
-                            Circle().stroke(VialrColors.glassBorder, lineWidth: 1)
-                        )
+                        .overlay(Circle().stroke(VialrColors.glassBorder, lineWidth: 1))
                 }
                 .accessibilityLabel("Open Reconstitution Calculator")
             }
@@ -132,7 +133,7 @@ public struct DashboardView: View {
         .padding(.top, VialrSpacing.xs)
     }
 
-    // MARK: - 2. Hero Action Card: Next Dose ("What do I need to do now?")
+    // MARK: - 2. Hero Action Card: Next Dose (High Signal, Large Numbers, 1-Tap Log)
     private func heroNextDoseCard(_ dose: DoseLog) -> some View {
         VStack(alignment: .leading, spacing: VialrSpacing.md) {
             // Action Eyebrow & Schedule Badge
@@ -146,71 +147,75 @@ public struct DashboardView: View {
                         .tracking(1.1)
                         .foregroundColor(VialrColors.accentVitality)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
                 .background(VialrColors.accentVitality.opacity(0.12))
                 .clipShape(Capsule())
-                .overlay(
-                    Capsule().stroke(VialrColors.accentVitality.opacity(0.3), lineWidth: 1)
-                )
+                .overlay(Capsule().stroke(VialrColors.accentVitality.opacity(0.3), lineWidth: 1))
 
                 Spacer()
 
-                Text("Scheduled for Today")
-                    .font(VialrTypography.footnote)
+                Text("Today")
+                    .font(VialrTypography.captionBold)
                     .foregroundColor(VialrColors.textTertiary)
             }
 
-            // Compound Name & Dosage
+            // Compound Name & Massive Dosage Number
             VStack(alignment: .leading, spacing: 4) {
                 Text(dose.compoundName)
-                    .font(VialrTypography.largeHero)
+                    .font(VialrTypography.title1)
                     .foregroundColor(VialrColors.textPrimary)
-                    .tracking(-0.4)
+                    .tracking(-0.3)
 
-                HStack(spacing: 8) {
-                    Text("\(String(format: dose.doseAmount.truncatingRemainder(dividingBy: 1) == 0 ? "%.0f" : "%.1f", dose.doseAmount)) \(dose.doseUnit.rawValue)")
-                        .font(VialrTypography.metricMedium)
+                HStack(alignment: .lastTextBaseline, spacing: 6) {
+                    Text(formatAmount(dose.doseAmount))
+                        .font(VialrTypography.metricLarge)
+                        .foregroundColor(VialrColors.accentVitality)
+                        .tracking(-0.5)
+
+                    Text(dose.doseUnit.rawValue)
+                        .font(VialrTypography.title3)
                         .foregroundColor(VialrColors.accentVitality)
 
                     Text("•")
                         .foregroundColor(VialrColors.textTertiary)
+                        .padding(.horizontal, 2)
 
                     Text(dose.administrationRoute.shortName)
-                        .font(VialrTypography.headline)
+                        .font(VialrTypography.subheadlineBold)
                         .foregroundColor(VialrColors.textSecondary)
                 }
             }
-            .padding(.vertical, 2)
 
             // Injection Site Recommendation Callout
             Button {
                 VialrHaptics.lightImpact()
                 onOpenSiteRotation()
             } label: {
-                HStack(spacing: VialrSpacing.xs) {
+                HStack(spacing: 8) {
                     Image(systemName: "cross.circle.fill")
-                        .font(.system(size: 14))
+                        .font(.system(size: 13))
                         .foregroundColor(VialrColors.accentVitality)
 
-                    Text("Target Site:")
-                        .font(VialrTypography.footnote)
+                    Text("SITE:")
+                        .font(VialrTypography.eyebrowMono)
                         .foregroundColor(VialrColors.textTertiary)
 
                     Text(viewModel.recommendedSite?.name ?? "Abdomen - Upper Right")
                         .font(VialrTypography.footnote)
                         .fontWeight(.semibold)
                         .foregroundColor(VialrColors.textPrimary)
+                        .lineLimit(1)
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 10, weight: .bold))
                         .foregroundColor(VialrColors.textTertiary)
                 }
-                .padding(.horizontal, VialrSpacing.sm)
-                .padding(.vertical, 10)
-                .background(VialrColors.cardSurfaceSubtle.opacity(0.8))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(VialrColors.cardSurfaceSubtle)
                 .cornerRadius(VialrSpacing.radiusSm)
                 .overlay(
                     RoundedRectangle(cornerRadius: VialrSpacing.radiusSm)
@@ -222,23 +227,39 @@ public struct DashboardView: View {
             Divider()
                 .background(VialrColors.glassBorder)
 
-            // Primary Interactive CTAs
+            // Primary Interactive CTAs (Fast 1-Tap + Full Bottom Sheet)
             HStack(spacing: VialrSpacing.sm) {
-                // Main Log Button
-                VialrButton("Log Dose Now", icon: "checkmark.circle.fill", style: .vitality, size: .standard) {
-                    onOpenQuickLog(dose)
-                }
-
-                // Quick 1-Tap Instant Log
+                // Main Fast 1-Tap Log Button
                 Button {
-                    VialrHaptics.success()
+                    VialrHaptics.doseConfirmed()
                     Task {
+                        // Instant optimistic local update
                         await viewModel.quickLogDose(dose, siteId: nil)
                     }
                 } label: {
-                    Image(systemName: "bolt.fill")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(VialrColors.accentVitality)
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 16, weight: .bold))
+                        Text("Log Dose Now")
+                            .font(VialrTypography.headline)
+                            .fontWeight(.bold)
+                    }
+                    .foregroundColor(Color.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: VialrSpacing.buttonHeight)
+                    .background(VialrColors.accentVitality)
+                    .cornerRadius(VialrSpacing.radiusMd)
+                }
+                .buttonStyle(VialrButtonPressStyle())
+
+                // Custom Details / Adjust Button (Opens Bottom Sheet)
+                Button {
+                    VialrHaptics.lightImpact()
+                    onOpenQuickLog(dose)
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(VialrColors.textPrimary)
                         .frame(width: VialrSpacing.buttonHeight, height: VialrSpacing.buttonHeight)
                         .background(VialrColors.cardSurfaceElevated)
                         .cornerRadius(VialrSpacing.radiusMd)
@@ -247,16 +268,16 @@ public struct DashboardView: View {
                                 .stroke(VialrColors.glassBorder, lineWidth: 1)
                         )
                 }
-                .accessibilityLabel("Quick 1-Tap Log Dose")
+                .accessibilityLabel("Adjust dose details before logging")
             }
         }
         .padding(VialrSpacing.cardPadding)
         .background(
             RoundedRectangle(cornerRadius: VialrSpacing.radiusLg, style: .continuous)
-                .fill(VialrColors.heroCardGradient)
+                .fill(VialrColors.cardSurface)
                 .overlay(
                     RoundedRectangle(cornerRadius: VialrSpacing.radiusLg, style: .continuous)
-                        .stroke(VialrColors.accentVitality.opacity(0.35), lineWidth: 1.2)
+                        .stroke(VialrColors.accentVitality.opacity(0.3), lineWidth: 1.2)
                 )
         )
     }
@@ -266,7 +287,7 @@ public struct DashboardView: View {
         VStack(alignment: .leading, spacing: VialrSpacing.md) {
             HStack(alignment: .center, spacing: VialrSpacing.md) {
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 36))
+                    .font(.system(size: 32))
                     .foregroundColor(VialrColors.accentVitality)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -290,14 +311,14 @@ public struct DashboardView: View {
 
                 HStack(spacing: 8) {
                     Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 13))
+                        .font(.system(size: 12))
                         .foregroundColor(VialrColors.textTertiary)
 
-                    Text("Next upcoming dose:")
-                        .font(VialrTypography.footnote)
+                    Text("NEXT:")
+                        .font(VialrTypography.eyebrowMono)
                         .foregroundColor(VialrColors.textTertiary)
 
-                    Text("\(future.compoundName)")
+                    Text(future.compoundName)
                         .font(VialrTypography.footnote)
                         .fontWeight(.semibold)
                         .foregroundColor(VialrColors.accentCyan)
@@ -314,7 +335,7 @@ public struct DashboardView: View {
         .vialrCard(isElevated: true)
     }
 
-    // MARK: - 3. Current Protocol Section
+    // MARK: - 3. Current Protocol Stack Section
     private var currentProtocolSection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.xs) {
             HStack {
@@ -346,14 +367,14 @@ public struct DashboardView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: VialrSpacing.sm) {
                         HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 3) {
+                            VStack(alignment: .leading, spacing: 2) {
                                 Text(proto.name)
-                                    .font(VialrTypography.title3)
+                                    .font(VialrTypography.headline)
                                     .foregroundColor(VialrColors.textPrimary)
 
                                 if !proto.goalSummary.isEmpty {
                                     Text(proto.goalSummary)
-                                        .font(VialrTypography.subheadline)
+                                        .font(VialrTypography.caption)
                                         .foregroundColor(VialrColors.textSecondary)
                                         .lineLimit(1)
                                 }
@@ -364,17 +385,18 @@ public struct DashboardView: View {
                             MetricBadge(proto.status == .active ? .success("Active") : .neutral(proto.status.rawValue))
                         }
 
-                        // Cycle Progress Bar
+                        // Cycle Progress Bar with Large Percentage
                         VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text("Cycle Progress: Day \(viewModel.primaryProtocolElapsedDays) of \(viewModel.primaryProtocolTotalDays)")
+                            HStack(alignment: .firstTextBaseline) {
+                                Text("Cycle: Day \(viewModel.primaryProtocolElapsedDays) of \(viewModel.primaryProtocolTotalDays)")
                                     .font(VialrTypography.caption)
                                     .foregroundColor(VialrColors.textTertiary)
 
                                 Spacer()
 
                                 Text("\(viewModel.primaryProtocolPercentComplete)%")
-                                    .font(VialrTypography.captionBold)
+                                    .font(VialrTypography.headline)
+                                    .fontWeight(.bold)
                                     .foregroundColor(VialrColors.accentVitality)
                             }
 
@@ -388,20 +410,16 @@ public struct DashboardView: View {
                         // Compounds in Stack
                         HStack(spacing: 6) {
                             ForEach(proto.items.prefix(3)) { item in
-                                let amountStr = item.doseAmount.truncatingRemainder(dividingBy: 1) == 0 ?
-                                    String(format: "%.0f", item.doseAmount) :
-                                    String(format: "%.1f", item.doseAmount)
-
                                 HStack(spacing: 4) {
                                     Circle()
                                         .fill(VialrColors.accentVitality)
                                         .frame(width: 5, height: 5)
-                                    Text("\(item.compoundName) (\(amountStr) \(item.doseUnit.rawValue))")
+                                    Text("\(item.compoundName) (\(formatAmount(item.doseAmount)) \(item.doseUnit.rawValue))")
                                         .font(VialrTypography.caption)
                                         .foregroundColor(VialrColors.textPrimary)
                                 }
                                 .padding(.horizontal, 8)
-                                .padding(.vertical, 5)
+                                .padding(.vertical, 4)
                                 .background(VialrColors.cardSurfaceElevated)
                                 .cornerRadius(VialrSpacing.radiusXs)
                             }
@@ -412,16 +430,15 @@ public struct DashboardView: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                // No Active Protocol Empty State
                 VStack(spacing: VialrSpacing.sm) {
                     Image(systemName: "list.bullet.rectangle.portrait")
-                        .font(.system(size: 28))
+                        .font(.system(size: 24))
                         .foregroundColor(VialrColors.textTertiary)
-                    Text("No Active Protocol Configured")
+                    Text("No Active Protocol")
                         .font(VialrTypography.headline)
                         .foregroundColor(VialrColors.textPrimary)
-                    Text("Create or activate a protocol stack to begin tracking.")
-                        .font(VialrTypography.footnote)
+                    Text("Create a protocol stack to begin automated scheduling.")
+                        .font(VialrTypography.caption)
                         .foregroundColor(VialrColors.textSecondary)
                 }
                 .padding(VialrSpacing.lg)
@@ -431,17 +448,17 @@ public struct DashboardView: View {
         }
     }
 
-    // MARK: - 4. Compact Progress Section (3 High-Signal Metrics)
-    private var compactProgressSection: some View {
+    // MARK: - 4. Glanceable High-Signal Numerical Metrics (Large Numbers, Short Labels)
+    private var glanceableMetricsSection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.xs) {
-            Text("PROTOCOL PROGRESS")
+            Text("PROTOCOL STATS")
                 .vialrEyebrow()
                 .padding(.horizontal, 4)
 
             HStack(spacing: VialrSpacing.sm) {
                 // 1. Adherence Metric
-                compactMetricCard(
-                    title: "Adherence",
+                glanceableStatCard(
+                    label: "ADHERENCE",
                     value: "\(Int(viewModel.adherenceScore))%",
                     subtitle: "\(viewModel.currentStreakDays)d Streak",
                     icon: "flame.fill",
@@ -449,19 +466,19 @@ public struct DashboardView: View {
                 )
 
                 // 2. Protocol Cycle Day
-                compactMetricCard(
-                    title: "Cycle Day",
+                glanceableStatCard(
+                    label: "CYCLE DAY",
                     value: "Day \(viewModel.primaryProtocolElapsedDays)",
-                    subtitle: "of \(viewModel.primaryProtocolTotalDays) days",
+                    subtitle: "of \(viewModel.primaryProtocolTotalDays)d",
                     icon: "calendar.badge.clock",
                     color: VialrColors.accentCyan
                 )
 
                 // 3. Today's Doses Completed
-                compactMetricCard(
-                    title: "Today's Doses",
+                glanceableStatCard(
+                    label: "TODAY",
                     value: "\(viewModel.completedDosesTodayCount) / \(max(1, viewModel.totalDosesTodayCount))",
-                    subtitle: viewModel.scheduledTodayDoses.isEmpty ? "All complete" : "\(viewModel.scheduledTodayDoses.count) left",
+                    subtitle: viewModel.scheduledTodayDoses.isEmpty ? "All done" : "\(viewModel.scheduledTodayDoses.count) left",
                     icon: "checkmark.circle.fill",
                     color: VialrColors.accentVitality
                 )
@@ -469,38 +486,38 @@ public struct DashboardView: View {
         }
     }
 
-    private func compactMetricCard(title: String, value: String, subtitle: String, icon: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 5) {
+    private func glanceableStatCard(label: String, value: String, subtitle: String, icon: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundColor(color)
 
-                Text(title)
-                    .font(VialrTypography.captionBold)
+                Text(label)
+                    .font(VialrTypography.eyebrowMono)
                     .foregroundColor(VialrColors.textTertiary)
                     .lineLimit(1)
             }
 
             Text(value)
-                .font(VialrTypography.metricSmall)
+                .font(VialrTypography.metricMedium)
                 .foregroundColor(VialrColors.textPrimary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .minimumScaleFactor(0.75)
 
             Text(subtitle)
                 .font(VialrTypography.caption)
                 .foregroundColor(VialrColors.textSecondary)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .vialrCard()
     }
 
-    // MARK: - 5. Inventory Status & Upcoming Events
-    private var inventoryAndUpcomingSection: some View {
+    // MARK: - 5. Supplies & Horizon Status
+    private var suppliesAndHorizonSection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.xs) {
             Text("SUPPLIES & HORIZON")
                 .vialrEyebrow()
@@ -510,17 +527,17 @@ public struct DashboardView: View {
                 // Inventory Status Strip
                 HStack(spacing: VialrSpacing.sm) {
                     Image(systemName: "cylinder.split.1x2.fill")
-                        .font(.system(size: 18))
+                        .font(.system(size: 16))
                         .foregroundColor(viewModel.inventorySummary.hasWarning ? VialrColors.accentAmber : VialrColors.accentVitality)
-                        .frame(width: 28)
+                        .frame(width: 24)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Inventory Status")
-                            .font(VialrTypography.headline)
+                            .font(VialrTypography.subheadlineBold)
                             .foregroundColor(VialrColors.textPrimary)
 
                         Text(viewModel.inventorySummary.summaryText)
-                            .font(VialrTypography.footnote)
+                            .font(VialrTypography.caption)
                             .foregroundColor(viewModel.inventorySummary.hasWarning ? VialrColors.accentAmber : VialrColors.textSecondary)
                     }
 
@@ -532,20 +549,21 @@ public struct DashboardView: View {
                             .success("\(viewModel.inventorySummary.activeVialsCount) Active")
                     )
                 }
-                .padding(VialrSpacing.md)
+                .padding(VialrSpacing.sm)
                 .vialrCard()
 
                 // Upcoming Events Preview
                 ForEach(viewModel.upcomingEvents.prefix(2)) { event in
                     HStack(spacing: VialrSpacing.sm) {
                         Image(systemName: event.iconName)
-                            .font(.system(size: 16))
+                            .font(.system(size: 14))
                             .foregroundColor(event.badgeColor)
-                            .frame(width: 28)
+                            .frame(width: 24)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(event.title)
-                                .font(VialrTypography.bodyMedium)
+                                .font(VialrTypography.footnote)
+                                .fontWeight(.semibold)
                                 .foregroundColor(VialrColors.textPrimary)
 
                             Text("\(event.dateFormatted) • \(event.subtitle)")
@@ -559,15 +577,15 @@ public struct DashboardView: View {
                             MetricBadge(.custom(title: badge, color: event.badgeColor, icon: nil))
                         }
                     }
-                    .padding(VialrSpacing.md)
+                    .padding(VialrSpacing.sm)
                     .vialrCard()
                 }
             }
         }
     }
 
-    // MARK: - 6. Chronological "Today" Section
-    private var todayChronologicalSection: some View {
+    // MARK: - 6. Chronological Today Timeline
+    private var todayTimelineSection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.xs) {
             HStack {
                 Text("TODAY'S TIMELINE")
@@ -589,10 +607,6 @@ public struct DashboardView: View {
                                 .foregroundColor(VialrColors.accentVitality)
                         }
                     }
-                } else {
-                    Text("\(viewModel.todayTimelineItems.count) Action\(viewModel.todayTimelineItems.count == 1 ? "" : "s")")
-                        .font(VialrTypography.footnote)
-                        .foregroundColor(VialrColors.textTertiary)
                 }
             }
             .padding(.horizontal, 4)
@@ -601,7 +615,7 @@ public struct DashboardView: View {
                 HStack(spacing: VialrSpacing.sm) {
                     Image(systemName: "calendar.badge.checkmark")
                         .foregroundColor(VialrColors.accentVitality)
-                        .font(.system(size: 20))
+                        .font(.system(size: 18))
 
                     Text("No further actions scheduled for today.")
                         .font(VialrTypography.footnote)
@@ -625,15 +639,16 @@ public struct DashboardView: View {
         HStack(spacing: VialrSpacing.sm) {
             // Status Icon Indicator
             Image(systemName: item.status.iconName)
-                .font(.system(size: 18))
+                .font(.system(size: 16))
                 .foregroundColor(item.status.badgeColor)
-                .frame(width: 24)
+                .frame(width: 22)
 
             // Timeline Item Details
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(item.title)
-                        .font(VialrTypography.bodyMedium)
+                        .font(VialrTypography.footnote)
+                        .fontWeight(.semibold)
                         .foregroundColor(item.status == .completed ? VialrColors.textSecondary : VialrColors.textPrimary)
 
                     if item.status == .completed {
@@ -653,13 +668,14 @@ public struct DashboardView: View {
             // Timestamp / Quick CTA
             if item.status == .upNext, let dose = item.doseLog {
                 Button {
+                    VialrHaptics.lightImpact()
                     onOpenQuickLog(dose)
                 } label: {
                     Text("Log")
                         .font(VialrTypography.captionBold)
                         .foregroundColor(Color.black)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
                         .background(VialrColors.accentVitality)
                         .clipShape(Capsule())
                 }
@@ -669,11 +685,16 @@ public struct DashboardView: View {
                     .foregroundColor(VialrColors.textTertiary)
             }
         }
-        .padding(VialrSpacing.md)
+        .padding(VialrSpacing.sm)
         .vialrCard()
+    }
+
+    private func formatAmount(_ amount: Double) -> String {
+        amount.truncatingRemainder(dividingBy: 1) == 0 ?
+            String(format: "%.0f", amount) :
+            String(format: "%.1f", amount)
     }
 }
 
 // MARK: - Compatibility Alias
 public typealias HomeScreenView = DashboardView
-

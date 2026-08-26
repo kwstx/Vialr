@@ -1373,9 +1373,11 @@ public struct ProtocolCreationFlowView: View {
                     Task {
                         do {
                             let created = try await viewModel.saveProtocol()
+                            VialrHaptics.success()
                             onProtocolCreated(created)
                             dismiss()
                         } catch {
+                            VialrHaptics.error()
                             viewModel.errorMessage = error.localizedDescription
                         }
                     }
@@ -1387,6 +1389,7 @@ public struct ProtocolCreationFlowView: View {
                     style: .vitality,
                     isDisabled: !viewModel.canProceedToNextStep
                 ) {
+                    VialrHaptics.lightImpact()
                     viewModel.nextStep()
                 }
             }

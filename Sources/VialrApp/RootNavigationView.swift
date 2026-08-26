@@ -75,15 +75,16 @@ public struct RootNavigationView: View {
         ZStack {
             // Main Content Router
             if !coordinator.hasCompletedOnboarding {
-                OnboardingFlowView(viewModel: onboardingVM) {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                OnboardingCoordinatorView { finalUser in
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
                         coordinator.hasCompletedOnboarding = true
+                        coordinator.isAuthenticated = true
                     }
-                    coordinator.showToast(title: "Welcome to Vialr", message: "Your personalized protocol suite is ready.")
+                    coordinator.showToast(title: "Welcome to Vialr", message: "Vault initialized for \(finalUser.accountInfo.displayName).")
                 }
             } else if !coordinator.isAuthenticated {
                 AuthenticationView { authenticatedUser in
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
                         coordinator.isAuthenticated = true
                     }
                     coordinator.showToast(title: "Signed In", message: "Welcome back, \(authenticatedUser.accountInfo.displayName).")
@@ -92,7 +93,7 @@ public struct RootNavigationView: View {
                 mainTabContent
             }
 
-            // Privacy Blur Overlay for Multitasking / App Switcher (Prevents dosage data leakage)
+            // Privacy Blur Overlay for Multitasking / App Switcher
             if coordinator.securityManager.isPrivacyMaskActive {
                 ZStack {
                     VialrColors.backgroundPrimary
@@ -132,14 +133,29 @@ public struct RootNavigationView: View {
                 .zIndex(100)
             }
         }
+        // MARK: - Bottom Sheets for Quick Actions (Interactive Detents)
+        .sheet(item: $coordinator.activeBottomSheet) { sheet in
+            bottomSheetDestination(sheet)
+                .presentationDetents([.fraction(0.65), .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(VialrColors.backgroundPrimary)
+        }
+        // MARK: - Full-Screen Flows for Important Setup Tasks
+        .fullScreenCover(item: $coordinator.activeFullScreenFlow) { flow in
+            fullScreenDestination(flow)
+        }
+        // MARK: - Legacy Sheet Router (Fallback for backward compatibility)
         .sheet(item: $coordinator.activeSheet) { sheet in
             sheetDestination(sheet)
+                .presentationDetents(sheet.isQuickActionBottomSheet ? [.fraction(0.65), .large] : [.large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(VialrColors.backgroundPrimary)
         }
         .task {
             let notifManager = NotificationClientManager.shared
             await notifManager.initialize()
             notifManager.onDoseLogRequested = { _ in
-                coordinator.presentSheet(.quickLog(nil))
+                coordinator.presentBottomSheet(.quickLog(nil))
             }
             notifManager.onDeepLinkTriggered = { url in
                 coordinator.handleDeepLink(url)
@@ -197,12 +213,12 @@ public struct RootNavigationView: View {
         NavigationStack(path: $coordinator.homePath) {
             DashboardView(
                 viewModel: dashboardVM,
-                onOpenQuickLog: { dose in coordinator.presentSheet(.quickLog(dose)) },
-                onOpenReconstitution: { coordinator.presentSheet(.reconstitution) },
-                onOpenSiteRotation: { coordinator.presentSheet(.siteRotation) },
-                onOpenProtocolDetail: { proto in coordinator.presentSheet(.protocolDetail(proto)) },
+                onOpenQuickLog: { dose in coordinator.presentBottomSheet(.quickLog(dose)) },
+                onOpenReconstitution: { coordinator.presentFullScreenFlow(.reconstitution) },
+                onOpenSiteRotation: { coordinator.presentBottomSheet(.siteRotation) },
+                onOpenProtocolDetail: { proto in coordinator.presentFullScreenFlow(.protocolDetail(proto)) },
                 onOpenBloodwork: { coordinator.selectTab(.labs) },
-                onOpenTimeline: { coordinator.presentSheet(.timeline) },
+                onOpenTimeline: { coordinator.presentFullScreenFlow(.timeline) },
                 onNavigateToTab: { tab in coordinator.selectTab(tab) }
             )
             .navigationDestination(for: HomeDestination.self) { destination in
@@ -227,7 +243,7 @@ public struct RootNavigationView: View {
                                 }
                             },
                             onOpenReplay: { target in
-                                coordinator.presentSheet(.protocolReplay(target))
+                                coordinator.presentFullScreenFlow(.protocolReplay(target))
                             }
                         )
                     }
@@ -248,7 +264,7 @@ public struct RootNavigationView: View {
                     )
                 case .settings:
                     SettingsView(
-                        onOpenClinicianReport: { coordinator.presentSheet(.clinicianReport) },
+                        onOpenClinicianReport: { coordinator.presentFullScreenFlow(.clinicianReport) },
                         onLockApp: { coordinator.securityManager.lockApp() },
                         onSignOut: { coordinator.signOut() }
                     )
@@ -266,10 +282,10 @@ public struct RootNavigationView: View {
         NavigationStack(path: $coordinator.protocolsPath) {
             ProtocolsListView(
                 viewModel: protocolsVM,
-                onSelectProtocol: { proto in coordinator.presentSheet(.protocolDetail(proto)) },
-                onCreateProtocol: { coordinator.presentSheet(.createProtocol) },
-                onCompareProtocols: { coordinator.presentSheet(.protocolComparison) },
-                onReplayProtocol: { proto in coordinator.presentSheet(.protocolReplay(proto)) }
+                onSelectProtocol: { proto in coordinator.presentFullScreenFlow(.protocolDetail(proto)) },
+                onCreateProtocol: { coordinator.presentFullScreenFlow(.createProtocol) },
+                onCompareProtocols: { coordinator.presentFullScreenFlow(.protocolComparison) },
+                onReplayProtocol: { proto in coordinator.presentFullScreenFlow(.protocolReplay(proto)) }
             )
             .navigationDestination(for: ProtocolsDestination.self) { destination in
                 switch destination {
@@ -292,7 +308,7 @@ public struct RootNavigationView: View {
                                 }
                             },
                             onOpenReplay: { target in
-                                coordinator.presentSheet(.protocolReplay(target))
+                                coordinator.presentFullScreenFlow(.protocolReplay(target))
                             }
                         )
                     }
@@ -341,24 +357,24 @@ public struct RootNavigationView: View {
             LoggingHubView(
                 viewModel: loggingVM,
                 onOpenDoseConfirmation: { dose in
-                    coordinator.presentSheet(.quickLog(dose))
+                    coordinator.presentBottomSheet(.quickLog(dose))
                 },
                 onOpenSiteRotation: {
-                    coordinator.presentSheet(.siteRotation)
+                    coordinator.presentBottomSheet(.siteRotation)
                 },
                 onOpenSymptomLog: {
-                    coordinator.presentSheet(.logSymptoms)
+                    coordinator.presentBottomSheet(.logSymptoms)
                 },
                 onOpenBiomarkerLog: {
-                    coordinator.presentSheet(.logBiomarker)
+                    coordinator.presentBottomSheet(.logBiomarker)
                 },
                 onOpenReconstitution: {
-                    coordinator.presentSheet(.reconstitution)
+                    coordinator.presentFullScreenFlow(.reconstitution)
                 }
             )
             .navigationDestination(for: LogDestination.self) { destination in
                 switch destination {
-                case .doseConfirmation(let doseId):
+                case .doseConfirmation:
                     DoseConfirmationSheetView(
                         engine: container.doseLoggingEngine,
                         availableVials: inventoryVM.vials,
@@ -421,7 +437,7 @@ public struct RootNavigationView: View {
                         }
                     case .uploadDocument:
                         LabDocumentUploadView { candidate in
-                            coordinator.presentSheet(.confirmLabReportCandidate(candidate))
+                            coordinator.presentFullScreenFlow(.confirmLabReportCandidate(candidate))
                         }
                     case .panelDetail(let id):
                         if let panel = bloodworkVM.panels.first(where: { $0.id == id }) {
@@ -448,7 +464,7 @@ public struct RootNavigationView: View {
         NavigationStack(path: $coordinator.inventoryPath) {
             InventoryView(
                 viewModel: inventoryVM,
-                onAddVial: { coordinator.presentSheet(.addVial) }
+                onAddVial: { coordinator.presentBottomSheet(.addVial) }
             )
             .navigationDestination(for: InventoryDestination.self) { destination in
                 switch destination {
@@ -499,7 +515,192 @@ public struct RootNavigationView: View {
         }
     }
 
-    // MARK: - Sheet Router (High-Velocity Modal Flows)
+    // MARK: - Bottom Sheet Router (Quick Actions with Interactive Detents)
+    @ViewBuilder
+    private func bottomSheetDestination(_ sheet: ActiveBottomSheet) -> some View {
+        switch sheet {
+        case .quickLog(let dose):
+            DoseConfirmationSheetView(
+                engine: container.doseLoggingEngine,
+                preselectedDose: dose,
+                availableVials: inventoryVM.vials,
+                onCompleted: { result in
+                    Task {
+                        await dashboardVM.loadDashboardData()
+                        await loggingVM.loadLoggingData()
+                        await inventoryVM.loadInventory()
+                        let amountStr = result.doseEvent.actualDoseAmount.truncatingRemainder(dividingBy: 1) == 0 ?
+                            String(format: "%.0f", result.doseEvent.actualDoseAmount) :
+                            String(format: "%.1f", result.doseEvent.actualDoseAmount)
+                        coordinator.showToast(
+                            title: "Dose Logged Successfully",
+                            message: "\(result.doseEvent.compoundName) \(amountStr) \(result.doseEvent.doseUnit.rawValue)"
+                        )
+                    }
+                }
+            )
+
+        case .logSymptoms:
+            SymptomLogSheetView { log in
+                Task {
+                    try? await container.symptomRepository.save(log)
+                    coordinator.showToast(title: "Symptoms Logged")
+                }
+            }
+
+        case .logBiomarker:
+            BiomarkerLogSheetView { b in
+                Task {
+                    try? await container.biomarkerRepository.save(b)
+                    coordinator.showToast(title: "Biomarker Saved", message: "\(b.name): \(b.value) \(b.unit)")
+                }
+            }
+
+        case .siteRotation:
+            SiteRotationView(viewModel: siteRotationVM)
+
+        case .addVial:
+            AddVialSheetView { newVial in
+                Task {
+                    try? await container.vialRepository.save(newVial)
+                    await inventoryVM.loadInventory()
+                    coordinator.showToast(title: "Vial Added", message: "\(newVial.compoundName) in stock.")
+                }
+            }
+
+        case .explainability(let title, let explanation):
+            ExplainabilityInspectionSheet(
+                anomalyTitle: title,
+                explanation: explanation,
+                recommendation: "Review schedule to prevent tissue saturation or inconsistent absorption."
+            )
+        }
+    }
+
+    // MARK: - Full-Screen Setup Flow Router
+    @ViewBuilder
+    private func fullScreenDestination(_ flow: ActiveFullScreenFlow) -> some View {
+        switch flow {
+        case .createProtocol:
+            CreateProtocolView { newProtocol in
+                Task {
+                    try? await container.protocolRepository.save(newProtocol)
+                    await protocolsVM.loadProtocols()
+                    await dashboardVM.loadDashboardData()
+                    await loggingVM.loadLoggingData()
+                    coordinator.showToast(title: "Protocol Created", message: newProtocol.name)
+                }
+            }
+
+        case .clinicianReport:
+            ClinicianReportView()
+
+        case .protocolReplay(let proto):
+            ProtocolReplayView(
+                viewModel: ProtocolReplayViewModel(
+                    protocolModel: proto,
+                    protocolRepo: container.protocolRepository,
+                    doseRepo: container.doseLogRepository,
+                    measurementRepo: container.measurementRepository,
+                    labRepo: container.labPanelRepository,
+                    symptomRepo: container.symptomRepository,
+                    siteEventRepo: container.injectionSiteEventRepository
+                )
+            )
+
+        case .protocolComparison:
+            ProtocolComparisonView(
+                viewModel: ProtocolComparisonViewModel(
+                    protocolRepo: container.protocolRepository,
+                    measurementRepo: container.measurementRepository,
+                    doseRepo: container.doseLogRepository,
+                    symptomRepo: container.symptomRepository,
+                    biomarkerRepo: container.biomarkerRepository,
+                    costRepo: container.costRepository,
+                    initialProtocols: protocolsVM.allProtocols
+                )
+            )
+
+        case .reconstitution:
+            ReconstitutionCalculatorView(viewModel: reconstitutionVM) { newVial in
+                Task {
+                    try? await container.vialRepository.save(newVial)
+                    await inventoryVM.loadInventory()
+                    coordinator.showToast(title: "Vial Added to Inventory", message: "\(newVial.compoundName) (\(String(format: "%.1f", newVial.totalDryMassMg))mg)")
+                }
+            }
+
+        case .uploadLabReport:
+            LabDocumentUploadView { candidate in
+                coordinator.presentFullScreenFlow(.confirmLabReportCandidate(candidate))
+            }
+
+        case .confirmLabReportCandidate(let candidate):
+            LabCandidateConfirmationView(candidateReport: candidate) { confirmedPanel in
+                Task {
+                    await bloodworkVM.saveConfirmedPanel(confirmedPanel)
+                    coordinator.showToast(title: "Lab Record Verified & Saved", message: "\(confirmedPanel.panelName) (\(confirmedPanel.results.count) analytes)")
+                }
+            }
+
+        case .manualBloodworkEntry:
+            ManualLabEntryView { newPanel in
+                Task {
+                    await bloodworkVM.saveConfirmedPanel(newPanel)
+                    coordinator.showToast(title: "Lab Record Saved", message: "\(newPanel.panelName) (\(newPanel.results.count) analytes)")
+                }
+            }
+
+        case .protocolDetail(let proto):
+            ProtocolDetailView(
+                protocolModel: proto,
+                onEdit: { updated in
+                    Task {
+                        try? await container.protocolRepository.save(updated)
+                        await protocolsVM.loadProtocols()
+                    }
+                },
+                onToggleStatus: { target in
+                    var mod = target
+                    mod.status = target.status == .active ? .paused : .active
+                    Task {
+                        try? await container.protocolRepository.save(mod)
+                        await protocolsVM.loadProtocols()
+                        await dashboardVM.loadDashboardData()
+                    }
+                },
+                onOpenReplay: { target in
+                    coordinator.presentFullScreenFlow(.protocolReplay(target))
+                }
+            )
+
+        case .labPanelDetail(let panel):
+            LabPanelDetailView(panel: panel) {
+                Task {
+                    await bloodworkVM.deletePanel(id: panel.id)
+                    coordinator.showToast(title: "Lab Record Deleted")
+                }
+            }
+
+        case .timeline:
+            TimelineView(
+                viewModel: TimelineViewModel(timelineService: container.timelineService),
+                showCloseButton: true
+            )
+
+        case .settings:
+            SettingsView(
+                onOpenClinicianReport: { coordinator.presentFullScreenFlow(.clinicianReport) },
+                onLockApp: { coordinator.securityManager.lockApp() },
+                onSignOut: { coordinator.signOut() }
+            )
+
+        case .analytics:
+            AnalyticsView(viewModel: analyticsVM)
+        }
+    }
+
+    // MARK: - Legacy Sheet Router (Fallback for backward compatibility)
     @ViewBuilder
     private func sheetDestination(_ sheet: ActiveSheet) -> some View {
         switch sheet {
@@ -529,7 +730,7 @@ public struct RootNavigationView: View {
                 Task {
                     try? await container.vialRepository.save(newVial)
                     await inventoryVM.loadInventory()
-                    coordinator.showToast(title: "Vial Added to Inventory", message: "\(newVial.compoundName) (\(String(format: "%.1f", newVial.totalDryMassMg))mg)")
+                    coordinator.showToast(title: "Vial Added to Inventory", message: "\(newVial.compoundName)")
                 }
             }
 
@@ -566,7 +767,7 @@ public struct RootNavigationView: View {
                     }
                 },
                 onOpenReplay: { target in
-                    coordinator.presentSheet(.protocolReplay(target))
+                    coordinator.presentFullScreenFlow(.protocolReplay(target))
                 }
             )
 
@@ -631,20 +832,20 @@ public struct RootNavigationView: View {
             ManualLabEntryView { newPanel in
                 Task {
                     await bloodworkVM.saveConfirmedPanel(newPanel)
-                    coordinator.showToast(title: "Lab Record Saved", message: "\(newPanel.panelName) (\(newPanel.results.count) analytes)")
+                    coordinator.showToast(title: "Lab Record Saved", message: "\(newPanel.panelName)")
                 }
             }
 
         case .uploadLabReport:
             LabDocumentUploadView { candidate in
-                coordinator.presentSheet(.confirmLabReportCandidate(candidate))
+                coordinator.presentFullScreenFlow(.confirmLabReportCandidate(candidate))
             }
 
         case .confirmLabReportCandidate(let candidate):
             LabCandidateConfirmationView(candidateReport: candidate) { confirmedPanel in
                 Task {
                     await bloodworkVM.saveConfirmedPanel(confirmedPanel)
-                    coordinator.showToast(title: "Lab Record Verified & Saved", message: "\(confirmedPanel.panelName) (\(confirmedPanel.results.count) analytes)")
+                    coordinator.showToast(title: "Lab Record Verified & Saved", message: "\(confirmedPanel.panelName)")
                 }
             }
 
@@ -664,7 +865,7 @@ public struct RootNavigationView: View {
 
         case .settings:
             SettingsView(
-                onOpenClinicianReport: { coordinator.presentSheet(.clinicianReport) },
+                onOpenClinicianReport: { coordinator.presentFullScreenFlow(.clinicianReport) },
                 onLockApp: { coordinator.securityManager.lockApp() },
                 onSignOut: { coordinator.signOut() }
             )

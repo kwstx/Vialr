@@ -57,7 +57,7 @@ public struct LoggingHubView: View {
                         // 4. Multi-Track Quick Action Grid (Symptoms, Labs, Site Map, Reconstitution)
                         quickActionGrid
 
-                        // 5. Adherence & Consistency Pill
+                        // 5. Adherence & Consistency Numerical Card
                         adherenceStatsCard
 
                         // 6. Recent Dose History & 1-Tap Repeat
@@ -72,6 +72,7 @@ public struct LoggingHubView: View {
                 await viewModel.loadLoggingData()
             }
             .refreshable {
+                VialrHaptics.lightImpact()
                 await viewModel.loadLoggingData()
             }
             .alert("Delete Dose Record?", isPresented: $showDeleteConfirm) {
@@ -94,9 +95,7 @@ public struct LoggingHubView: View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("RAPID DOSE ENTRY")
-                    .font(VialrTypography.captionBold)
-                    .foregroundColor(VialrColors.accentVitality)
-                    .tracking(1.2)
+                    .vialrEyebrow()
 
                 Text("Log & Dosing")
                     .font(VialrTypography.largeHero)
@@ -113,9 +112,9 @@ public struct LoggingHubView: View {
                     onOpenSiteRotation?()
                 } label: {
                     Image(systemName: "figure.walk")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundColor(VialrColors.accentVitality)
-                        .frame(width: 42, height: 42)
+                        .frame(width: 40, height: 40)
                         .background(VialrColors.cardSurfaceElevated)
                         .clipShape(Circle())
                         .overlay(Circle().stroke(VialrColors.glassBorder, lineWidth: 1))
@@ -130,9 +129,9 @@ public struct LoggingHubView: View {
                     }
                 } label: {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundColor(VialrColors.textPrimary)
-                        .frame(width: 42, height: 42)
+                        .frame(width: 40, height: 40)
                         .background(VialrColors.cardSurfaceElevated)
                         .clipShape(Circle())
                         .overlay(Circle().stroke(VialrColors.glassBorder, lineWidth: 1))
@@ -140,7 +139,7 @@ public struct LoggingHubView: View {
                 .accessibilityLabel("Custom Dose Form")
             }
         }
-        .padding(.top, VialrSpacing.sm)
+        .padding(.top, VialrSpacing.xs)
     }
 
     // MARK: - 2. Hero Scheduled Dose Card (Sub-Second Logging)
@@ -151,40 +150,41 @@ public struct LoggingHubView: View {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(VialrColors.accentVitality)
-                        .frame(width: 8, height: 8)
-                    Text("UPCOMING PROTOCOL DOSE")
-                        .font(VialrTypography.captionBold)
+                        .frame(width: 7, height: 7)
+                    Text("ACTION REQUIRED • UP NEXT")
+                        .font(VialrTypography.eyebrow)
                         .foregroundColor(VialrColors.accentVitality)
-                        .tracking(1.0)
                 }
 
                 Spacer()
 
                 Text("Due Today")
-                    .font(VialrTypography.caption)
+                    .font(VialrTypography.captionBold)
                     .foregroundColor(VialrColors.textTertiary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(VialrColors.cardSurfaceSubtle)
-                    .cornerRadius(VialrSpacing.radiusPill)
             }
 
-            // Compound Title & Amount
+            // Compound Title & Large Dosage Amount
             VStack(alignment: .leading, spacing: 4) {
                 Text(dose.compoundName)
-                    .font(VialrTypography.largeHero)
+                    .font(VialrTypography.title1)
                     .foregroundColor(VialrColors.textPrimary)
 
-                HStack(spacing: 8) {
-                    Text("\(formatDoseAmount(dose.doseAmount)) \(dose.doseUnit.rawValue)")
-                        .font(VialrTypography.metricMedium)
+                HStack(alignment: .lastTextBaseline, spacing: 6) {
+                    Text(formatDoseAmount(dose.doseAmount))
+                        .font(VialrTypography.metricLarge)
+                        .foregroundColor(VialrColors.accentVitality)
+                        .tracking(-0.5)
+
+                    Text(dose.doseUnit.rawValue)
+                        .font(VialrTypography.title3)
                         .foregroundColor(VialrColors.accentVitality)
 
                     Text("•")
                         .foregroundColor(VialrColors.textTertiary)
+                        .padding(.horizontal, 2)
 
                     Text(dose.actualRoute.displayName)
-                        .font(VialrTypography.headline)
+                        .font(VialrTypography.subheadlineBold)
                         .foregroundColor(VialrColors.textSecondary)
                 }
             }
@@ -198,11 +198,11 @@ public struct LoggingHubView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "cross.circle.fill")
                             .foregroundColor(VialrColors.accentVitality)
-                            .font(.system(size: 14))
+                            .font(.system(size: 13))
 
-                        Text("Recommended Site:")
-                            .font(VialrTypography.footnote)
-                            .foregroundColor(VialrColors.textSecondary)
+                        Text("SITE:")
+                            .font(VialrTypography.eyebrowMono)
+                            .foregroundColor(VialrColors.textTertiary)
 
                         Text(site.name)
                             .font(VialrTypography.footnote)
@@ -215,10 +215,14 @@ public struct LoggingHubView: View {
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(VialrColors.textTertiary)
                     }
-                    .padding(.horizontal, VialrSpacing.sm)
+                    .padding(.horizontal, 10)
                     .padding(.vertical, 8)
                     .background(VialrColors.cardSurfaceSubtle)
                     .cornerRadius(VialrSpacing.radiusSm)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: VialrSpacing.radiusSm)
+                            .stroke(VialrColors.glassBorder, lineWidth: 1)
+                    )
                 }
                 .buttonStyle(.plain)
             }
@@ -229,6 +233,7 @@ public struct LoggingHubView: View {
             // Primary 1-Tap CTA
             HStack(spacing: VialrSpacing.sm) {
                 Button {
+                    VialrHaptics.doseConfirmed()
                     Task {
                         _ = await viewModel.quickLogScheduledDose()
                     }
@@ -239,7 +244,7 @@ public struct LoggingHubView: View {
                                 .tint(Color.black)
                         } else {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 17, weight: .bold))
+                                .font(.system(size: 16, weight: .bold))
                             Text("1-Tap Log Dose")
                                 .font(VialrTypography.headline)
                                 .fontWeight(.bold)
@@ -247,11 +252,11 @@ public struct LoggingHubView: View {
                     }
                     .foregroundColor(Color.black)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .background(VialrColors.primaryGradient)
+                    .frame(height: VialrSpacing.buttonHeight)
+                    .background(VialrColors.accentVitality)
                     .cornerRadius(VialrSpacing.radiusMd)
-                    .shadow(color: VialrColors.accentVitality.opacity(0.35), radius: 12, x: 0, y: 4)
                 }
+                .buttonStyle(VialrButtonPressStyle())
                 .disabled(viewModel.isSubmitting)
 
                 // Advanced Details Button
@@ -262,9 +267,9 @@ public struct LoggingHubView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 16, weight: .bold))
                         .foregroundColor(VialrColors.textPrimary)
-                        .frame(width: 52, height: 52)
+                        .frame(width: VialrSpacing.buttonHeight, height: VialrSpacing.buttonHeight)
                         .background(VialrColors.cardSurfaceElevated)
                         .cornerRadius(VialrSpacing.radiusMd)
                         .overlay(
@@ -281,7 +286,7 @@ public struct LoggingHubView: View {
     private var noScheduledDoseHeroCard: some View {
         VStack(spacing: VialrSpacing.md) {
             Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: 40))
+                .font(.system(size: 32))
                 .foregroundColor(VialrColors.accentVitality)
 
             VStack(spacing: 4) {
@@ -289,7 +294,7 @@ public struct LoggingHubView: View {
                     .font(VialrTypography.title2)
                     .foregroundColor(VialrColors.textPrimary)
 
-                Text("Select a quick preset below or tap Quick Log for PRN doses.")
+                Text("Select a quick preset below or tap custom dose.")
                     .font(VialrTypography.footnote)
                     .foregroundColor(VialrColors.textSecondary)
                     .multilineTextAlignment(.center)
@@ -303,13 +308,13 @@ public struct LoggingHubView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 15, weight: .bold))
                     Text("Log Custom / PRN Dose")
                         .font(VialrTypography.subheadlineBold)
                 }
                 .foregroundColor(Color.black)
                 .frame(maxWidth: .infinity)
-                .frame(height: 46)
+                .frame(height: 44)
                 .background(VialrColors.accentVitality)
                 .cornerRadius(VialrSpacing.radiusMd)
             }
@@ -320,24 +325,24 @@ public struct LoggingHubView: View {
 
     // MARK: - 3. 1-Tap Fast Presets Section
     private var fastPresetsSection: some View {
-        VStack(alignment: .leading, spacing: VialrSpacing.sm) {
+        VStack(alignment: .leading, spacing: VialrSpacing.xs) {
             HStack {
-                Text("1-TAP COMPOUND PRESETS")
-                    .font(VialrTypography.captionBold)
-                    .foregroundColor(VialrColors.textTertiary)
-                    .tracking(1.0)
+                Text("QUICK PRESETS")
+                    .vialrEyebrow()
 
                 Spacer()
 
-                Text("Instant Record")
+                Text("1-Tap Record")
                     .font(VialrTypography.caption)
                     .foregroundColor(VialrColors.accentVitality)
             }
+            .padding(.horizontal, 4)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: VialrSpacing.sm) {
                     ForEach(viewModel.presets) { preset in
                         Button {
+                            VialrHaptics.doseConfirmed()
                             Task {
                                 _ = await viewModel.quickLogPreset(preset)
                             }
@@ -345,12 +350,12 @@ public struct LoggingHubView: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {
                                     Text(preset.category.uppercased())
-                                        .font(.system(size: 9, weight: .bold))
-                                        .foregroundColor(Color(hex: preset.colorHex))
+                                        .font(VialrTypography.eyebrowMono)
+                                        .foregroundColor(VialrColors.textTertiary)
                                     Spacer()
                                     Image(systemName: "bolt.fill")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(Color(hex: preset.colorHex))
+                                        .font(.system(size: 10))
+                                        .foregroundColor(VialrColors.accentVitality)
                                 }
 
                                 Text(preset.compoundName)
@@ -363,7 +368,7 @@ public struct LoggingHubView: View {
                                     .foregroundColor(VialrColors.accentVitality)
                             }
                             .padding(VialrSpacing.md)
-                            .frame(width: 155, height: 104, alignment: .leading)
+                            .frame(width: 150, height: 96, alignment: .leading)
                             .background(VialrColors.cardSurface)
                             .cornerRadius(VialrSpacing.radiusMd)
                             .overlay(
@@ -380,16 +385,15 @@ public struct LoggingHubView: View {
 
     // MARK: - 4. Quick Action Grid
     private var quickActionGrid: some View {
-        VStack(alignment: .leading, spacing: VialrSpacing.sm) {
-            Text("QUICK TRACKING ACTIONS")
-                .font(VialrTypography.captionBold)
-                .foregroundColor(VialrColors.textTertiary)
-                .tracking(1.0)
+        VStack(alignment: .leading, spacing: VialrSpacing.xs) {
+            Text("QUICK ACTIONS")
+                .vialrEyebrow()
+                .padding(.horizontal, 4)
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: VialrSpacing.sm), GridItem(.flexible(), spacing: VialrSpacing.sm)], spacing: VialrSpacing.sm) {
                 quickActionTile(
                     title: "Log Symptoms",
-                    subtitle: "Record side effects & mood",
+                    subtitle: "Side effects & mood",
                     icon: "heart.text.square.fill",
                     color: VialrColors.accentRose
                 ) {
@@ -433,15 +437,16 @@ public struct LoggingHubView: View {
         } label: {
             HStack(spacing: VialrSpacing.sm) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.system(size: 18))
                     .foregroundColor(color)
-                    .frame(width: 38, height: 38)
+                    .frame(width: 36, height: 36)
                     .background(color.opacity(0.12))
                     .cornerRadius(VialrSpacing.radiusSm)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(title)
-                        .font(VialrTypography.subheadlineBold)
+                        .font(VialrTypography.footnote)
+                        .fontWeight(.semibold)
                         .foregroundColor(VialrColors.textPrimary)
 
                     Text(subtitle)
@@ -464,18 +469,16 @@ public struct LoggingHubView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - 5. Adherence Stats Card
+    // MARK: - 5. Adherence Numerical Stats Card
     private var adherenceStatsCard: some View {
         HStack(spacing: VialrSpacing.lg) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("7-DAY ADHERENCE")
-                    .font(VialrTypography.eyebrow)
-                    .foregroundColor(VialrColors.textTertiary)
-                    .tracking(1.0)
+                    .vialrEyebrow()
 
                 HStack(alignment: .lastTextBaseline, spacing: 4) {
                     Text("\(Int(viewModel.weeklyAdherencePercentage))%")
-                        .font(VialrTypography.largeHero)
+                        .font(VialrTypography.metricLarge)
                         .foregroundColor(VialrColors.accentVitality)
 
                     Text("on track")
@@ -486,14 +489,13 @@ public struct LoggingHubView: View {
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 2) {
                 Text("ACTIVE STREAK")
-                    .font(VialrTypography.eyebrow)
-                    .foregroundColor(VialrColors.textTertiary)
-                    .tracking(1.0)
+                    .vialrEyebrow()
 
                 HStack(spacing: 4) {
                     Image(systemName: "flame.fill")
+                        .font(.system(size: 14))
                         .foregroundColor(VialrColors.accentAmber)
                     Text("\(viewModel.currentStreakDays) Days")
                         .font(VialrTypography.headline)
@@ -507,12 +509,10 @@ public struct LoggingHubView: View {
 
     // MARK: - 6. Recent Dose History & 1-Tap Repeat
     private var recentDoseHistorySection: some View {
-        VStack(alignment: .leading, spacing: VialrSpacing.md) {
+        VStack(alignment: .leading, spacing: VialrSpacing.xs) {
             HStack {
                 Text("RECENT DOSES")
-                    .font(VialrTypography.captionBold)
-                    .foregroundColor(VialrColors.textTertiary)
-                    .tracking(1.0)
+                    .vialrEyebrow()
 
                 Spacer()
 
@@ -520,21 +520,22 @@ public struct LoggingHubView: View {
                     .font(VialrTypography.caption)
                     .foregroundColor(VialrColors.textTertiary)
             }
+            .padding(.horizontal, 4)
 
             if viewModel.filteredRecentDoses.isEmpty {
                 VStack(spacing: VialrSpacing.sm) {
                     Image(systemName: "tray.fill")
-                        .font(.system(size: 28))
+                        .font(.system(size: 24))
                         .foregroundColor(VialrColors.textMuted)
                     Text("No doses recorded yet")
                         .font(VialrTypography.footnote)
                         .foregroundColor(VialrColors.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, VialrSpacing.xl)
+                .padding(.vertical, VialrSpacing.lg)
                 .vialrCard()
             } else {
-                VStack(spacing: VialrSpacing.sm) {
+                VStack(spacing: VialrSpacing.xs) {
                     ForEach(viewModel.filteredRecentDoses.prefix(15)) { dose in
                         doseHistoryRow(dose)
                     }
@@ -544,22 +545,22 @@ public struct LoggingHubView: View {
     }
 
     private func doseHistoryRow(_ dose: DoseLog) -> some View {
-        HStack(spacing: VialrSpacing.md) {
-            // Route Icon
+        HStack(spacing: VialrSpacing.sm) {
+            // Status Icon
             ZStack {
                 Circle()
                     .fill(dose.status == .taken ? VialrColors.accentVitality.opacity(0.12) : VialrColors.accentAmber.opacity(0.12))
-                    .frame(width: 40, height: 40)
+                    .frame(width: 36, height: 36)
 
                 Image(systemName: dose.status == .taken ? "checkmark" : "clock.arrow.circlepath")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundColor(dose.status == .taken ? VialrColors.accentVitality : VialrColors.accentAmber)
             }
 
             // Compound & Meta
             VStack(alignment: .leading, spacing: 2) {
                 Text(dose.compoundName)
-                    .font(VialrTypography.headline)
+                    .font(VialrTypography.subheadlineBold)
                     .foregroundColor(VialrColors.textPrimary)
 
                 HStack(spacing: 6) {
@@ -569,7 +570,7 @@ public struct LoggingHubView: View {
 
                     if let siteName = dose.injectionSiteName {
                         Text("•")
-                            .font(.system(size: 10))
+                            .font(.system(size: 8))
                             .foregroundColor(VialrColors.textTertiary)
                         Text(siteName)
                             .font(VialrTypography.caption)
@@ -582,13 +583,14 @@ public struct LoggingHubView: View {
 
             // 1-Tap Repeat Button
             Button {
+                VialrHaptics.doseConfirmed()
                 Task {
                     _ = await viewModel.repeatPastDose(dose)
                 }
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 10, weight: .bold))
                     Text("Repeat")
                         .font(VialrTypography.captionBold)
                 }
@@ -609,7 +611,7 @@ public struct LoggingHubView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 14))
+                    .font(.system(size: 12))
                     .foregroundColor(VialrColors.textTertiary)
                     .frame(width: 28, height: 28)
             }

@@ -36,34 +36,55 @@ public struct QuickLogSheetView: View {
                 VialrColors.backgroundPrimary
                     .ignoresSafeArea()
 
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(spacing: VialrSpacing.lg) {
-                        // Compound & Dose Card
+                        // Compound & Large Dosage Display
                         VStack(alignment: .leading, spacing: VialrSpacing.md) {
-                            Text("DOSE DETAILS")
-                                .font(VialrTypography.captionBold)
-                                .foregroundColor(VialrColors.accentTeal)
+                            HStack {
+                                Text("DOSE DETAILS")
+                                    .vialrEyebrow()
+                                Spacer()
+                                Text(route.shortName)
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.accentVitality)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(VialrColors.accentVitality.opacity(0.12))
+                                    .clipShape(Capsule())
+                            }
 
                             Text(compoundName)
                                 .font(VialrTypography.title1)
                                 .foregroundColor(VialrColors.textPrimary)
 
+                            HStack(alignment: .lastTextBaseline, spacing: 6) {
+                                Text(formatAmount(doseAmount))
+                                    .font(VialrTypography.metricHero)
+                                    .foregroundColor(VialrColors.accentVitality)
+                                    .tracking(-0.5)
+
+                                Text(doseUnit.rawValue)
+                                    .font(VialrTypography.title3)
+                                    .foregroundColor(VialrColors.accentVitality)
+                            }
+
+                            // Stepper
                             VialrStepper(
-                                title: "Administered Dose",
+                                title: "ADJUST AMOUNT",
                                 value: $doseAmount,
                                 step: doseUnit == .mcg ? 50 : 0.5,
-                                range: 1...5000,
+                                range: 1...10000,
                                 unit: doseUnit.rawValue,
-                                format: "%.0f"
+                                format: doseUnit == .mg ? "%.2f" : "%.0f"
                             )
 
-                            DatePicker("Administration Timestamp", selection: $logDate)
+                            DatePicker("Time", selection: $logDate)
                                 .font(VialrTypography.subheadline)
                                 .padding(VialrSpacing.sm)
                                 .background(VialrColors.cardSurfaceElevated)
                                 .cornerRadius(VialrSpacing.radiusSm)
                         }
-                        .padding(VialrSpacing.md)
+                        .padding(VialrSpacing.cardPadding)
                         .vialrCard()
 
                         // Injection Site Selection (Body Map)
@@ -94,11 +115,10 @@ public struct QuickLogSheetView: View {
 
                         // Notes Field
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Notes & Context (Optional)")
-                                .font(VialrTypography.subheadline)
-                                .foregroundColor(VialrColors.textSecondary)
+                            Text("NOTES")
+                                .vialrEyebrow()
 
-                            TextField("e.g. Post morning coffee, zero pip/sting", text: $notes)
+                            TextField("e.g. Post-workout, zero sting", text: $notes)
                                 .font(VialrTypography.body)
                                 .padding(VialrSpacing.md)
                                 .background(VialrColors.cardSurfaceElevated)
@@ -106,7 +126,8 @@ public struct QuickLogSheetView: View {
                         }
 
                         // Confirm & Log CTA
-                        VialrButton("Confirm & Log Dose", icon: "checkmark.circle.fill", style: .primary) {
+                        VialrButton("Confirm & Log Dose", icon: "checkmark.circle.fill", style: .vitality, size: .large) {
+                            VialrHaptics.doseConfirmed()
                             let site = InjectionSite.standardSites.first(where: { $0.id == selectedSiteId })
                             let log = DoseLog(
                                 id: preselectedDose?.id ?? UUID(),
@@ -126,13 +147,11 @@ public struct QuickLogSheetView: View {
                                 notes: notes
                             )
                             onSave(log)
-                            #if os(iOS)
-                            UINotificationFeedbackGenerator().notificationOccurred(.success)
-                            #endif
                             dismiss()
                         }
                     }
-                    .padding(VialrSpacing.md)
+                    .padding(VialrSpacing.screenHorizontal)
+                    .padding(.bottom, VialrSpacing.xl)
                 }
             }
             .navigationTitle("Log Dose")
@@ -142,7 +161,7 @@ public struct QuickLogSheetView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(VialrColors.accentTeal)
+                        .foregroundColor(VialrColors.textSecondary)
                 }
             }
             .onAppear {
@@ -160,17 +179,17 @@ public struct QuickLogSheetView: View {
     private var vialSelectorSection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.sm) {
             Text("DRAWING FROM VIAL")
-                .font(VialrTypography.captionBold)
-                .foregroundColor(VialrColors.accentTeal)
+                .vialrEyebrow()
 
             ForEach(availableVials) { vial in
                 let isSelected = (selectedVialId ?? availableVials.first?.id) == vial.id
                 Button {
+                    VialrHaptics.selection()
                     selectedVialId = vial.id
                 } label: {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("\(vial.compoundName) (\(vial.lotNumber))")
+                            Text("\(vial.compoundName) (Lot: \(vial.lotNumber.isEmpty ? "Standard" : vial.lotNumber))")
                                 .font(VialrTypography.headline)
                                 .foregroundColor(VialrColors.textPrimary)
                             Text("\(String(format: "%.1f", vial.currentVolumeRemainingMl ?? 0)) mL remaining")
@@ -180,7 +199,7 @@ public struct QuickLogSheetView: View {
                         Spacer()
                         if isSelected {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(VialrColors.accentTeal)
+                                .foregroundColor(VialrColors.accentVitality)
                         }
                     }
                     .padding(VialrSpacing.sm)
@@ -189,5 +208,11 @@ public struct QuickLogSheetView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    private func formatAmount(_ amount: Double) -> String {
+        amount.truncatingRemainder(dividingBy: 1) == 0 ?
+            String(format: "%.0f", amount) :
+            String(format: "%.1f", amount)
     }
 }
