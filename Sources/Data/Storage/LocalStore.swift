@@ -54,6 +54,7 @@ public actor LocalStore {
         self.inventoryEvents = mock.defaultInventoryEvents
         self.measurements = mock.defaultMeasurements
         self.metricDefinitions = mock.defaultMetricDefinitions
+        self.labPanels = mock.defaultLabPanels
         self.isInitialized = true
     }
 

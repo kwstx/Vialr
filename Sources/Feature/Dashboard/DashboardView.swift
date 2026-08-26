@@ -8,6 +8,7 @@ public struct DashboardView: View {
     public var onOpenReconstitution: () -> Void
     public var onOpenSiteRotation: () -> Void
     public var onOpenProtocolDetail: (ProtocolModel) -> Void
+    public var onOpenBloodwork: (() -> Void)?
     public var onNavigateToTab: ((AppTab) -> Void)?
 
     public init(
@@ -16,6 +17,7 @@ public struct DashboardView: View {
         onOpenReconstitution: @escaping () -> Void,
         onOpenSiteRotation: @escaping () -> Void,
         onOpenProtocolDetail: @escaping (ProtocolModel) -> Void,
+        onOpenBloodwork: (() -> Void)? = nil,
         onNavigateToTab: ((AppTab) -> Void)? = nil
     ) {
         self.viewModel = viewModel
@@ -23,6 +25,7 @@ public struct DashboardView: View {
         self.onOpenReconstitution = onOpenReconstitution
         self.onOpenSiteRotation = onOpenSiteRotation
         self.onOpenProtocolDetail = onOpenProtocolDetail
+        self.onOpenBloodwork = onOpenBloodwork
         self.onNavigateToTab = onNavigateToTab
     }
 
@@ -87,22 +90,41 @@ public struct DashboardView: View {
 
             Spacer()
 
-            // Quick Calculator Action Button
-            Button {
-                VialrHaptics.lightImpact()
-                onOpenReconstitution()
-            } label: {
-                Image(systemName: "plus.forwardslash.minus")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(VialrColors.textPrimary)
-                    .frame(width: 44, height: 44)
-                    .background(VialrColors.cardSurfaceElevated)
-                    .clipShape(Circle())
-                    .overlay(
-                        Circle().stroke(VialrColors.glassBorder, lineWidth: 1)
-                    )
+            HStack(spacing: 8) {
+                // Quick Bloodwork Button
+                Button {
+                    VialrHaptics.lightImpact()
+                    onOpenBloodwork?()
+                } label: {
+                    Image(systemName: "drop.fill")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(VialrColors.accentRose)
+                        .frame(width: 44, height: 44)
+                        .background(VialrColors.cardSurfaceElevated)
+                        .clipShape(Circle())
+                        .overlay(
+                            Circle().stroke(VialrColors.glassBorder, lineWidth: 1)
+                        )
+                }
+                .accessibilityLabel("Open Bloodwork & Lab Results Hub")
+
+                // Quick Calculator Action Button
+                Button {
+                    VialrHaptics.lightImpact()
+                    onOpenReconstitution()
+                } label: {
+                    Image(systemName: "plus.forwardslash.minus")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(VialrColors.textPrimary)
+                        .frame(width: 44, height: 44)
+                        .background(VialrColors.cardSurfaceElevated)
+                        .clipShape(Circle())
+                        .overlay(
+                            Circle().stroke(VialrColors.glassBorder, lineWidth: 1)
+                        )
+                }
+                .accessibilityLabel("Open Reconstitution Calculator")
             }
-            .accessibilityLabel("Open Reconstitution Calculator")
         }
         .padding(.top, VialrSpacing.xs)
     }

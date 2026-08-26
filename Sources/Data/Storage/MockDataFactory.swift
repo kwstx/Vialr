@@ -490,6 +490,77 @@ public struct MockDataFactory: Sendable {
         ]
     }
 
+    // MARK: - Laboratory Panels & Results
+    public var defaultLabPanels: [LabPanel] {
+        let cal = Calendar.current
+        let now = Date()
+
+        let panel1Id = UUID(uuidString: "77777777-7777-7777-7777-777777777771")!
+        let panel2Id = UUID(uuidString: "77777777-7777-7777-7777-777777777772")!
+
+        let panel1Results = [
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "Total Testosterone", category: .hormones, value: 845, unit: "ng/dL", referenceRangeMin: 300, referenceRangeMax: 1000, referenceRangeText: "300 – 1000 ng/dL", flag: .inRange, notes: "Optimal mid-high physiological range."),
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "Free Testosterone", category: .hormones, value: 24.2, unit: "pg/mL", referenceRangeMin: 9.0, referenceRangeMax: 30.0, referenceRangeText: "9.0 – 30.0 pg/mL", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "Estradiol (Sensitive / LC-MS)", category: .hormones, value: 28.5, unit: "pg/mL", referenceRangeMin: 15.0, referenceRangeMax: 40.0, referenceRangeText: "15.0 – 40.0 pg/mL", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "Sex Hormone Binding Globulin (SHBG)", category: .hormones, value: 34.0, unit: "nmol/L", referenceRangeMin: 16.5, referenceRangeMax: 55.9, referenceRangeText: "16.5 – 55.9 nmol/L", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "DHEA-Sulfate", category: .hormones, value: 385, unit: "ug/dL", referenceRangeMin: 160, referenceRangeMax: 450, referenceRangeText: "160 – 450 ug/dL", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "IGF-1 (Somatomedin C)", category: .hormones, value: 268, unit: "ng/mL", referenceRangeMin: 115, referenceRangeMax: 307, referenceRangeText: "115 – 307 ng/mL", flag: .inRange, notes: "Robust GH response on CJC/Ipamorelin."),
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "Fasting Blood Glucose", category: .metabolic, value: 88, unit: "mg/dL", referenceRangeMin: 70, referenceRangeMax: 99, referenceRangeText: "70 – 99 mg/dL", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "Fasting Insulin", category: .metabolic, value: 3.8, unit: "uIU/mL", referenceRangeMin: 2.0, referenceRangeMax: 6.0, referenceRangeText: "2.0 – 6.0 uIU/mL", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "Hemoglobin A1c (HbA1c)", category: .metabolic, value: 5.1, unit: "%", referenceRangeMin: 4.5, referenceRangeMax: 5.6, referenceRangeText: "< 5.7 %", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "Apolipoprotein B (ApoB)", category: .lipids, value: 68, unit: "mg/dL", referenceRangeMin: 50, referenceRangeMax: 90, referenceRangeText: "< 90 mg/dL", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "Hematocrit", category: .cbcHematology, value: 47.2, unit: "%", referenceRangeMin: 38.5, referenceRangeMax: 50.0, referenceRangeText: "38.5 – 50.0 %", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "ALT (Alanine Aminotransferase)", category: .liverHepatic, value: 22, unit: "IU/L", referenceRangeMin: 9, referenceRangeMax: 44, referenceRangeText: "9 – 44 IU/L", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "AST (Aspartate Aminotransferase)", category: .liverHepatic, value: 26, unit: "IU/L", referenceRangeMin: 10, referenceRangeMax: 40, referenceRangeText: "10 – 40 IU/L", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "High-Sensitivity CRP (hs-CRP)", category: .inflammatory, value: 0.35, unit: "mg/L", referenceRangeMin: 0.1, referenceRangeMax: 1.0, referenceRangeText: "< 1.0 mg/L", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel1Id, biomarkerName: "TSH (Thyroid Stimulating Hormone)", category: .thyroid, value: 1.65, unit: "uIU/mL", referenceRangeMin: 0.45, referenceRangeMax: 4.50, referenceRangeText: "0.45 – 4.50 uIU/mL", flag: .inRange)
+        ]
+
+        let panel2Results = [
+            LabResult(id: UUID(), panelId: panel2Id, biomarkerName: "Total Testosterone", category: .hormones, value: 620, unit: "ng/dL", referenceRangeMin: 300, referenceRangeMax: 1000, referenceRangeText: "300 – 1000 ng/dL", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel2Id, biomarkerName: "Free Testosterone", category: .hormones, value: 16.8, unit: "pg/mL", referenceRangeMin: 9.0, referenceRangeMax: 30.0, referenceRangeText: "9.0 – 30.0 pg/mL", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel2Id, biomarkerName: "Estradiol (Sensitive / LC-MS)", category: .hormones, value: 22.0, unit: "pg/mL", referenceRangeMin: 15.0, referenceRangeMax: 40.0, referenceRangeText: "15.0 – 40.0 pg/mL", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel2Id, biomarkerName: "IGF-1 (Somatomedin C)", category: .hormones, value: 185, unit: "ng/mL", referenceRangeMin: 115, referenceRangeMax: 307, referenceRangeText: "115 – 307 ng/mL", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel2Id, biomarkerName: "Fasting Blood Glucose", category: .metabolic, value: 94, unit: "mg/dL", referenceRangeMin: 70, referenceRangeMax: 99, referenceRangeText: "70 – 99 mg/dL", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel2Id, biomarkerName: "Total Cholesterol", category: .lipids, value: 192, unit: "mg/dL", referenceRangeMin: 125, referenceRangeMax: 200, referenceRangeText: "< 200 mg/dL", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel2Id, biomarkerName: "LDL-C (Calculated / Direct)", category: .lipids, value: 112, unit: "mg/dL", referenceRangeMin: 50, referenceRangeMax: 100, referenceRangeText: "< 100 mg/dL", flag: .high),
+            LabResult(id: UUID(), panelId: panel2Id, biomarkerName: "HDL-C (High-Density Lipoprotein)", category: .lipids, value: 58, unit: "mg/dL", referenceRangeMin: 40, referenceRangeMax: 80, referenceRangeText: "> 40 mg/dL", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel2Id, biomarkerName: "Triglycerides", category: .lipids, value: 110, unit: "mg/dL", referenceRangeMin: 40, referenceRangeMax: 150, referenceRangeText: "< 150 mg/dL", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel2Id, biomarkerName: "Hematocrit", category: .cbcHematology, value: 45.0, unit: "%", referenceRangeMin: 38.5, referenceRangeMax: 50.0, referenceRangeText: "38.5 – 50.0 %", flag: .inRange),
+            LabResult(id: UUID(), panelId: panel2Id, biomarkerName: "ALT (Alanine Aminotransferase)", category: .liverHepatic, value: 28, unit: "IU/L", referenceRangeMin: 9, referenceRangeMax: 44, referenceRangeText: "9 – 44 IU/L", flag: .inRange)
+        ]
+
+        let p1 = LabPanel(
+            id: panel1Id,
+            userId: UUID(uuidString: "00000000-0000-0000-0000-000000000001"),
+            panelName: "Comprehensive Male Hormone & Longevity Panel",
+            labName: "Quest Diagnostics",
+            collectionDate: cal.date(byAdding: .day, value: -14, to: now)!,
+            resultDate: cal.date(byAdding: .day, value: -12, to: now)!,
+            status: .completed,
+            results: panel1Results,
+            orderingPhysician: "Dr. William Sterling, MD",
+            fastingStatus: .fasted,
+            notes: "Routine 12-week protocol monitoring blood draw. All markers within optimal parameters."
+        )
+
+        let p2 = LabPanel(
+            id: panel2Id,
+            userId: UUID(uuidString: "00000000-0000-0000-0000-000000000001"),
+            panelName: "Baseline Diagnostic Lab Panel",
+            labName: "Labcorp",
+            collectionDate: cal.date(byAdding: .day, value: -90, to: now)!,
+            resultDate: cal.date(byAdding: .day, value: -88, to: now)!,
+            status: .completed,
+            results: panel2Results,
+            orderingPhysician: "Dr. Sarah Jenkins, MD",
+            fastingStatus: .fasted,
+            notes: "Baseline pre-protocol evaluation."
+        )
+
+        return [p1, p2]
+    }
+
     // MARK: - Subjective Symptoms
     public var defaultSymptomLogs: [SymptomLog] {
         let cal = Calendar.current

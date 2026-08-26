@@ -135,6 +135,7 @@ public struct RootNavigationView: View {
                     onOpenReconstitution: { coordinator.presentSheet(.reconstitution) },
                     onOpenSiteRotation: { coordinator.presentSheet(.siteRotation) },
                     onOpenProtocolDetail: { proto in coordinator.presentSheet(.protocolDetail(proto)) },
+                    onOpenBloodwork: { coordinator.presentSheet(.bloodworkHub) },
                     onNavigateToTab: { tab in coordinator.selectedTab = tab }
                 )
                 .tag(AppTab.dashboard)
@@ -310,6 +311,41 @@ public struct RootNavigationView: View {
 
         case .clinicianReport:
             ClinicianReportView()
+
+        case .bloodworkHub:
+            BloodworkHubView(viewModel: BloodworkViewModel(
+                labPanelRepo: container.labPanelRepository,
+                biomarkerRepo: container.biomarkerRepository
+            ))
+
+        case .manualBloodworkEntry:
+            ManualLabEntryView { newPanel in
+                Task {
+                    try? await container.labPanelRepository.save(newPanel)
+                    coordinator.showToast(title: "Lab Record Saved", message: "\(newPanel.panelName) (\(newPanel.results.count) analytes)")
+                }
+            }
+
+        case .uploadLabReport:
+            LabDocumentUploadView { candidate in
+                coordinator.presentSheet(.confirmLabReportCandidate(candidate))
+            }
+
+        case .confirmLabReportCandidate(let candidate):
+            LabCandidateConfirmationView(candidateReport: candidate) { confirmedPanel in
+                Task {
+                    try? await container.labPanelRepository.save(confirmedPanel)
+                    coordinator.showToast(title: "Lab Record Verified & Saved", message: "\(confirmedPanel.panelName) (\(confirmedPanel.results.count) analytes)")
+                }
+            }
+
+        case .labPanelDetail(let panel):
+            LabPanelDetailView(panel: panel) {
+                Task {
+                    try? await container.labPanelRepository.delete(byId: panel.id)
+                    coordinator.showToast(title: "Lab Record Deleted")
+                }
+            }
         }
     }
 }

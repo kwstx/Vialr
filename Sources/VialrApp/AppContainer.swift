@@ -27,6 +27,8 @@ public final class AppContainer: @unchecked Sendable {
     public let syncQueueRepository: SyncQueueRepositoryProtocol
     public let inventoryEventRepository: InventoryEventRepositoryProtocol
     public let healthRepository: HealthRepositoryProtocol
+    public let labPanelRepository: LabPanelRepositoryProtocol
+    public let documentRepository: DocumentRepositoryProtocol
 
     // Services & Engines
     public let healthService: HealthServiceProtocol
@@ -49,6 +51,8 @@ public final class AppContainer: @unchecked Sendable {
         timelineEventRepository: TimelineEventRepositoryProtocol = LocalTimelineEventRepository(),
         syncQueueRepository: SyncQueueRepositoryProtocol = LocalSyncQueueRepository(),
         inventoryEventRepository: InventoryEventRepositoryProtocol = LocalInventoryEventRepository(),
+        labPanelRepository: LabPanelRepositoryProtocol = LocalLabPanelRepository(),
+        documentRepository: DocumentRepositoryProtocol = LocalDocumentRepository(),
         healthService: HealthServiceProtocol = HealthKitManager.shared,
         healthSettingsManager: HealthSettingsManager = .shared,
         healthRepository: HealthRepositoryProtocol? = nil,
@@ -69,6 +73,8 @@ public final class AppContainer: @unchecked Sendable {
         self.timelineEventRepository = timelineEventRepository
         self.syncQueueRepository = syncQueueRepository
         self.inventoryEventRepository = inventoryEventRepository
+        self.labPanelRepository = labPanelRepository
+        self.documentRepository = documentRepository
         self.healthService = healthService
         self.healthSettingsManager = healthSettingsManager
         self.healthRepository = healthRepository ?? HealthRepository(

@@ -161,6 +161,7 @@ public struct BiomarkerLogSheetView: View {
     @State private var rangeMaxString: String = "307"
     @State private var testDate: Date = Date()
     @State private var notes: String = ""
+    @State private var isSelectorPresented: Bool = false
 
     public init(onSave: @escaping (Biomarker) -> Void) {
         self.onSave = onSave
@@ -175,9 +176,27 @@ public struct BiomarkerLogSheetView: View {
                 ScrollView {
                     VStack(spacing: VialrSpacing.lg) {
                         VStack(alignment: .leading, spacing: VialrSpacing.md) {
-                            Text("BIOMARKER ENTRY")
-                                .font(VialrTypography.captionBold)
-                                .foregroundColor(VialrColors.accentTeal)
+                            HStack {
+                                Text("BIOMARKER ENTRY")
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.accentTeal)
+                                Spacer()
+                                Button {
+                                    isSelectorPresented = true
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "magnifyingglass")
+                                        Text("Search Catalog")
+                                    }
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.accentTeal)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(VialrColors.cardSurfaceElevated)
+                                    .cornerRadius(VialrSpacing.radiusPill)
+                                }
+                                .buttonStyle(.plain)
+                            }
 
                             VialrInputField("Biomarker Name", placeholder: "e.g. IGF-1, Fasting Glucose", value: $biomarkerName)
                             
@@ -230,6 +249,20 @@ public struct BiomarkerLogSheetView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .foregroundColor(VialrColors.accentTeal)
+                }
+            }
+            .sheet(isPresented: $isSelectorPresented) {
+                BiomarkerSelectorView { selected in
+                    biomarkerName = selected.name
+                    unitString = selected.standardUnit
+                    if let mn = selected.defaultReferenceMin { rangeMinString = String(format: "%.1f", mn) }
+                    if let mx = selected.defaultReferenceMax { rangeMaxString = String(format: "%.1f", mx) }
+                    switch selected.category {
+                    case .hormones, .cbcHematology, .thyroid, .inflammatory, .custom: category = .bloodwork
+                    case .metabolic, .vitaminsElectrolytes: category = .metabolic
+                    case .lipids: category = .cardiovascular
+                    case .liverHepatic, .kidneyRenal: category = .bloodwork
+                    }
                 }
             }
         }

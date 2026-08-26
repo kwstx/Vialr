@@ -36,6 +36,11 @@ public enum ActiveSheet: Identifiable {
     case logSymptoms
     case logBiomarker
     case clinicianReport
+    case bloodworkHub
+    case manualBloodworkEntry
+    case uploadLabReport
+    case confirmLabReportCandidate(ExtractedLabReportCandidate)
+    case labPanelDetail(LabPanel)
 
     public var id: String {
         switch self {
@@ -49,6 +54,11 @@ public enum ActiveSheet: Identifiable {
         case .logSymptoms: return "logSymptoms"
         case .logBiomarker: return "logBiomarker"
         case .clinicianReport: return "clinicianReport"
+        case .bloodworkHub: return "bloodworkHub"
+        case .manualBloodworkEntry: return "manualBloodworkEntry"
+        case .uploadLabReport: return "uploadLabReport"
+        case .confirmLabReportCandidate(let c): return "confirmLabCandidate_\(c.id.uuidString)"
+        case .labPanelDetail(let p): return "labPanelDetail_\(p.id.uuidString)"
         }
     }
 }
