@@ -108,6 +108,7 @@ public enum Endpoint: Sendable {
 
     // MARK: - 12. Reports
     case generateReport
+    case generatePdfReport
 
     // MARK: - 13. Notifications
     case listNotifications
@@ -240,6 +241,7 @@ public enum Endpoint: Sendable {
 
         // Reports
         case .generateReport: return "/api/v1/reports/generate"
+        case .generatePdfReport: return "/api/v1/reports/pdf"
 
         // Notifications
         case .listNotifications: return "/api/v1/notifications"
@@ -270,7 +272,7 @@ public enum Endpoint: Sendable {
              .createVial, .depleteVial, .discardVial, .createSupply, .adjustSupply,
              .createReconstitutionRecord, .reviseReconstitutionRecord, .logSiteEvent,
              .createMeasurement, .createLabPanel, .logBiomarker, .uploadFile,
-             .generateReport, .registerDeviceToken, .sendTestNotification, .syncPush, .syncOutbox:
+             .generateReport, .generatePdfReport, .registerDeviceToken, .sendTestNotification, .syncPush, .syncOutbox:
             return .post
 
         case .updateProfile, .updatePreferences, .updateUnits, .updateNotifications,

@@ -1425,17 +1425,31 @@ public struct ClinicianReportRequestDTO: Content, Sendable {
     public let dateRangeStart: Date
     public let dateRangeEnd: Date
     public let patientName: String
-    public let dateOfBirth: String
+    public let dateOfBirth: String?
     public let clinicianName: String
     public let practiceOrClinic: String
+    public let patientNotes: String?
+    public let includeProtocols: Bool?
+    public let includeDoses: Bool?
+    public let includeLabs: Bool?
+    public let includeMeasurements: Bool?
+    public let includeSymptoms: Bool?
+    public let includeNotes: Bool?
 
     public init(
         dateRangeStart: Date,
         dateRangeEnd: Date,
-        patientName: String,
-        dateOfBirth: String,
-        clinicianName: String,
-        practiceOrClinic: String
+        patientName: String = "Patient / Self",
+        dateOfBirth: String? = nil,
+        clinicianName: String = "Attending Physician",
+        practiceOrClinic: String = "Medical Practice / Clinic",
+        patientNotes: String? = nil,
+        includeProtocols: Bool? = true,
+        includeDoses: Bool? = true,
+        includeLabs: Bool? = true,
+        includeMeasurements: Bool? = true,
+        includeSymptoms: Bool? = true,
+        includeNotes: Bool? = true
     ) {
         self.dateRangeStart = dateRangeStart
         self.dateRangeEnd = dateRangeEnd
@@ -1443,40 +1457,71 @@ public struct ClinicianReportRequestDTO: Content, Sendable {
         self.dateOfBirth = dateOfBirth
         self.clinicianName = clinicianName
         self.practiceOrClinic = practiceOrClinic
+        self.patientNotes = patientNotes
+        self.includeProtocols = includeProtocols
+        self.includeDoses = includeDoses
+        self.includeLabs = includeLabs
+        self.includeMeasurements = includeMeasurements
+        self.includeSymptoms = includeSymptoms
+        self.includeNotes = includeNotes
     }
 }
 
 public struct ClinicianReportResponseDTO: Content, Sendable {
+    public let id: UUID
     public let generatedAt: Date
     public let patientName: String
+    public let dateRangeStart: Date
+    public let dateRangeEnd: Date
     public let activeProtocolsCount: Int
     public let adherenceRate: Double
     public let dosesLoggedCount: Int
     public let biomarkersCount: Int
+    public let abnormalBiomarkersCount: Int
+    public let measurementsCount: Int
+    public let symptomsCount: Int
+    public let totalLedgerItemsCount: Int
     public let summaryText: String
     public let storedFileId: UUID?
     public let downloadUrl: String?
+    public let reportDataJson: String?
 
     public init(
-        generatedAt: Date,
+        id: UUID = UUID(),
+        generatedAt: Date = Date(),
         patientName: String,
+        dateRangeStart: Date,
+        dateRangeEnd: Date,
         activeProtocolsCount: Int,
         adherenceRate: Double,
         dosesLoggedCount: Int,
         biomarkersCount: Int,
+        abnormalBiomarkersCount: Int = 0,
+        measurementsCount: Int = 0,
+        symptomsCount: Int = 0,
+        totalLedgerItemsCount: Int = 0,
         summaryText: String,
         storedFileId: UUID? = nil,
-        downloadUrl: String? = nil
+        downloadUrl: String? = nil,
+        reportDataJson: String? = nil
     ) {
+        self.id = id
         self.generatedAt = generatedAt
         self.patientName = patientName
+        self.dateRangeStart = dateRangeStart
+        self.dateRangeEnd = dateRangeEnd
         self.activeProtocolsCount = activeProtocolsCount
         self.adherenceRate = adherenceRate
         self.dosesLoggedCount = dosesLoggedCount
         self.biomarkersCount = biomarkersCount
+        self.abnormalBiomarkersCount = abnormalBiomarkersCount
+        self.measurementsCount = measurementsCount
+        self.symptomsCount = symptomsCount
+        self.totalLedgerItemsCount = totalLedgerItemsCount
         self.summaryText = summaryText
         self.storedFileId = storedFileId
         self.downloadUrl = downloadUrl
+        self.reportDataJson = reportDataJson
     }
 }
 
