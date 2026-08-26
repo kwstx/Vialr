@@ -47,6 +47,7 @@ public final class DoseLoggingEngine: DoseLoggingEngineProtocol, @unchecked Send
     private let adherenceCalculator: AdherenceCalculator
     private let notificationScheduler: NotificationSchedulerProtocol
     private let inventoryAccountingEngine: InventoryAccountingEngine
+    private let validationEngine: ValidationEngineProtocol
     private let calendar: Calendar
 
     public init(
@@ -61,6 +62,7 @@ public final class DoseLoggingEngine: DoseLoggingEngineProtocol, @unchecked Send
         adherenceCalculator: AdherenceCalculator = AdherenceCalculator(),
         notificationScheduler: NotificationSchedulerProtocol = NotificationScheduler(),
         inventoryAccountingEngine: InventoryAccountingEngine = InventoryAccountingEngine(),
+        validationEngine: ValidationEngineProtocol = ValidationEngine(),
         calendar: Calendar = .current
     ) {
         self.doseRepo = doseRepo
@@ -74,6 +76,7 @@ public final class DoseLoggingEngine: DoseLoggingEngineProtocol, @unchecked Send
         self.adherenceCalculator = adherenceCalculator
         self.notificationScheduler = notificationScheduler
         self.inventoryAccountingEngine = inventoryAccountingEngine
+        self.validationEngine = validationEngine
         self.calendar = calendar
     }
 
@@ -81,6 +84,19 @@ public final class DoseLoggingEngine: DoseLoggingEngineProtocol, @unchecked Send
     public func logDose(_ request: DoseConfirmationRequest) async throws -> DoseLoggingResult {
         let now = Date()
         let executionTime = request.actualTimestamp
+
+        // 0. Enforce Architectural Validation Boundary
+        let recentLogs = (try? await doseRepo.fetchAll()) ?? []
+        let validationResult = validationEngine.validateDoseConfirmationRequest(
+            request: request,
+            compound: nil,
+            vial: nil,
+            protocolModel: nil,
+            recentLogs: recentLogs,
+            recentSiteEvents: nil,
+            referenceDate: executionTime
+        )
+        try validationResult.throwIfInvalid()
 
         // 1. Create or Update Ground-Truth DoseEvent
         let doseEventId = request.doseEventId ?? UUID()

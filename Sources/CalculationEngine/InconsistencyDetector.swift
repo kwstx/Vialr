@@ -2,6 +2,7 @@ import Foundation
 import Domain
 
 /// Intelligent safety rules and anomaly detection for dosing entries.
+/// Serves as a domain adapter bridging legacy calls to the centralized `ValidationEngine`.
 public struct InconsistencyDetector: Sendable {
 
     public struct SafetyWarning: Identifiable, Sendable, Hashable {
@@ -24,6 +25,21 @@ public struct InconsistencyDetector: Sendable {
             self.explanation = explanation
             self.recommendation = recommendation
         }
+
+        public init(from issue: ValidationIssue) {
+            self.id = issue.id
+            switch issue.severity {
+            case .blockingError:
+                self.severity = .critical
+            case .warning:
+                self.severity = .warning
+            case .info:
+                self.severity = .info
+            }
+            self.title = issue.title
+            self.explanation = issue.explanation
+            self.recommendation = issue.suggestedFix ?? "Verify dose parameters before confirming."
+        }
     }
 
     public enum WarningSeverity: String, Codable, Sendable {
@@ -32,53 +48,29 @@ public struct InconsistencyDetector: Sendable {
         case info = "Notice"
     }
 
-    public init() {}
+    private let validationEngine: ValidationEngine
 
-    /// Evaluates a candidate dose log against compound rules and recent history.
+    public init(validationEngine: ValidationEngine = ValidationEngine()) {
+        self.validationEngine = validationEngine
+    }
+
+    /// Evaluates a candidate dose log against compound rules, vial state, and recent history.
     public func evaluateDoseEntry(
         candidate: DoseLog,
         compound: Compound?,
         recentLogs: [DoseLog]
     ) -> [SafetyWarning] {
-        var warnings: [SafetyWarning] = []
+        let result = validationEngine.validateDoseEntry(
+            candidate: candidate,
+            compound: compound,
+            recentLogs: recentLogs,
+            attachedVial: nil,
+            activeProtocol: nil,
+            recentSiteEvents: nil,
+            referenceDate: Date()
+        )
 
-        // 1. High Dose Outlier Check (>3x typical dose)
-        if let typical = compound?.typicalDose, typical > 0 {
-            if candidate.doseAmount > typical * 3.0 {
-                warnings.append(
-                    SafetyWarning(
-                        severity: .warning,
-                        title: "Unusually High Dose Detected",
-                        explanation: "You entered \(candidate.doseAmount) \(candidate.doseUnit.rawValue), which is more than 3x the standard reference dose of \(typical) \(candidate.doseUnit.rawValue).",
-                        recommendation: "Please verify your decimal place and syringe unit calculation before injecting."
-                    )
-                )
-            }
-        }
-
-        // 2. Minimum Dosing Interval Check
-        let candidateDate = candidate.loggedDate ?? candidate.scheduledDate
-        let sameCompoundLogs = recentLogs
-            .filter { $0.compoundId == candidate.compoundId && $0.id != candidate.id && $0.status == .taken }
-            .sorted(by: { ($0.loggedDate ?? $0.scheduledDate) > ($1.loggedDate ?? $1.scheduledDate) })
-
-        if let lastDose = sameCompoundLogs.first {
-            let lastDate = lastDose.loggedDate ?? lastDose.scheduledDate
-            let intervalHours = abs(candidateDate.timeIntervalSince(lastDate)) / 3600.0
-
-            // If dose is taken within 4 hours for non-insulin/daily compounds
-            if intervalHours < 4.0 {
-                warnings.append(
-                    SafetyWarning(
-                        severity: .critical,
-                        title: "Potential Double-Dose Detected",
-                        explanation: "A dose of \(candidate.compoundName) was already logged \(String(format: "%.1f", intervalHours)) hours ago.",
-                        recommendation: "Ensure you are not accidentally logging or taking a duplicate dose."
-                    )
-                )
-            }
-        }
-
-        return warnings
+        return result.issues.map { SafetyWarning(from: $0) }
     }
 }
+
