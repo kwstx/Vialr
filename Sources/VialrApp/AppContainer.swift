@@ -24,6 +24,7 @@ public final class AppContainer: @unchecked Sendable {
     public let injectionSiteEventRepository: InjectionSiteEventRepositoryProtocol
     public let timelineEventRepository: TimelineEventRepositoryProtocol
     public let syncQueueRepository: SyncQueueRepositoryProtocol
+    public let inventoryEventRepository: InventoryEventRepositoryProtocol
 
     // Services & Engines
     public let healthService: HealthServiceProtocol
@@ -43,6 +44,7 @@ public final class AppContainer: @unchecked Sendable {
         injectionSiteEventRepository: InjectionSiteEventRepositoryProtocol = LocalInjectionSiteEventRepository(),
         timelineEventRepository: TimelineEventRepositoryProtocol = LocalTimelineEventRepository(),
         syncQueueRepository: SyncQueueRepositoryProtocol = LocalSyncQueueRepository(),
+        inventoryEventRepository: InventoryEventRepositoryProtocol = LocalInventoryEventRepository(),
         healthService: HealthServiceProtocol = HealthKitManager.shared,
         syncEngine: SyncEngineProtocol = SyncEngine.shared,
         notificationScheduler: NotificationSchedulerProtocol = NotificationScheduler(),
@@ -59,6 +61,7 @@ public final class AppContainer: @unchecked Sendable {
         self.injectionSiteEventRepository = injectionSiteEventRepository
         self.timelineEventRepository = timelineEventRepository
         self.syncQueueRepository = syncQueueRepository
+        self.inventoryEventRepository = inventoryEventRepository
         self.healthService = healthService
         self.syncEngine = syncEngine
         self.notificationScheduler = notificationScheduler
@@ -68,6 +71,7 @@ public final class AppContainer: @unchecked Sendable {
             siteEventRepo: injectionSiteEventRepository,
             protocolRepo: protocolRepository,
             supplyRepo: supplyRepository,
+            inventoryEventRepo: inventoryEventRepository,
             notificationScheduler: notificationScheduler
         )
     }

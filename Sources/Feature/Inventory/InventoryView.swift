@@ -1,10 +1,14 @@
 import SwiftUI
 import Domain
 import DesignSystem
+import CalculationEngine
 
 public struct InventoryView: View {
     @Bindable public var viewModel: InventoryViewModel
     public var onAddVial: () -> Void
+
+    @State private var selectedLedgerVial: Vial?
+    @State private var selectedReconcileVial: Vial?
 
     public init(viewModel: InventoryViewModel, onAddVial: @escaping () -> Void) {
         self.viewModel = viewModel
@@ -22,7 +26,7 @@ public struct InventoryView: View {
                         // Header
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("SUPPLIES & STOCK")
+                                Text("ACCOUNTING & STOCK")
                                     .font(VialrTypography.captionBold)
                                     .foregroundColor(VialrColors.accentTeal)
                                 Text("Vials & Inventory")
@@ -45,7 +49,7 @@ public struct InventoryView: View {
                         }
                         .padding(.top, VialrSpacing.sm)
 
-                        // Vials Section
+                        // Vials Accounting Section
                         vialsSection
 
                         // Ancillary Supplies Section
@@ -59,10 +63,35 @@ public struct InventoryView: View {
             .task {
                 await viewModel.loadInventory()
             }
+            .sheet(item: $selectedLedgerVial) { vial in
+                VialLedgerDetailView(vial: vial, viewModel: viewModel)
+            }
+            .sheet(item: $selectedReconcileVial) { vial in
+                let state = viewModel.getAccountingState(for: vial.id) ?? VialAccountingState(
+                    vialId: vial.id,
+                    compoundId: vial.compoundId,
+                    compoundName: vial.compoundName,
+                    initialDryMassMg: vial.totalDryMassMg,
+                    currentVolumeRemainingMl: vial.currentVolumeRemainingMl ?? 0.0
+                )
+                VialReconciliationSheetView(
+                    vial: vial,
+                    currentState: state
+                ) { observedMl, reason, notes in
+                    Task {
+                        await viewModel.reconcileVial(
+                            vialId: vial.id,
+                            observedVolumeMl: observedMl,
+                            reason: reason,
+                            notes: notes
+                        )
+                    }
+                }
+            }
         }
     }
 
-    // MARK: - Vials Section
+    // MARK: - Vials Section (Event-Sourced Accounting Cards)
     private var vialsSection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.sm) {
             HStack {
@@ -76,18 +105,69 @@ public struct InventoryView: View {
             }
 
             ForEach(viewModel.vials) { vial in
-                VStack(spacing: 8) {
+                let state = viewModel.getAccountingState(for: vial.id)
+                let currentStatus = state?.status ?? vial.status
+                let isRecon = state?.isReconstituted ?? vial.isReconstituted
+                let remainingFraction = state?.remainingFraction ?? vial.remainingFraction
+
+                VStack(spacing: 10) {
+                    // Header with Compound & Badges
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(vial.compoundName)
+                                .font(VialrTypography.headline)
+                                .foregroundColor(VialrColors.textPrimary)
+
+                            HStack(spacing: 6) {
+                                Text(currentStatus.rawValue)
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(Color(hex: currentStatus.badgeColorHex))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color(hex: currentStatus.badgeColorHex).opacity(0.15))
+                                    .clipShape(Capsule())
+
+                                if let s = state, s.isReconciled {
+                                    Text("Reconciled")
+                                        .font(VialrTypography.captionBold)
+                                        .foregroundColor(VialrColors.accentAmber)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(VialrColors.accentAmber.opacity(0.15))
+                                        .clipShape(Capsule())
+                                }
+
+                                if let s = state, s.auditTrailCount > 1 {
+                                    Text("\(s.auditTrailCount) Events")
+                                        .font(VialrTypography.caption)
+                                        .foregroundColor(VialrColors.textTertiary)
+                                }
+                            }
+                        }
+
+                        Spacer()
+
+                        if !vial.lotNumber.isEmpty {
+                            Text(vial.lotNumber)
+                                .font(VialrTypography.monoSub)
+                                .foregroundColor(VialrColors.textTertiary)
+                        }
+                    }
+
+                    // Graphical Fill Bar
                     VialGraphicView(
                         compoundName: vial.compoundName,
-                        concentrationText: vial.concentrationMgMl != nil ? "\(String(format: "%.1f", vial.concentrationMgMl!)) mg/mL" : "Dry Powder (\(String(format: "%.0f", vial.totalDryMassMg))mg)",
-                        fillPercentage: vial.remainingFraction,
-                        isReconstituted: vial.isReconstituted,
-                        badgeColor: vial.status == .reconstituted ? VialrColors.accentTeal : VialrColors.accentAmber
+                        concentrationText: state?.currentConcentrationMgMl != nil ?
+                            "\(String(format: "%.2f", state!.currentConcentrationMgMl!)) mg/mL" :
+                            (vial.concentrationMgMl != nil ? "\(String(format: "%.1f", vial.concentrationMgMl!)) mg/mL" : "Dry Powder (\(String(format: "%.0f", vial.totalDryMassMg))mg)"),
+                        fillPercentage: remainingFraction,
+                        isReconstituted: isRecon,
+                        badgeColor: Color(hex: currentStatus.badgeColorHex)
                     )
 
-                    // Vial Metadata Footer
+                    // Footer Metadata & Action Buttons
                     HStack {
-                        if let exp = vial.expirationDate {
+                        if let exp = state?.expirationDate ?? vial.expirationDate {
                             HStack(spacing: 4) {
                                 Image(systemName: "clock")
                                     .font(.system(size: 11))
@@ -99,20 +179,43 @@ public struct InventoryView: View {
 
                         Spacer()
 
-                        if !vial.lotNumber.isEmpty {
-                            Text(vial.lotNumber)
-                                .font(VialrTypography.monoSub)
-                                .foregroundColor(VialrColors.textTertiary)
+                        // Reconcile Button
+                        Button {
+                            VialrHaptics.lightImpact()
+                            selectedReconcileVial = vial
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.left.arrow.right.circle")
+                                Text("Reconcile")
+                            }
+                            .font(VialrTypography.captionBold)
+                            .foregroundColor(VialrColors.accentAmber)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(VialrColors.accentAmber.opacity(0.12))
+                            .cornerRadius(VialrSpacing.radiusSm)
                         }
 
-                        if let cost = vial.costUsd {
-                            Text("$\(String(format: "%.0f", cost))")
-                                .font(VialrTypography.monoSub)
-                                .foregroundColor(VialrColors.accentEmerald)
+                        // Ledger Button
+                        Button {
+                            VialrHaptics.lightImpact()
+                            selectedLedgerVial = vial
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "list.bullet.clipboard")
+                                Text("Ledger")
+                            }
+                            .font(VialrTypography.captionBold)
+                            .foregroundColor(VialrColors.accentCyan)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(VialrColors.accentCyan.opacity(0.12))
+                            .cornerRadius(VialrSpacing.radiusSm)
                         }
                     }
-                    .padding(.horizontal, 8)
                 }
+                .padding(VialrSpacing.cardPadding)
+                .vialrCard()
             }
         }
     }
@@ -154,7 +257,7 @@ public struct InventoryView: View {
                     HStack(spacing: 8) {
                         Button {
                             Task {
-                                await viewModel.updateSupplyQuantity(item: item, delta: -1)
+                                await viewModel.updateSupplyQuantity(item: item, delta: -1, reason: "Used 1 unit")
                             }
                         } label: {
                             Image(systemName: "minus")
@@ -167,7 +270,7 @@ public struct InventoryView: View {
 
                         Button {
                             Task {
-                                await viewModel.updateSupplyQuantity(item: item, delta: 1)
+                                await viewModel.updateSupplyQuantity(item: item, delta: 1, reason: "Restocked 1 unit")
                             }
                         } label: {
                             Image(systemName: "plus")
@@ -240,7 +343,7 @@ public struct AddVialSheetView: View {
                         .padding(VialrSpacing.md)
                         .vialrCard()
 
-                        VialrButton("Add Vial to Inventory", icon: "plus.circle.fill", style: .primary) {
+                        VialrButton("Add Vial to Accounting Ledger", icon: "plus.circle.fill", style: .primary) {
                             let cost = Double(costString)
                             let vial = Vial(
                                 compoundId: UUID(),

@@ -31,6 +31,7 @@ public actor LocalStore {
     public var syncQueue: [SyncQueueItem] = []
     public var outboxOperations: [OutboxOperation] = []
     public var protocolRevisions: [ProtocolRevision] = []
+    public var inventoryEvents: [InventoryEvent] = []
 
     private var isInitialized = false
 
@@ -49,6 +50,7 @@ public actor LocalStore {
         self.symptomLogs = mock.defaultSymptomLogs
         self.costs = mock.defaultCosts
         self.injectionSiteEvents = mock.defaultInjectionSiteEvents
+        self.inventoryEvents = mock.defaultInventoryEvents
         self.isInitialized = true
     }
 
@@ -77,15 +79,44 @@ public actor LocalStore {
             doseLogs.append(log)
         }
 
-        // Instant local inventory volume deduction:
-        // When a dose is taken and linked to a vial, deduct liquid volume immediately
+        // Instant local inventory volume deduction & audited accounting ledger event:
+        // When a dose is taken and linked to a vial, deduct liquid volume immediately and emit an InventoryEvent
         if log.status == .taken, let vId = log.vialId, let vIdx = vials.firstIndex(where: { $0.id == vId }) {
             var v = vials[vIdx]
             if let conc = v.concentrationMgMl, conc > 0, let rem = v.currentVolumeRemainingMl {
                 let doseMg = log.doseUnit == .mg ? log.doseAmount : (log.doseAmount / 1000.0)
                 let volMl = doseMg / conc
-                v.currentVolumeRemainingMl = max(0.0, rem - volMl)
-                if (v.currentVolumeRemainingMl ?? 0) <= 0.001 {
+                let newVol = max(0.0, rem - volMl)
+                let currentMass = v.remainingMassMg ?? v.totalDryMassMg
+                let newMass = max(0.0, currentMass - doseMg)
+                let isDepleted = newVol <= 0.001
+
+                // Create audited inventory consumption event
+                let invEvent = InventoryEvent.doseConsumption(
+                    vialId: v.id,
+                    compoundId: v.compoundId,
+                    compoundName: v.compoundName,
+                    doseEventId: log.id,
+                    consumedVolumeMl: volMl,
+                    consumedMassMg: doseMg,
+                    newVolumeRemainingMl: newVol,
+                    newMassRemainingMg: newMass,
+                    concentrationMgMl: conc,
+                    isDepleted: isDepleted,
+                    timestamp: log.actualTimestamp ?? Date(),
+                    notes: log.notes
+                )
+                inventoryEvents.append(invEvent)
+                enqueueSyncMutation(
+                    entityType: "inventoryEvent",
+                    entityId: invEvent.id,
+                    action: .create,
+                    entity: invEvent,
+                    version: invEvent.version
+                )
+
+                v.currentVolumeRemainingMl = newVol
+                if isDepleted {
                     v.status = .depleted
                     v.depletedDate = log.actualTimestamp ?? Date()
                 }
@@ -832,6 +863,67 @@ public actor LocalStore {
         )
     }
 
+    // MARK: - Inventory Events (Event-Sourced Accounting Ledger)
+    public func getAllInventoryEvents() -> [InventoryEvent] { inventoryEvents }
+
+    public func getInventoryEvents(forVial vialId: UUID) -> [InventoryEvent] {
+        inventoryEvents.filter { $0.vialId == vialId }.sorted(by: { $0.timestamp < $1.timestamp })
+    }
+
+    public func getInventoryEvents(forSupply supplyId: UUID) -> [InventoryEvent] {
+        inventoryEvents.filter { $0.supplyItemId == supplyId }.sorted(by: { $0.timestamp < $1.timestamp })
+    }
+
+    public func getInventoryEvents(forCompound compoundId: UUID) -> [InventoryEvent] {
+        inventoryEvents.filter { $0.compoundId == compoundId }.sorted(by: { $0.timestamp < $1.timestamp })
+    }
+
+    public func saveInventoryEvent(_ inputEvent: InventoryEvent) {
+        var event = inputEvent
+        event.updatedAt = Date()
+        let isNew = !inventoryEvents.contains(where: { $0.id == event.id })
+        if isNew {
+            if event.syncState == .synced { event.syncState = .pendingCreation }
+        } else {
+            if event.syncState == .synced { event.syncState = .pendingUpdate }
+            event.version += 1
+        }
+
+        if let idx = inventoryEvents.firstIndex(where: { $0.id == event.id }) {
+            inventoryEvents[idx] = event
+        } else {
+            inventoryEvents.append(event)
+        }
+
+        enqueueSyncMutation(
+            entityType: "inventoryEvent",
+            entityId: event.id,
+            action: isNew ? .create : .update,
+            entity: event,
+            version: event.version
+        )
+    }
+
+    public func saveInventoryEvents(_ events: [InventoryEvent]) {
+        for event in events {
+            saveInventoryEvent(event)
+        }
+    }
+
+    public func deleteInventoryEvent(id: UUID) {
+        if let idx = inventoryEvents.firstIndex(where: { $0.id == id }) {
+            var deleted = inventoryEvents.remove(at: idx)
+            deleted.syncState = .pendingDeletion
+            enqueueSyncMutation(
+                entityType: "inventoryEvent",
+                entityId: id,
+                action: .delete,
+                entity: deleted,
+                version: deleted.version + 1
+            )
+        }
+    }
+
     // MARK: - Synchronization Queue & Outbox Operations
     public func enqueueSyncMutation<T: Encodable>(
         entityType: String,
@@ -1151,6 +1243,10 @@ public actor LocalStore {
             if let idx = measurements.firstIndex(where: { $0.id == id }) {
                 measurements[idx].syncState = .synced
             }
+        case "inventoryEvent":
+            if let idx = inventoryEvents.firstIndex(where: { $0.id == id }) {
+                inventoryEvents[idx].syncState = .synced
+            }
         default:
             break
         }
@@ -1165,6 +1261,10 @@ public actor LocalStore {
         case "vial":
             if let idx = vials.firstIndex(where: { $0.id == id }) {
                 vials[idx].syncState = .syncFailed
+            }
+        case "inventoryEvent":
+            if let idx = inventoryEvents.firstIndex(where: { $0.id == id }) {
+                inventoryEvents[idx].syncState = .syncFailed
             }
         default:
             break

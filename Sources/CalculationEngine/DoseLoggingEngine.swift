@@ -41,10 +41,12 @@ public final class DoseLoggingEngine: DoseLoggingEngineProtocol, @unchecked Send
     private let siteEventRepo: InjectionSiteEventRepositoryProtocol
     private let protocolRepo: ProtocolRepositoryProtocol
     private let supplyRepo: SupplyRepositoryProtocol?
+    private let inventoryEventRepo: InventoryEventRepositoryProtocol?
     private let siteRotationEngine: SiteRotationEngine
     private let schedulingEngine: ProtocolSchedulingEngine
     private let adherenceCalculator: AdherenceCalculator
     private let notificationScheduler: NotificationSchedulerProtocol
+    private let inventoryAccountingEngine: InventoryAccountingEngine
     private let calendar: Calendar
 
     public init(
@@ -53,10 +55,12 @@ public final class DoseLoggingEngine: DoseLoggingEngineProtocol, @unchecked Send
         siteEventRepo: InjectionSiteEventRepositoryProtocol,
         protocolRepo: ProtocolRepositoryProtocol,
         supplyRepo: SupplyRepositoryProtocol? = nil,
+        inventoryEventRepo: InventoryEventRepositoryProtocol? = nil,
         siteRotationEngine: SiteRotationEngine = SiteRotationEngine(),
         schedulingEngine: ProtocolSchedulingEngine = ProtocolSchedulingEngine(),
         adherenceCalculator: AdherenceCalculator = AdherenceCalculator(),
         notificationScheduler: NotificationSchedulerProtocol = NotificationScheduler(),
+        inventoryAccountingEngine: InventoryAccountingEngine = InventoryAccountingEngine(),
         calendar: Calendar = .current
     ) {
         self.doseRepo = doseRepo
@@ -64,10 +68,12 @@ public final class DoseLoggingEngine: DoseLoggingEngineProtocol, @unchecked Send
         self.siteEventRepo = siteEventRepo
         self.protocolRepo = protocolRepo
         self.supplyRepo = supplyRepo
+        self.inventoryEventRepo = inventoryEventRepo
         self.siteRotationEngine = siteRotationEngine
         self.schedulingEngine = schedulingEngine
         self.adherenceCalculator = adherenceCalculator
         self.notificationScheduler = notificationScheduler
+        self.inventoryAccountingEngine = inventoryAccountingEngine
         self.calendar = calendar
     }
 
@@ -108,7 +114,7 @@ public final class DoseLoggingEngine: DoseLoggingEngineProtocol, @unchecked Send
 
         try await doseRepo.save(doseEvent)
 
-        // 2. Inventory Engine: Consume Liquid Quantity from Reconstituted Vial
+        // 2. Inventory Accounting Engine: Audited Ledger Consumption from Reconstituted Vial
         var updatedVial: Vial?
         var consumedVolumeMl: Double?
 
@@ -128,19 +134,41 @@ public final class DoseLoggingEngine: DoseLoggingEngineProtocol, @unchecked Send
             }()
 
             consumedVolumeMl = drawMl
-            if let currentVol = vial.currentVolumeRemainingMl {
-                let newVol = max(0.0, currentVol - drawMl)
-                vial.currentVolumeRemainingMl = newVol
-                if newVol <= 0.0001 {
-                    vial.status = .depleted
-                    vial.depletedDate = executionTime
-                }
-                vial.updatedAt = now
-                vial.version += 1
-                vial.syncState = .pendingUpdate
-                try await vialRepo.save(vial)
-                updatedVial = vial
+            let doseMg = (request.doseUnit == .mg) ? request.actualDoseAmount : (request.actualDoseAmount / 1000.0)
+            let currentVol = vial.currentVolumeRemainingMl ?? (vial.bacWaterAddedMl ?? 0.0)
+            let newVol = max(0.0, currentVol - drawMl)
+            let currentMass = vial.remainingMassMg ?? vial.totalDryMassMg
+            let newMass = max(0.0, currentMass - doseMg)
+            let isDepleted = newVol <= 0.0001
+
+            // 2a. Record immutable InventoryEvent in the accounting ledger
+            let invEvent = InventoryEvent.doseConsumption(
+                vialId: vial.id,
+                compoundId: vial.compoundId,
+                compoundName: vial.compoundName,
+                doseEventId: doseEvent.id,
+                consumedVolumeMl: drawMl,
+                consumedMassMg: doseMg,
+                newVolumeRemainingMl: newVol,
+                newMassRemainingMg: newMass,
+                concentrationMgMl: vial.concentrationMgMl ?? 0.0,
+                isDepleted: isDepleted,
+                timestamp: executionTime,
+                notes: request.notes
+            )
+            try? await inventoryEventRepo?.save(invEvent)
+
+            // 2b. Update active Vial cache
+            vial.currentVolumeRemainingMl = newVol
+            if isDepleted {
+                vial.status = .depleted
+                vial.depletedDate = executionTime
             }
+            vial.updatedAt = now
+            vial.version += 1
+            vial.syncState = .pendingUpdate
+            try await vialRepo.save(vial)
+            updatedVial = vial
         }
 
         // Auto-deduct consumable supplies (1 syringe + 1 alcohol prep pad)

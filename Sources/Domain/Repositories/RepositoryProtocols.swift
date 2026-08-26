@@ -59,6 +59,19 @@ public protocol SupplyRepositoryProtocol: Sendable {
     func delete(byId id: UUID) async throws
 }
 
+public protocol InventoryEventRepositoryProtocol: Sendable {
+    func fetchAll() async throws -> [InventoryEvent]
+    func fetchForVial(vialId: UUID) async throws -> [InventoryEvent]
+    func fetchForSupply(supplyId: UUID) async throws -> [InventoryEvent]
+    func fetchForCompound(compoundId: UUID) async throws -> [InventoryEvent]
+    func fetchForDateRange(start: Date, end: Date) async throws -> [InventoryEvent]
+    func fetch(byId id: UUID) async throws -> InventoryEvent?
+    func save(_ event: InventoryEvent) async throws
+    func saveBatch(_ events: [InventoryEvent]) async throws
+    func delete(byId id: UUID) async throws
+}
+
+
 public protocol BiomarkerRepositoryProtocol: Sendable {
     func fetchAll() async throws -> [Biomarker]
     func fetchByCategory(_ category: BiomarkerCategory) async throws -> [Biomarker]

@@ -597,4 +597,158 @@ public struct MockDataFactory: Sendable {
 
         return events
     }
+
+    // MARK: - Inventory Events (Event-Sourced Accounting Ledger Seed)
+    public var defaultInventoryEvents: [InventoryEvent] {
+        let cal = Calendar.current
+        let now = Date()
+        let bpcId = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let tbId = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let cjcId = UUID(uuidString: "44444444-4444-4444-4444-444444444444")!
+        let trzId = UUID(uuidString: "33333333-3333-3333-3333-333333333333")!
+        let vialBpcId = UUID(uuidString: "vial-bpc-1")!
+        let vialTbId = UUID(uuidString: "vial-tb-1")!
+        let vialCjcId = UUID(uuidString: "vial-cjc-1")!
+        let vialTrzId = UUID(uuidString: "vial-trz-dry")!
+
+        var events: [InventoryEvent] = []
+
+        // 1. BPC-157 Vial Ledger
+        let bpcReceived = cal.date(byAdding: .day, value: -14, to: now)!
+        events.append(InventoryEvent.initialStock(
+            vialId: vialBpcId,
+            compoundId: bpcId,
+            compoundName: "BPC-157",
+            initialDryMassMg: 5.0,
+            lotNumber: "LOT-9821A",
+            timestamp: bpcReceived,
+            notes: "Received intact from Precision Peptides"
+        ))
+
+        let bpcRecon = cal.date(byAdding: .day, value: -12, to: now)!
+        events.append(InventoryEvent.reconstitution(
+            vialId: vialBpcId,
+            compoundId: bpcId,
+            compoundName: "BPC-157",
+            diluentVolumeMl: 2.0,
+            dryMassMg: 5.0,
+            lotNumber: "LOT-9821A",
+            timestamp: bpcRecon,
+            notes: "Reconstituted with 2.0 mL Hospira Bacteriostatic Water"
+        ))
+
+        // Daily doses: 0.1 mL (250 mcg)
+        var bpcVol = 2.0
+        var bpcMass = 5.0
+        for dayOffset in (3...10).reversed() {
+            let dTime = cal.date(byAdding: .day, value: -dayOffset, to: now)!
+            bpcVol -= 0.1
+            bpcMass -= 0.25
+            events.append(InventoryEvent.doseConsumption(
+                vialId: vialBpcId,
+                compoundId: bpcId,
+                compoundName: "BPC-157",
+                doseEventId: UUID(),
+                consumedVolumeMl: 0.1,
+                consumedMassMg: 0.25,
+                newVolumeRemainingMl: bpcVol,
+                newMassRemainingMg: bpcMass,
+                concentrationMgMl: 2.5,
+                timestamp: dTime,
+                notes: "Morning subcutaneous injection"
+            ))
+        }
+
+        // Audited Reconciliation Event on Day -2: Adjusted for visual level check & dead space
+        let bpcReconcileDate = cal.date(byAdding: .day, value: -2, to: now)!
+        events.append(InventoryEvent.reconciliation(
+            vialId: vialBpcId,
+            compoundId: bpcId,
+            compoundName: "BPC-157",
+            volumeVarianceMl: 0.20,
+            massVarianceMg: 0.50,
+            newVolumeRemainingMl: 1.20,
+            newMassRemainingMg: 3.0,
+            concentrationMgMl: 2.5,
+            reason: .measurementVariance,
+            userNotes: "Meniscus level check indicates 1.20 mL remaining in vial.",
+            timestamp: bpcReconcileDate
+        ))
+
+        // 2. TB-500 Vial Ledger
+        let tbReceived = cal.date(byAdding: .day, value: -14, to: now)!
+        events.append(InventoryEvent.initialStock(
+            vialId: vialTbId,
+            compoundId: tbId,
+            compoundName: "TB-500",
+            initialDryMassMg: 10.0,
+            lotNumber: "LOT-4412B",
+            timestamp: tbReceived
+        ))
+
+        let tbRecon = cal.date(byAdding: .day, value: -10, to: now)!
+        events.append(InventoryEvent.reconstitution(
+            vialId: vialTbId,
+            compoundId: tbId,
+            compoundName: "TB-500",
+            diluentVolumeMl: 2.0,
+            dryMassMg: 10.0,
+            lotNumber: "LOT-4412B",
+            timestamp: tbRecon,
+            notes: "2.0 mL BAC water added (5.0 mg/mL solution)"
+        ))
+
+        let tbDose1 = cal.date(byAdding: .day, value: -6, to: now)!
+        events.append(InventoryEvent.doseConsumption(
+            vialId: vialTbId,
+            compoundId: tbId,
+            compoundName: "TB-500",
+            doseEventId: UUID(),
+            consumedVolumeMl: 0.5,
+            consumedMassMg: 2.5,
+            newVolumeRemainingMl: 1.5,
+            newMassRemainingMg: 7.5,
+            concentrationMgMl: 5.0,
+            timestamp: tbDose1,
+            notes: "2.5 mg SubQ dose"
+        ))
+
+        // 3. CJC-1295 / Ipamorelin Vial Ledger
+        let cjcReceived = cal.date(byAdding: .day, value: -10, to: now)!
+        events.append(InventoryEvent.initialStock(
+            vialId: vialCjcId,
+            compoundId: cjcId,
+            compoundName: "CJC-1295 / Ipamorelin (5mg/5mg)",
+            initialDryMassMg: 10.0,
+            lotNumber: "LOT-7731C",
+            timestamp: cjcReceived
+        ))
+
+        let cjcRecon = cal.date(byAdding: .day, value: -8, to: now)!
+        events.append(InventoryEvent.reconstitution(
+            vialId: vialCjcId,
+            compoundId: cjcId,
+            compoundName: "CJC-1295 / Ipamorelin (5mg/5mg)",
+            diluentVolumeMl: 3.0,
+            dryMassMg: 10.0,
+            lotNumber: "LOT-7731C",
+            timestamp: cjcRecon,
+            notes: "3.0 mL BAC water (3.33 mg/mL total peptide)"
+        ))
+
+        // 4. Tirzepatide Unopened Dry Powder Reserve
+        let trzReceived = cal.date(byAdding: .day, value: -20, to: now)!
+        events.append(InventoryEvent.initialStock(
+            vialId: vialTrzId,
+            compoundId: trzId,
+            compoundName: "Tirzepatide (Dry Reserve)",
+            initialDryMassMg: 15.0,
+            lotNumber: "LOT-1092D",
+            timestamp: trzReceived,
+            notes: "Stored in freezer at -20°C"
+        ))
+
+        return events
+    }
 }
+

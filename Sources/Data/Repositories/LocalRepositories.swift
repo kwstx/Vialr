@@ -164,6 +164,61 @@ public final class LocalSupplyRepository: SupplyRepositoryProtocol, @unchecked S
     }
 }
 
+// MARK: - Inventory Event Repository (Event-Sourced Accounting Ledger)
+public final class LocalInventoryEventRepository: InventoryEventRepositoryProtocol, @unchecked Sendable {
+    private let store: LocalStore
+
+    public init(store: LocalStore = .shared) {
+        self.store = store
+    }
+
+    public func fetchAll() async throws -> [InventoryEvent] {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getAllInventoryEvents()
+    }
+
+    public func fetchForVial(vialId: UUID) async throws -> [InventoryEvent] {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getInventoryEvents(forVial: vialId)
+    }
+
+    public func fetchForSupply(supplyId: UUID) async throws -> [InventoryEvent] {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getInventoryEvents(forSupply: supplyId)
+    }
+
+    public func fetchForCompound(compoundId: UUID) async throws -> [InventoryEvent] {
+        await store.initializeWithMockDataIfNeeded()
+        return await store.getInventoryEvents(forCompound: compoundId)
+    }
+
+    public func fetchForDateRange(start: Date, end: Date) async throws -> [InventoryEvent] {
+        let all = try await fetchAll()
+        return all.filter { $0.timestamp >= start && $0.timestamp <= end }
+    }
+
+    public func fetch(byId id: UUID) async throws -> InventoryEvent? {
+        let all = try await fetchAll()
+        return all.first(where: { $0.id == id })
+    }
+
+    public func save(_ event: InventoryEvent) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.saveInventoryEvent(event)
+    }
+
+    public func saveBatch(_ events: [InventoryEvent]) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.saveInventoryEvents(events)
+    }
+
+    public func delete(byId id: UUID) async throws {
+        await store.initializeWithMockDataIfNeeded()
+        await store.deleteInventoryEvent(id: id)
+    }
+}
+
+
 // MARK: - Biomarker Repository
 public final class LocalBiomarkerRepository: BiomarkerRepositoryProtocol, @unchecked Sendable {
     private let store: LocalStore

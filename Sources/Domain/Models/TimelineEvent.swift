@@ -184,6 +184,35 @@ public struct TimelineEvent: Identifiable, Codable, Sendable, Hashable {
         )
     }
 
+    /// Builds a timeline event from an audited `InventoryEvent`.
+    public init(from inventoryEvent: InventoryEvent) {
+        let name = inventoryEvent.compoundName ?? "Vial / Supply"
+        let subtitle = inventoryEvent.reason
+        var detail: String? = inventoryEvent.notes.isEmpty ? nil : inventoryEvent.notes
+        if let recReason = inventoryEvent.reconciliationReason {
+            detail = recReason.descriptionText + (inventoryEvent.notes.isEmpty ? "" : "\nNotes: \(inventoryEvent.notes)")
+        }
+
+        self.init(
+            id: UUID(),
+            timestamp: inventoryEvent.timestamp,
+            category: .inventory,
+            title: "\(inventoryEvent.eventType.rawValue): \(name)",
+            subtitle: subtitle,
+            detailText: detail,
+            badgeText: inventoryEvent.eventType.rawValue,
+            badgeColorHex: inventoryEvent.eventType.badgeColorHex,
+            iconName: inventoryEvent.eventType.iconName,
+            associatedEntityId: inventoryEvent.id,
+            associatedEntityType: .inventoryEvent,
+            isHighlighted: inventoryEvent.eventType == .reconciliation || inventoryEvent.eventType == .disposal,
+            metadata: [
+                "eventType": inventoryEvent.eventType.rawValue,
+                "compoundName": name
+            ]
+        )
+    }
+
     /// Builds a timeline event from a `ProtocolModel` milestone.
     public init(from protocolModel: ProtocolModel, milestoneTitle: String, timestamp: Date = Date()) {
         self.init(
@@ -213,7 +242,8 @@ public extension TimelineEvent {
         labPanels: [LabPanel] = [],
         reconstitutions: [ReconstitutionRecord] = [],
         documents: [Document] = [],
-        protocols: [ProtocolModel] = []
+        protocols: [ProtocolModel] = [],
+        inventoryEvents: [InventoryEvent] = []
     ) -> [TimelineEvent] {
         var events: [TimelineEvent] = []
 
@@ -234,6 +264,9 @@ public extension TimelineEvent {
         }
         for proto in protocols {
             events.append(TimelineEvent(from: proto, milestoneTitle: "Protocol: \(proto.name)", timestamp: proto.startDate))
+        }
+        for inv in inventoryEvents {
+            events.append(TimelineEvent(from: inv))
         }
 
         return events.sorted(by: { $0.timestamp > $1.timestamp })
@@ -263,9 +296,11 @@ public enum TimelineEntityType: String, Codable, Sendable, CaseIterable, Identif
     case reconstitutionRecord = "ReconstitutionRecord"
     case protocolModel = "ProtocolModel"
     case vial = "Vial"
+    case inventoryEvent = "InventoryEvent"
     case document = "Document"
     case symptomLog = "SymptomLog"
     case custom = "Custom"
 
     public var id: String { rawValue }
 }
+

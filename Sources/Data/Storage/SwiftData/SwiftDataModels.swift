@@ -626,4 +626,105 @@ public final class SDSyncQueueItem {
     }
 }
 
+// MARK: - SwiftData Inventory Event Entity
+@Model
+public final class SDInventoryEvent {
+    @Attribute(.unique) public var id: UUID
+    public var userId: UUID?
+    public var vialId: UUID?
+    public var supplyItemId: UUID?
+    public var compoundId: UUID?
+    public var compoundName: String?
+    public var eventTypeRaw: String
+    public var timestamp: Date
+    public var reason: String
+    public var reconciliationReasonRaw: String?
+    public var disposalReasonRaw: String?
+    public var changeMassMg: Double?
+    public var changeVolumeMl: Double?
+    public var changeQuantityCount: Int?
+    public var resultingVolumeRemainingMl: Double?
+    public var resultingMassRemainingMg: Double?
+    public var resultingConcentrationMgMl: Double?
+    public var resultingStatusRaw: String?
+    public var doseEventId: UUID?
+    public var reconstitutionRecordId: UUID?
+    public var costEventId: UUID?
+    public var lotNumber: String?
+    public var performedByUserId: UUID?
+    public var notes: String
+    public var metadataJSON: String
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var version: Int
+    public var syncStateRaw: String
+
+    public init(from domain: InventoryEvent) {
+        self.id = domain.id
+        self.userId = domain.userId
+        self.vialId = domain.vialId
+        self.supplyItemId = domain.supplyItemId
+        self.compoundId = domain.compoundId
+        self.compoundName = domain.compoundName
+        self.eventTypeRaw = domain.eventType.rawValue
+        self.timestamp = domain.timestamp
+        self.reason = domain.reason
+        self.reconciliationReasonRaw = domain.reconciliationReason?.rawValue
+        self.disposalReasonRaw = domain.disposalReason?.rawValue
+        self.changeMassMg = domain.changeMassMg
+        self.changeVolumeMl = domain.changeVolumeMl
+        self.changeQuantityCount = domain.changeQuantityCount
+        self.resultingVolumeRemainingMl = domain.resultingVolumeRemainingMl
+        self.resultingMassRemainingMg = domain.resultingMassRemainingMg
+        self.resultingConcentrationMgMl = domain.resultingConcentrationMgMl
+        self.resultingStatusRaw = domain.resultingStatus?.rawValue
+        self.doseEventId = domain.doseEventId
+        self.reconstitutionRecordId = domain.reconstitutionRecordId
+        self.costEventId = domain.costEventId
+        self.lotNumber = domain.lotNumber
+        self.performedByUserId = domain.performedByUserId
+        self.notes = domain.notes
+        self.metadataJSON = (try? String(data: JSONEncoder().encode(domain.metadata), encoding: .utf8)) ?? "{}"
+        self.createdAt = domain.createdAt
+        self.updatedAt = domain.updatedAt
+        self.version = domain.version
+        self.syncStateRaw = domain.syncState.rawValue
+    }
+
+    public func toDomain() -> InventoryEvent {
+        let meta = (try? JSONDecoder().decode([String: String].self, from: Data(metadataJSON.utf8))) ?? [:]
+        return InventoryEvent(
+            id: id,
+            userId: userId,
+            vialId: vialId,
+            supplyItemId: supplyItemId,
+            compoundId: compoundId,
+            compoundName: compoundName,
+            eventType: InventoryEventType(rawValue: eventTypeRaw) ?? .other,
+            timestamp: timestamp,
+            reason: reason,
+            reconciliationReason: reconciliationReasonRaw.flatMap(ReconciliationReason.init),
+            disposalReason: disposalReasonRaw.flatMap(DisposalReason.init),
+            changeMassMg: changeMassMg,
+            changeVolumeMl: changeVolumeMl,
+            changeQuantityCount: changeQuantityCount,
+            resultingVolumeRemainingMl: resultingVolumeRemainingMl,
+            resultingMassRemainingMg: resultingMassRemainingMg,
+            resultingConcentrationMgMl: resultingConcentrationMgMl,
+            resultingStatus: resultingStatusRaw.flatMap(VialStatus.init),
+            doseEventId: doseEventId,
+            reconstitutionRecordId: reconstitutionRecordId,
+            costEventId: costEventId,
+            lotNumber: lotNumber,
+            performedByUserId: performedByUserId,
+            notes: notes,
+            metadata: meta,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            version: version,
+            syncState: SyncState(rawValue: syncStateRaw) ?? .synced
+        )
+    }
+}
+
 #endif
