@@ -5,6 +5,8 @@ import DesignSystem
 
 /// Dedicated Explainability Inspection Sheet that allows users to tap on any analytical card, badge,
 /// or summary stat to inspect the underlying raw data points, mathematical formula, and step-by-step computation.
+/// Built with accessibility from the start: VoiceOver labels, Dynamic Type scaling, minimum touch targets,
+/// and accessible textual chart summaries.
 public struct ExplainabilityInspectionSheet: View {
     public let auditTrail: CalculationAuditTrail
     @Environment(\.dismiss) private var dismiss
@@ -56,9 +58,14 @@ public struct ExplainabilityInspectionSheet: View {
                                     .foregroundColor(isSel ? VialrColors.backgroundPrimary : VialrColors.textSecondary)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 8)
+                                    .frame(minHeight: VialrSpacing.minTouchTarget)
                                     .background(isSel ? VialrColors.accentTeal : Color.clear)
                                     .cornerRadius(8)
+                                    .contentShape(Rectangle())
                             }
+                            .accessibilityLabel("Tab: \(tab.rawValue)")
+                            .accessibilityAddTraits(isSel ? [.isButton, .isSelected] : .isButton)
+                            .accessibilityHint("Double tap to switch to \(tab.rawValue)")
                         }
                     }
                     .padding(4)
@@ -77,16 +84,20 @@ public struct ExplainabilityInspectionSheet: View {
                 }
             }
             .navigationTitle("Analytics Trace")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
-                ToolbarItem(position: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         dismiss()
                     } label: {
                         Text("Done")
                             .font(VialrTypography.bodyBold)
                             .foregroundColor(VialrColors.accentTeal)
+                            .frame(minHeight: VialrSpacing.minTouchTarget)
                     }
+                    .accessibilityLabel("Dismiss inspection sheet")
                 }
             }
         }
@@ -118,6 +129,7 @@ public struct ExplainabilityInspectionSheet: View {
                         Image(systemName: "clock.arrow.circlepath")
                             .font(.system(size: 12))
                             .foregroundColor(VialrColors.textTertiary)
+                            .accessibilityHidden(true)
                         Text("Calculated: \(auditTrail.calculatedAt.formatted(date: .abbreviated, time: .shortened))")
                             .font(VialrTypography.caption)
                             .foregroundColor(VialrColors.textTertiary)
@@ -125,15 +137,20 @@ public struct ExplainabilityInspectionSheet: View {
                 }
                 .padding(VialrSpacing.md)
                 .vialrCard()
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Calculation: \(auditTrail.calculationName)")
+                .accessibilityValue("\(auditTrail.humanReadableExplanation). Sample size: \(auditTrail.sampleSize) points.")
 
                 // Mathematical Formula Card
                 VStack(alignment: .leading, spacing: VialrSpacing.sm) {
                     HStack {
                         Image(systemName: "function")
                             .foregroundColor(VialrColors.accentTeal)
+                            .accessibilityHidden(true)
                         Text("Mathematical Formula")
                             .font(VialrTypography.title3)
                             .foregroundColor(VialrColors.textPrimary)
+                            .accessibilityAddTraits(.isHeader)
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -146,7 +163,7 @@ public struct ExplainabilityInspectionSheet: View {
                             .foregroundColor(VialrColors.accentCyan)
                             .padding(VialrSpacing.sm)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(VialrColors.backgroundTertiary)
+                            .background(VialrColors.cardSurfaceElevated)
                             .cornerRadius(8)
                     }
 
@@ -186,9 +203,11 @@ public struct ExplainabilityInspectionSheet: View {
                         HStack {
                             Image(systemName: "list.number")
                                 .foregroundColor(VialrColors.accentEmerald)
+                                .accessibilityHidden(true)
                             Text("Step-by-Step Trace")
                                 .font(VialrTypography.title3)
                                 .foregroundColor(VialrColors.textPrimary)
+                                .accessibilityAddTraits(.isHeader)
                         }
 
                         ForEach(auditTrail.steps) { step in
@@ -226,9 +245,12 @@ public struct ExplainabilityInspectionSheet: View {
                                 }
                             }
                             .padding(.vertical, 4)
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel("Step \(step.stepNumber): \(step.title)")
+                            .accessibilityValue("\(step.description). Result: \(String(format: "%.2f", step.outputValue)) \(step.unit ?? ""). \(step.formulaApplied.isEmpty ? "" : "Formula applied: \(step.formulaApplied)")")
 
                             if step.id != auditTrail.steps.last?.id {
-                                Divider().background(VialrColors.divider)
+                                Divider().background(VialrColors.glassBorder)
                             }
                         }
                     }
@@ -242,42 +264,48 @@ public struct ExplainabilityInspectionSheet: View {
                         HStack {
                             Image(systemName: "chart.xyaxis.line")
                                 .foregroundColor(VialrColors.accentTeal)
+                                .accessibilityHidden(true)
                             Text("Data Points Included")
                                 .font(VialrTypography.title3)
                                 .foregroundColor(VialrColors.textPrimary)
+                                .accessibilityAddTraits(.isHeader)
                         }
 
-                        Chart {
-                            ForEach(auditTrail.underlyingDataPoints) { point in
-                                LineMark(
-                                    x: .value("Date", point.timestamp),
-                                    y: .value("Value", point.value)
-                                )
-                                .foregroundStyle(VialrColors.accentTeal)
-                                .lineStyle(StrokeStyle(lineWidth: 2))
+                        AccessibleChartContainer(summary: miniChartSummary) {
+                            Chart {
+                                ForEach(auditTrail.underlyingDataPoints) { point in
+                                    LineMark(
+                                        x: .value("Date", point.timestamp),
+                                        y: .value("Value", point.value)
+                                    )
+                                    .foregroundStyle(VialrColors.accentTeal)
+                                    .lineStyle(StrokeStyle(lineWidth: 2))
 
-                                PointMark(
-                                    x: .value("Date", point.timestamp),
-                                    y: .value("Value", point.value)
-                                )
-                                .foregroundStyle(VialrColors.accentEmerald)
-                                .symbolSize(40)
+                                    PointMark(
+                                        x: .value("Date", point.timestamp),
+                                        y: .value("Value", point.value)
+                                    )
+                                    .foregroundStyle(VialrColors.accentEmerald)
+                                    .symbolSize(40)
+                                    .accessibilityLabel("Data point on \(point.timestamp.formatted(date: .abbreviated, time: .shortened))")
+                                    .accessibilityValue("\(String(format: "%.2f", point.value)) \(point.unit)")
+                                }
                             }
-                        }
-                        .chartYAxis {
-                            AxisMarks(position: .leading) {
-                                AxisGridLine().foregroundStyle(VialrColors.glassBorder)
-                                AxisValueLabel().foregroundStyle(VialrColors.textTertiary)
+                            .chartYAxis {
+                                AxisMarks(position: .leading) {
+                                    AxisGridLine().foregroundStyle(VialrColors.glassBorder)
+                                    AxisValueLabel().foregroundStyle(VialrColors.textTertiary)
+                                }
                             }
-                        }
-                        .chartXAxis {
-                            AxisMarks(values: .automatic(desiredCount: 3)) {
-                                AxisGridLine().foregroundStyle(VialrColors.glassBorder)
-                                AxisValueLabel(format: .dateTime.month().day()).foregroundStyle(VialrColors.textTertiary)
+                            .chartXAxis {
+                                AxisMarks(values: .automatic(desiredCount: 3)) {
+                                    AxisGridLine().foregroundStyle(VialrColors.glassBorder)
+                                    AxisValueLabel(format: .dateTime.month().day()).foregroundStyle(VialrColors.textTertiary)
+                                }
                             }
+                            .frame(height: 160)
+                            .padding(.top, 4)
                         }
-                        .frame(height: 160)
-                        .padding(.top, 4)
                     }
                     .padding(VialrSpacing.md)
                     .vialrCard()
@@ -288,6 +316,29 @@ public struct ExplainabilityInspectionSheet: View {
         }
     }
 
+    private var miniChartSummary: ChartDataSummary {
+        let values = auditTrail.underlyingDataPoints.map(\.value)
+        let minV = values.min()
+        let maxV = values.max()
+        let avgV = values.isEmpty ? nil : values.reduce(0, +) / Double(values.count)
+        let unit = auditTrail.underlyingDataPoints.first?.unit ?? ""
+
+        return ChartDataSummary(
+            title: "\(auditTrail.calculationName) Sample Points Chart",
+            metricUnit: unit,
+            totalDataPoints: auditTrail.underlyingDataPoints.count,
+            minimumValue: minV,
+            maximumValue: maxV,
+            averageValue: avgV,
+            currentValue: values.last,
+            trendDirectionDescription: "Audit sample trajectory",
+            keyObservations: [
+                "Sample count: \(auditTrail.underlyingDataPoints.count) records",
+                "Mean value: \(String(format: "%.2f", avgV ?? 0)) \(unit)"
+            ]
+        )
+    }
+
     // MARK: - Underlying Raw Data Points Tab
     private var underlyingDataTabContent: some View {
         VStack(spacing: VialrSpacing.sm) {
@@ -295,16 +346,22 @@ public struct ExplainabilityInspectionSheet: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(VialrColors.textTertiary)
+                    .accessibilityHidden(true)
                 TextField("Search records, labels, notes...", text: $searchText)
                     .foregroundColor(VialrColors.textPrimary)
                     .font(VialrTypography.footnote)
+                    .accessibilityLabel("Search raw data points")
+
                 if !searchText.isEmpty {
                     Button {
                         searchText = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(VialrColors.textTertiary)
+                            .frame(width: 32, height: 32)
                     }
+                    .minTouchTarget(minWidth: 44, minHeight: 44)
+                    .accessibilityLabel("Clear search")
                 }
             }
             .padding(.horizontal, 12)
@@ -370,6 +427,9 @@ public struct ExplainabilityInspectionSheet: View {
                             }
                             .padding(VialrSpacing.sm)
                             .vialrCard()
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel("Record: \(item.recordType), \(item.label)")
+                            .accessibilityValue("\(String(format: "%.1f", item.value)) \(item.unit). Timestamp: \(item.timestamp.formatted(date: .abbreviated, time: .shortened)). Source: \(item.source). \(item.notes)")
                         }
                     }
                     .padding(.horizontal, VialrSpacing.md)

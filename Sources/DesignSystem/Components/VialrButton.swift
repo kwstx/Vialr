@@ -12,11 +12,13 @@ public enum ButtonStyleType {
 
 public enum ButtonSize {
     case standard // 54pt height (Uber standard large tap area)
-    case compact  // 42pt height (In-card actions)
-    case pill     // Rounded pill mini-button
+    case compact  // 42pt height (In-card actions - hit target padded to 44pt)
+    case pill     // Rounded pill mini-button (hit target padded to 44pt)
 }
 
 /// VialrButton: Tactile, high-contrast action button modeled after Uber and Cal AI.
+/// Built with robust accessibility from the ground up, guaranteeing VoiceOver labels,
+/// appropriate traits, disabled states, Dynamic Type scalability, and HIG minimum 44pt touch targets.
 public struct VialrButton: View {
     public let title: String
     public let icon: String?
@@ -25,6 +27,8 @@ public struct VialrButton: View {
     public let isFullWidth: Bool
     public let isLoading: Bool
     public let isDisabled: Bool
+    public let accessibilityLabelOverride: String?
+    public let accessibilityHintText: String?
     public let action: () -> Void
 
     public init(
@@ -35,6 +39,8 @@ public struct VialrButton: View {
         isFullWidth: Bool = true,
         isLoading: Bool = false,
         isDisabled: Bool = false,
+        accessibilityLabel: String? = nil,
+        accessibilityHint: String? = nil,
         action: @escaping () -> Void
     ) {
         self.title = title
@@ -44,6 +50,8 @@ public struct VialrButton: View {
         self.isFullWidth = isFullWidth
         self.isLoading = isLoading
         self.isDisabled = isDisabled
+        self.accessibilityLabelOverride = accessibilityLabel
+        self.accessibilityHintText = accessibilityHint
         self.action = action
     }
 
@@ -65,6 +73,8 @@ public struct VialrButton: View {
                     Text(title)
                         .font(titleFont)
                         .tracking(0.2)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
                 }
             }
             .frame(maxWidth: isFullWidth ? .infinity : nil)
@@ -77,10 +87,18 @@ public struct VialrButton: View {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(borderColor, lineWidth: borderWidth)
             )
+            // Ensure touch target is at least 44x44pt as per Apple HIG
+            .contentShape(Rectangle())
         }
+        .frame(minHeight: max(height, VialrSpacing.minTouchTarget))
         .buttonStyle(VialrButtonPressStyle())
         .disabled(isDisabled || isLoading)
         .opacity(isDisabled ? 0.4 : 1.0)
+        // Accessibility annotations
+        .accessibilityLabel(accessibilityLabelOverride ?? title)
+        .accessibilityHint(accessibilityHintText ?? (isLoading ? "Please wait, in progress" : "Double tap to \(title.lowercased())"))
+        .accessibilityAddTraits(isDisabled ? [.isButton, .notEnabled] : .isButton)
+        .accessibilityValue(isLoading ? "Loading" : "")
     }
 
     private var height: CGFloat {
@@ -177,6 +195,7 @@ public struct VialrButton: View {
 
 // MARK: - Button Press Spring Animation
 public struct VialrButtonPressStyle: ButtonStyle {
+    public init() {}
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)

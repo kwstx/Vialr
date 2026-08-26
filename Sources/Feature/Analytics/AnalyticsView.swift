@@ -42,13 +42,18 @@ public struct AnalyticsView: View {
                                     .foregroundColor(isSel ? VialrColors.backgroundPrimary : VialrColors.textSecondary)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 8)
+                                    .frame(minHeight: VialrSpacing.minTouchTarget)
                                     .background(isSel ? VialrColors.accentTeal : Color.clear)
                                     .cornerRadius(8)
+                                    .contentShape(Rectangle())
                             }
+                            .accessibilityLabel(tab.rawValue)
+                            .accessibilityAddTraits(isSel ? [.isButton, .isSelected] : .isButton)
+                            .accessibilityHint("Double tap to switch to \(tab.rawValue)")
                         }
                     }
                     .padding(4)
-                    .background(VialrColors.cardBackground)
+                    .background(VialrColors.cardSurface)
                     .cornerRadius(10)
                     .padding(.horizontal, VialrSpacing.md)
                     .padding(.top, VialrSpacing.xs)
@@ -68,6 +73,7 @@ public struct AnalyticsView: View {
                                         Text("Analytics & Insights")
                                             .font(VialrTypography.largeHero)
                                             .foregroundColor(VialrColors.textPrimary)
+                                            .accessibilityAddTraits(.isHeader)
                                     }
                                     Spacer()
                                 }
@@ -165,6 +171,10 @@ public struct AnalyticsView: View {
             .vialrCard()
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Protocol Adherence: \(Int(adh.overallPercentage)) percent compliance")
+        .accessibilityValue("Active streak: \(adh.currentStreakDays) days. \(adh.totalTaken) of \(adh.totalScheduled) doses taken.")
+        .accessibilityHint("Double tap to inspect step-by-step mathematical audit trace")
+        .accessibilityAddTraits(.isButton)
     }
 
     // MARK: - Serum Clearance Chart
@@ -178,6 +188,7 @@ public struct AnalyticsView: View {
                     Text("Active Serum Concentration")
                         .font(VialrTypography.title3)
                         .foregroundColor(VialrColors.textPrimary)
+                        .accessibilityAddTraits(.isHeader)
                 }
                 Spacer()
                 Text("BPC-157 (t½: 4h)")
@@ -186,42 +197,46 @@ public struct AnalyticsView: View {
             }
 
             if !viewModel.clearanceData.isEmpty {
-                Chart {
-                    ForEach(viewModel.clearanceData) { point in
-                        AreaMark(
-                            x: .value("Time", point.date),
-                            y: .value("Serum Level (mg)", point.activeLevelMg)
-                        )
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [VialrColors.accentTeal.opacity(0.4), VialrColors.accentTeal.opacity(0.0)],
-                                startPoint: .top,
-                                endPoint: .bottom
+                AccessibleChartContainer(summary: clearanceChartSummary) {
+                    Chart {
+                        ForEach(viewModel.clearanceData) { point in
+                            AreaMark(
+                                x: .value("Time", point.date),
+                                y: .value("Serum Level (mg)", point.activeLevelMg)
                             )
-                        )
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [VialrColors.accentTeal.opacity(0.4), VialrColors.accentTeal.opacity(0.0)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
 
-                        LineMark(
-                            x: .value("Time", point.date),
-                            y: .value("Serum Level (mg)", point.activeLevelMg)
-                        )
-                        .foregroundStyle(VialrColors.accentTeal)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5))
+                            LineMark(
+                                x: .value("Time", point.date),
+                                y: .value("Serum Level (mg)", point.activeLevelMg)
+                            )
+                            .foregroundStyle(VialrColors.accentTeal)
+                            .lineStyle(StrokeStyle(lineWidth: 2.5))
+                            .accessibilityLabel("Time: \(point.date.formatted(date: .abbreviated, time: .shortened))")
+                            .accessibilityValue("Serum level: \(String(format: "%.3f", point.activeLevelMg)) mg")
+                        }
                     }
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading) {
-                        AxisGridLine().foregroundStyle(VialrColors.glassBorder)
-                        AxisValueLabel().foregroundStyle(VialrColors.textTertiary)
+                    .chartYAxis {
+                        AxisMarks(position: .leading) {
+                            AxisGridLine().foregroundStyle(VialrColors.glassBorder)
+                            AxisValueLabel().foregroundStyle(VialrColors.textTertiary)
+                        }
                     }
-                }
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: 4)) {
-                        AxisGridLine().foregroundStyle(VialrColors.glassBorder)
-                        AxisValueLabel(format: .dateTime.day().month()).foregroundStyle(VialrColors.textTertiary)
+                    .chartXAxis {
+                        AxisMarks(values: .automatic(desiredCount: 4)) {
+                            AxisGridLine().foregroundStyle(VialrColors.glassBorder)
+                            AxisValueLabel(format: .dateTime.day().month()).foregroundStyle(VialrColors.textTertiary)
+                        }
                     }
+                    .frame(height: 180)
+                    .padding(.top, 8)
                 }
-                .frame(height: 180)
-                .padding(.top, 8)
             } else {
                 Text("No dose history available to plot clearance curve.")
                     .font(VialrTypography.footnote)
@@ -233,6 +248,31 @@ public struct AnalyticsView: View {
         .vialrCard()
     }
 
+    private var clearanceChartSummary: ChartDataSummary {
+        let points = viewModel.clearanceData
+        let values = points.map(\.activeLevelMg)
+        let minV = values.min()
+        let maxV = values.max()
+        let avgV = values.isEmpty ? nil : values.reduce(0, +) / Double(values.count)
+        let curV = values.last
+
+        return ChartDataSummary(
+            title: "Serum Clearance & Pharmacokinetics Curve",
+            metricUnit: "mg",
+            totalDataPoints: points.count,
+            minimumValue: minV,
+            maximumValue: maxV,
+            averageValue: avgV,
+            currentValue: curV,
+            trendDirectionDescription: (curV ?? 0) > (avgV ?? 0) ? "Active clearance phase with elevated serum level" : "Clearance nearing baseline elimination",
+            keyObservations: [
+                "Compound modeled: BPC-157 with 4-hour half-life elimination kinetics",
+                "Peak serum level observed: \(String(format: "%.2f", maxV ?? 0)) mg",
+                "Current circulating concentration: \(String(format: "%.2f", curV ?? 0)) mg"
+            ]
+        )
+    }
+
     // MARK: - Biomarkers Overview
     private var biomarkersOverviewSection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.sm) {
@@ -240,6 +280,7 @@ public struct AnalyticsView: View {
                 Text("Latest Clinical Biomarkers")
                     .font(VialrTypography.title3)
                     .foregroundColor(VialrColors.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
                 Spacer()
                 Button {
                     isLabTimelinePresented = true
@@ -250,7 +291,11 @@ public struct AnalyticsView: View {
                     }
                     .font(VialrTypography.captionBold)
                     .foregroundColor(VialrColors.accentTeal)
+                    .frame(minHeight: VialrSpacing.minTouchTarget)
+                    .contentShape(Rectangle())
                 }
+                .accessibilityLabel("Open Laboratory Timeline View")
+                .accessibilityHint("Double tap to inspect aligned longitudinal biomarker trends")
             }
 
             ForEach(viewModel.biomarkers) { marker in
@@ -283,6 +328,9 @@ public struct AnalyticsView: View {
                 }
                 .padding(VialrSpacing.sm)
                 .vialrCard()
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Biomarker: \(marker.name)")
+                .accessibilityValue("Value: \(String(format: "%.1f", marker.value)) \(marker.unit). Status: \(marker.status.rawValue). \(marker.referenceRangeMin != nil ? "Reference range: \(String(format: "%.0f", marker.referenceRangeMin!)) to \(String(format: "%.0f", marker.referenceRangeMax!)) \(marker.unit)" : "")")
             }
         }
     }
@@ -293,12 +341,14 @@ public struct AnalyticsView: View {
             Text("Dose-to-Outcome Correlations")
                 .font(VialrTypography.title3)
                 .foregroundColor(VialrColors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
 
             ForEach(viewModel.correlationInsights) { insight in
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Image(systemName: "sparkles")
                             .foregroundColor(VialrColors.accentTeal)
+                            .accessibilityHidden(true)
                         Text(insight.title)
                             .font(VialrTypography.headline)
                             .foregroundColor(VialrColors.textPrimary)
@@ -314,6 +364,9 @@ public struct AnalyticsView: View {
                 }
                 .padding(VialrSpacing.md)
                 .vialrCard()
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Insight: \(insight.title)")
+                .accessibilityValue("\(insight.summary). Confidence score: \(Int(insight.confidenceScore * 100)) percent.")
             }
         }
     }
@@ -324,6 +377,7 @@ public struct AnalyticsView: View {
             Text("Financial & Protocol Cost")
                 .font(VialrTypography.title3)
                 .foregroundColor(VialrColors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
 
             Button {
                 if let audit = viewModel.explainableSpend?.auditTrail {
@@ -361,6 +415,10 @@ public struct AnalyticsView: View {
                 .vialrCard()
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Financial Cost: Total spent $\(String(format: "%.0f", spend.totalSpentUsd))")
+            .accessibilityValue("Daily protocol burn rate: $\(String(format: "%.2f", spend.costPerDayUsd)) per day")
+            .accessibilityHint("Double tap to inspect financial cost derivation audit")
+            .accessibilityAddTraits(.isButton)
         }
     }
 }

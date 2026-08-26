@@ -48,6 +48,7 @@ public enum ToastType: Sendable {
 }
 
 /// ToastBannerView: Floating dark pill toast with hairline border and haptic feedback.
+/// Fully accessible with automatic screen reader announcements and 44pt touch targets.
 public struct ToastBannerView: View {
     public let toast: ToastMessage
     public let onDismiss: () -> Void
@@ -62,6 +63,7 @@ public struct ToastBannerView: View {
             Image(systemName: toast.type.iconName)
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(toast.type.color)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(toast.title)
@@ -84,8 +86,13 @@ public struct ToastBannerView: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(VialrColors.textTertiary)
-                    .padding(6)
+                    .frame(width: 32, height: 32)
+                    .background(Color.white.opacity(0.06))
+                    .clipShape(Circle())
             }
+            .minTouchTarget(minWidth: 44, minHeight: 44)
+            .accessibilityLabel("Dismiss notification")
+            .accessibilityHint("Double tap to close banner")
         }
         .padding(.horizontal, VialrSpacing.md)
         .padding(.vertical, VialrSpacing.sm + 2)
@@ -99,5 +106,8 @@ public struct ToastBannerView: View {
                 .stroke(VialrColors.subtleBorder, lineWidth: 0.8)
         )
         .padding(.horizontal, VialrSpacing.screenHorizontal)
+        .onAppear {
+            VialrAccessibilityNotifier.announce("\(toast.title). \(toast.message ?? "")")
+        }
     }
 }

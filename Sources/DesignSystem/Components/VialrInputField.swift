@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// VialrInputField: Clean, distraction-free input field with generous hit target and subtle focus border.
+/// Fully accessible with VoiceOver labeling, clear text actions, and Dynamic Type support.
 public struct VialrInputField: View {
     public let label: String
     public let placeholder: String
@@ -36,11 +37,14 @@ public struct VialrInputField: View {
                         .foregroundColor(VialrColors.textTertiary)
                         .font(.system(size: 15))
                         .frame(width: 20)
+                        .accessibilityHidden(true)
                 }
 
                 TextField(placeholder, text: $value)
                     .font(isNumeric ? VialrTypography.monoDose : VialrTypography.body)
                     .foregroundColor(VialrColors.textPrimary)
+                    .accessibilityLabel(label)
+                    .accessibilityValue(value.isEmpty ? placeholder : "\(value) \(unit ?? "")")
                     #if os(iOS)
                     .keyboardType(isNumeric ? .decimalPad : .default)
                     #endif
@@ -51,9 +55,14 @@ public struct VialrInputField: View {
                         VialrHaptics.lightImpact()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 14))
+                            .font(.system(size: 16))
                             .foregroundColor(VialrColors.textMuted)
+                            .frame(width: 32, height: 32)
+                            .contentShape(Rectangle())
                     }
+                    .minTouchTarget(minWidth: 44, minHeight: 44)
+                    .accessibilityLabel("Clear \(label)")
+                    .accessibilityHint("Double tap to clear input")
                 }
 
                 if let unit = unit {
@@ -65,6 +74,7 @@ public struct VialrInputField: View {
                         .padding(.vertical, 4)
                         .background(VialrColors.accentVitality.opacity(0.12))
                         .clipShape(Capsule())
+                        .accessibilityLabel("Unit: \(unit)")
                 }
             }
             .padding(.horizontal, VialrSpacing.md)
@@ -80,6 +90,7 @@ public struct VialrInputField: View {
 }
 
 /// VialrStepper: Cal AI inspired tactile numeric adjuster with circular plus/minus steppers.
+/// Accessible with 44x44pt touch targets, adjustable VoiceOver actions, and verbal announcements.
 public struct VialrStepper: View {
     public let title: String
     @Binding public var value: Double
@@ -122,7 +133,8 @@ public struct VialrStepper: View {
 
             Spacer()
 
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
+                // Decrement Button (min 44x44pt hit target)
                 Button {
                     decrement()
                 } label: {
@@ -137,8 +149,14 @@ public struct VialrStepper: View {
                                 .stroke(VialrColors.glassBorder, lineWidth: 0.8)
                         )
                 }
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
                 .disabled(value <= range.lowerBound)
+                .accessibilityLabel("Decrease \(title)")
+                .accessibilityHint("Decreases value by \(String(format: format, step)) \(unit)")
+                .accessibilityAddTraits(value <= range.lowerBound ? [.isButton, .notEnabled] : .isButton)
 
+                // Increment Button (min 44x44pt hit target)
                 Button {
                     increment()
                 } label: {
@@ -149,11 +167,26 @@ public struct VialrStepper: View {
                         .background(value < range.upperBound ? VialrColors.accentVitality : VialrColors.cardSurfaceElevated)
                         .clipShape(Circle())
                 }
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
                 .disabled(value >= range.upperBound)
+                .accessibilityLabel("Increase \(title)")
+                .accessibilityHint("Increases value by \(String(format: format, step)) \(unit)")
+                .accessibilityAddTraits(value >= range.upperBound ? [.isButton, .notEnabled] : .isButton)
             }
         }
         .padding(VialrSpacing.cardPadding)
         .vialrCard()
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment:
+                increment()
+            case .decrement:
+                decrement()
+            @unknown default:
+                break
+            }
+        }
     }
 
     private func decrement() {

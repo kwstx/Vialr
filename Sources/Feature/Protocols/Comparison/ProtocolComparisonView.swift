@@ -249,10 +249,15 @@ public struct ProtocolComparisonView: View {
                         .foregroundColor(isSel ? VialrColors.backgroundPrimary : VialrColors.textSecondary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
+                        .frame(minHeight: VialrSpacing.minTouchTarget)
                         .background(isSel ? VialrColors.accentTeal : VialrColors.cardSurfaceElevated)
                         .clipShape(Capsule())
                         .overlay(Capsule().stroke(isSel ? Color.clear : VialrColors.glassBorder, lineWidth: 1))
+                        .contentShape(Rectangle())
                     }
+                    .accessibilityLabel("Domain tab: \(tab.rawValue)")
+                    .accessibilityAddTraits(isSel ? [.isButton, .isSelected] : .isButton)
+                    .accessibilityHint("Double tap to filter comparison by \(tab.rawValue)")
                 }
             }
             .padding(.horizontal, VialrSpacing.md)
@@ -707,6 +712,9 @@ public struct ProtocolComparisonView: View {
                 .foregroundColor(VialrColors.textPrimary)
                 .frame(width: 90, alignment: .trailing)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): Period A is \(a), Period B is \(b)")
+        .accessibilityValue(delta != "-" ? "Delta is \(delta)" : "")
     }
 
     private func summaryStatCard(title: String, value: String, color: Color) -> some View {

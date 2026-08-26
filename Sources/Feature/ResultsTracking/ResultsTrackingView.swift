@@ -360,70 +360,76 @@ public struct ResultsTrackingView: View {
 
             // SwiftUI Chart
             if !summary.rawTimeSeries.isEmpty {
-                Chart {
-                    // 1. Reference Range Shaded Band
-                    if viewModel.showReferenceRangeBand,
-                       let minRef = summary.definition.referenceRangeMin,
-                       let maxRef = summary.definition.referenceRangeMax,
-                       let start = summary.rawTimeSeries.startDate,
-                       let end = summary.rawTimeSeries.endDate {
-                        RectangleMark(
-                            xStart: .value("Start", start),
-                            xEnd: .value("End", end),
-                            yStart: .value("Min Target", minRef),
-                            yEnd: .value("Max Target", maxRef)
-                        )
-                        .foregroundStyle(VialrColors.accentEmerald.opacity(0.08))
-                    }
-
-                    // 2. Baseline Reference Line
-                    if viewModel.showBaselineRule, let base = summary.baselineResult {
-                        RuleMark(y: .value("Baseline", base.baselineValue))
-                            .foregroundStyle(VialrColors.textTertiary.opacity(0.4))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                            .annotation(position: .trailing) {
-                                Text("Baseline")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundColor(VialrColors.textTertiary)
-                            }
-                    }
-
-                    // 3. Raw Measurement Data Points
-                    if viewModel.showRawPointsOnChart {
-                        ForEach(summary.rawTimeSeries.points) { point in
-                            PointMark(
-                                x: .value("Date", point.timestamp),
-                                y: .value("Value", point.value)
+                AccessibleChartContainer(summary: resultsChartSummary(summary)) {
+                    Chart {
+                        // 1. Reference Range Shaded Band
+                        if viewModel.showReferenceRangeBand,
+                           let minRef = summary.definition.referenceRangeMin,
+                           let maxRef = summary.definition.referenceRangeMax,
+                           let start = summary.rawTimeSeries.startDate,
+                           let end = summary.rawTimeSeries.endDate {
+                            RectangleMark(
+                                xStart: .value("Start", start),
+                                xEnd: .value("End", end),
+                                yStart: .value("Min Target", minRef),
+                                yEnd: .value("Max Target", maxRef)
                             )
-                            .foregroundStyle(Color(hex: summary.definition.colorHex).opacity(0.7))
-                            .symbolSize(36)
+                            .foregroundStyle(VialrColors.accentEmerald.opacity(0.08))
+                        }
+
+                        // 2. Baseline Reference Line
+                        if viewModel.showBaselineRule, let base = summary.baselineResult {
+                            RuleMark(y: .value("Baseline", base.baselineValue))
+                                .foregroundStyle(VialrColors.textTertiary.opacity(0.4))
+                                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                                .annotation(position: .trailing) {
+                                    Text("Baseline")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundColor(VialrColors.textTertiary)
+                                }
+                        }
+
+                        // 3. Raw Measurement Data Points
+                        if viewModel.showRawPointsOnChart {
+                            ForEach(summary.rawTimeSeries.points) { point in
+                                PointMark(
+                                    x: .value("Date", point.timestamp),
+                                    y: .value("Value", point.value)
+                                )
+                                .foregroundStyle(Color(hex: summary.definition.colorHex).opacity(0.7))
+                                .symbolSize(36)
+                                .accessibilityLabel("Measurement: \(point.timestamp.formatted(date: .abbreviated, time: .omitted))")
+                                .accessibilityValue("\(String(format: "%.1f", point.value)) \(summary.definition.defaultUnit)")
+                            }
+                        }
+
+                        // 4. Smoothed Moving Average Line
+                        ForEach(viewModel.activeMovingAveragePoints) { maPoint in
+                            LineMark(
+                                x: .value("Date", maPoint.timestamp),
+                                y: .value("Moving Average", maPoint.movingAverage)
+                            )
+                            .foregroundStyle(VialrColors.accentTeal)
+                            .lineStyle(StrokeStyle(lineWidth: 2.5))
+                            .accessibilityLabel("Moving average on \(maPoint.timestamp.formatted(date: .abbreviated, time: .omitted))")
+                            .accessibilityValue("\(String(format: "%.1f", maPoint.movingAverage)) \(summary.definition.defaultUnit)")
                         }
                     }
-
-                    // 4. Smoothed Moving Average Line
-                    ForEach(viewModel.activeMovingAveragePoints) { maPoint in
-                        LineMark(
-                            x: .value("Date", maPoint.timestamp),
-                            y: .value("Moving Average", maPoint.movingAverage)
-                        )
-                        .foregroundStyle(VialrColors.accentTeal)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5))
+                    .chartYAxis {
+                        AxisMarks(position: .leading) {
+                            AxisGridLine().foregroundStyle(VialrColors.glassBorder)
+                            AxisValueLabel().foregroundStyle(VialrColors.textTertiary)
+                        }
                     }
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading) {
-                        AxisGridLine().foregroundStyle(VialrColors.glassBorder)
-                        AxisValueLabel().foregroundStyle(VialrColors.textTertiary)
+                    .chartXAxis {
+                        AxisMarks(values: .automatic(desiredCount: 4)) {
+                            AxisGridLine().foregroundStyle(VialrColors.glassBorder)
+                            AxisValueLabel(format: .dateTime.month().day()).foregroundStyle(VialrColors.textTertiary)
+                        }
                     }
+                    .frame(height: 220)
+                    .padding(.top, 4)
                 }
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: 4)) {
-                        AxisGridLine().foregroundStyle(VialrColors.glassBorder)
-                        AxisValueLabel(format: .dateTime.month().day()).foregroundStyle(VialrColors.textTertiary)
-                    }
-                }
-                .frame(height: 220)
-                .padding(.top, 4)
 
                 // Chart Legend
                 HStack(spacing: VialrSpacing.md) {
@@ -454,6 +460,39 @@ public struct ResultsTrackingView: View {
         }
         .padding(VialrSpacing.md)
         .vialrCard()
+    }
+
+    private func resultsChartSummary(_ summary: ComprehensiveMetricAnalytics) -> ChartDataSummary {
+        let stats = summary.rawTimeSeries.statistics
+        let cur = summary.latestMeasurement?.value
+        let baseline = summary.baselineResult?.baselineValue
+        let unit = summary.definition.defaultUnit
+
+        var observations: [String] = []
+        if let base = summary.baselineResult {
+            let sign = base.absoluteDifference >= 0 ? "+" : ""
+            observations.append("Net shift from baseline: \(sign)\(String(format: "%.1f", base.absoluteDifference)) \(unit) (\(sign)\(String(format: "%.1f", base.percentageDifference))%)")
+        }
+        if let vel = summary.rawTimeSeries.weeklyVelocity {
+            let sign = vel >= 0 ? "+" : ""
+            observations.append("Weekly velocity: \(sign)\(String(format: "%.1f", vel)) \(unit) per week")
+        }
+        if let minR = summary.definition.referenceRangeMin, let maxR = summary.definition.referenceRangeMax {
+            observations.append("Target reference range: \(String(format: "%.0f", minR)) to \(String(format: "%.0f", maxR)) \(unit)")
+        }
+
+        return ChartDataSummary(
+            title: "\(summary.definition.name) Longitudinal Results Chart",
+            metricUnit: unit,
+            totalDataPoints: summary.rawMeasurementsCount,
+            minimumValue: stats?.minimum,
+            maximumValue: stats?.maximum,
+            averageValue: stats?.mean,
+            currentValue: cur,
+            baselineValue: baseline,
+            trendDirectionDescription: summary.rateOfChange?.trajectoryDescription ?? "Stable",
+            keyObservations: observations
+        )
     }
 
     // MARK: - 5. Moving Average & Velocity Analysis

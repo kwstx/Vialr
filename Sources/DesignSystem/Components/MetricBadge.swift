@@ -10,6 +10,8 @@ public enum BadgeVariant: Sendable {
 }
 
 /// MetricBadge: Minimalist Cal AI / Uber pill badge with restrained tint and hairline border.
+/// Engineered for accessibility so meaning is never encoded purely through color:
+/// combines high-contrast tint, textual labels, and distinct geometric/iconic symbols.
 public struct MetricBadge: View {
     public let variant: BadgeVariant
     public let showDot: Bool
@@ -21,17 +23,18 @@ public struct MetricBadge: View {
 
     public var body: some View {
         HStack(spacing: 5) {
-            if showDot {
+            if let icon = iconName {
+                Image(systemName: icon)
+                    .font(.system(size: 9, weight: .bold))
+            } else if showDot {
                 Circle()
                     .fill(badgeColor)
                     .frame(width: 5, height: 5)
-            } else if let icon = iconName {
-                Image(systemName: icon)
-                    .font(.system(size: 9, weight: .bold))
             }
             Text(title)
                 .font(VialrTypography.captionBold)
                 .tracking(0.3)
+                .lineLimit(1)
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 4)
@@ -42,9 +45,12 @@ public struct MetricBadge: View {
             Capsule()
                 .stroke(badgeColor.opacity(0.22), lineWidth: 0.8)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(semanticCategory): \(title)")
+        .accessibilityValue(title)
     }
 
-    private var title: String {
+    public var title: String {
         switch variant {
         case .success(let t): return t
         case .warning(let t): return t
@@ -74,6 +80,17 @@ public struct MetricBadge: View {
         case .info: return VialrColors.textSecondary
         case .neutral: return VialrColors.textSecondary
         case .custom(_, let color, _): return color
+        }
+    }
+
+    private var semanticCategory: String {
+        switch variant {
+        case .success: return "Success"
+        case .warning: return "Warning"
+        case .error: return "Alert"
+        case .info: return "Information"
+        case .neutral: return "Status"
+        case .custom(let title, _, _): return title
         }
     }
 }

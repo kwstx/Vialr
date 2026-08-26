@@ -23,6 +23,7 @@ public enum VialrSpacing {
     public static let interItemSpacing: CGFloat = 14   // Space between adjacent cards
     public static let buttonHeight: CGFloat = 54       // Uber standard tall touch target
     public static let buttonHeightSm: CGFloat = 42     // Secondary compact touch target
+    public static let minTouchTarget: CGFloat = 44     // Apple HIG accessible minimum hit target
     
     // MARK: - Signature Rounded Corner Radii (Cal AI Curves)
     public static let radiusXs: CGFloat = 6

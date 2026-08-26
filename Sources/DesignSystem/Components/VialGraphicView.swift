@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// VialGraphicView: Clean, modern 2D vial visualization with reconstitution state.
+/// Fully accessible with VoiceOver verbalization of liquid volume and state.
 public struct VialGraphicView: View {
     public let compoundName: String
     public let concentrationText: String
@@ -72,6 +73,7 @@ public struct VialGraphicView: View {
                 .offset(y: -62)
             }
             .frame(width: 44, height: 76)
+            .accessibilityHidden(true)
 
             // Info Details
             VStack(alignment: .leading, spacing: 4) {
@@ -80,7 +82,7 @@ public struct VialGraphicView: View {
                         .font(VialrTypography.headline)
                         .foregroundColor(VialrColors.textPrimary)
                     Spacer()
-                    MetricBadge(isReconstituted ? .success("\(Int(fillPercentage * 100))% Vol") : .neutral("Dry Powder"), showDot: true)
+                    MetricBadge(isReconstituted ? .success("\(Int(round(fillPercentage * 100)))% Vol") : .neutral("Dry Powder"), showDot: true)
                 }
 
                 Text(concentrationText)
@@ -94,5 +96,8 @@ public struct VialGraphicView: View {
         }
         .padding(VialrSpacing.cardPadding)
         .vialrCard()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Vial: \(compoundName)")
+        .accessibilityValue("\(concentrationText). \(isReconstituted ? "Reconstituted solution, \(Int(round(fillPercentage * 100))) percent full" : "Lyophilized dry powder")")
     }
 }

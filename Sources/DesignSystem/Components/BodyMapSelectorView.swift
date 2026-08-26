@@ -87,6 +87,7 @@ public struct BodyMapSelectorView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 140)
+                .accessibilityLabel("Body map anatomical orientation")
             }
 
             // Interactive Body Map Canvas
@@ -213,8 +214,26 @@ public struct BodyMapSelectorView: View {
                         .offset(y: -18)
                 }
             }
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(item.name), \(item.shortLabel)")
+        .accessibilityValue(siteAccessibilityValue(item, isNext: isNext, isLast: isLast))
+        .accessibilityHint("Double tap to select this injection site")
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    private func siteAccessibilityValue(_ item: SiteSelectionItem, isNext: Bool, isLast: Bool) -> String {
+        var status = ""
+        if isNext { status += "Recommended next target site. " }
+        if isLast { status += "Last used site. " }
+        if let days = item.daysSinceLastUse {
+            status += "\(days) days rested, \(Int(item.restingScore)) percent tissue score."
+        } else {
+            status += "Never used, 100 percent rested."
+        }
+        return status
     }
 
     private func nodeColor(for item: SiteSelectionItem, isNext: Bool, isLast: Bool) -> Color {
@@ -388,6 +407,10 @@ public struct BodyMapSelectorView: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(item.name), \(item.shortLabel)")
+        .accessibilityValue(siteAccessibilityValue(item, isNext: isNext, isLast: isLast))
+        .accessibilityHint("Double tap to select \(item.name) as target site")
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 

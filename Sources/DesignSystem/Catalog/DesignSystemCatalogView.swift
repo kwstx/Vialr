@@ -2,6 +2,7 @@ import SwiftUI
 
 /// DesignSystemCatalogView: An interactive visual showcase displaying all design tokens,
 /// typography scales, buttons, Cal AI metric cards, and domain components.
+/// Includes a dedicated showcase of Accessibility foundation components.
 public struct DesignSystemCatalogView: View {
     @State private var selectedTab: Int = 0
     @State private var sampleInputValue: String = "BPC-157"
@@ -21,6 +22,22 @@ public struct DesignSystemCatalogView: View {
         SiteSelectionItem(id: "thigh_r_outer", name: "Right Outer Thigh", shortLabel: "Right Thigh", daysSinceLastUse: 1)
     ]
 
+    private let sampleChartSummary = ChartDataSummary(
+        title: "IGF-1 Longitudinal Trajectory",
+        metricUnit: "ng/mL",
+        totalDataPoints: 8,
+        minimumValue: 142.0,
+        maximumValue: 286.0,
+        averageValue: 215.4,
+        currentValue: 278.0,
+        baselineValue: 142.0,
+        trendDirectionDescription: "Shifted +136.0 ng/mL (+95.8%) from baseline",
+        keyObservations: [
+            "Clinical reference zone: 115 to 307 ng/mL",
+            "Optimal range reached at Day 42 following Protocol B initiation"
+        ]
+    )
+
     public init() {}
 
     public var body: some View {
@@ -35,22 +52,25 @@ public struct DesignSystemCatalogView: View {
                 // 2. Typography Scale
                 typographySection
 
-                // 3. Cal AI Metric Cards
+                // 3. Accessibility Foundations (Rule 33)
+                accessibilitySection
+
+                // 4. Cal AI Metric Cards
                 metricCardsSection
 
-                // 4. Buttons & Actions (Uber & Cal AI Styles)
+                // 5. Buttons & Actions (Uber & Cal AI Styles)
                 buttonsSection
 
-                // 5. Interactive Form Controls & Steppers
+                // 6. Interactive Form Controls & Steppers
                 formControlsSection
 
-                // 6. Uber-Style Action Rows
+                // 7. Uber-Style Action Rows
                 actionRowsSection
 
-                // 7. Domain Visuals (Syringe & Vial)
+                // 8. Domain Visuals (Syringe & Vial)
                 domainVisualsSection
 
-                // 8. Body Map Rotation
+                // 9. Body Map Rotation
                 bodyMapSection
             }
             .padding(.horizontal, VialrSpacing.screenHorizontal)
@@ -81,8 +101,9 @@ public struct DesignSystemCatalogView: View {
             Text("Uber Clarity + Cal AI Polish")
                 .font(VialrTypography.screenTitle)
                 .foregroundColor(VialrColors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
 
-            Text("High-contrast monochrome foundation, electric vitality emerald, generous whitespace, massive metrics, and hairline borders.")
+            Text("High-contrast monochrome foundation, electric vitality emerald, generous whitespace, massive metrics, and accessible from the start.")
                 .font(VialrTypography.body)
                 .foregroundColor(VialrColors.textSecondary)
                 .padding(.top, 2)
@@ -96,6 +117,7 @@ public struct DesignSystemCatalogView: View {
             Text("Color Foundations")
                 .font(VialrTypography.title2)
                 .foregroundColor(VialrColors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: VialrSpacing.sm) {
                 colorSwatch(name: "Pitch Black", color: VialrColors.backgroundPrimary, hex: "#000000")
@@ -135,14 +157,17 @@ public struct DesignSystemCatalogView: View {
             RoundedRectangle(cornerRadius: VialrSpacing.radiusMd)
                 .stroke(VialrColors.glassBorder, lineWidth: 0.8)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Color token: \(name), Hex code: \(hex)")
     }
 
     // MARK: - 2. Typography
     private var typographySection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.md) {
-            Text("Typography Hierarchy")
+            Text("Typography Hierarchy (Dynamic Type)")
                 .font(VialrTypography.title2)
                 .foregroundColor(VialrColors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
 
             VialrCard {
                 VStack(alignment: .leading, spacing: VialrSpacing.md) {
@@ -185,12 +210,62 @@ public struct DesignSystemCatalogView: View {
         }
     }
 
-    // MARK: - 3. Cal AI Metric Cards
+    // MARK: - 3. Accessibility Foundations (Rule 33)
+    private var accessibilitySection: some View {
+        VStack(alignment: .leading, spacing: VialrSpacing.md) {
+            Text("Accessibility Foundations (Rule 33)")
+                .font(VialrTypography.title2)
+                .foregroundColor(VialrColors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+
+            VStack(spacing: VialrSpacing.sm) {
+                // Non-Color-Reliant Status Indicators
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("NON-COLOR-RELIANT STATUS SYMBOLS")
+                        .font(VialrTypography.captionBold)
+                        .foregroundColor(VialrColors.accentTeal)
+
+                    HStack(spacing: 12) {
+                        AccessibleStatusIndicator(.success, color: VialrColors.accentVitality)
+                        AccessibleStatusIndicator(.warning, color: VialrColors.accentAmber)
+                        AccessibleStatusIndicator(.critical, color: VialrColors.accentRose)
+                        AccessibleStatusIndicator(.info, color: VialrColors.accentCyan)
+                        AccessibleStatusIndicator(.neutral, color: VialrColors.textSecondary)
+                    }
+                }
+                .padding(VialrSpacing.md)
+                .vialrCard()
+
+                // Accessible Chart Container with Expandable Textual Breakdown
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("ACCESSIBLE CHART WITH TEXTUAL SUMMARY")
+                        .font(VialrTypography.captionBold)
+                        .foregroundColor(VialrColors.accentTeal)
+
+                    AccessibleChartContainer(summary: sampleChartSummary) {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(VialrColors.cardSurfaceElevated)
+                            .frame(height: 120)
+                            .overlay(
+                                Text("Visual Trajectory Chart Canvas")
+                                    .font(VialrTypography.footnote)
+                                    .foregroundColor(VialrColors.textTertiary)
+                            )
+                    }
+                }
+                .padding(VialrSpacing.md)
+                .vialrCard()
+            }
+        }
+    }
+
+    // MARK: - 4. Cal AI Metric Cards
     private var metricCardsSection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.md) {
             Text("Cal AI Metric Cards")
                 .font(VialrTypography.title2)
                 .foregroundColor(VialrColors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: VialrSpacing.interItemSpacing) {
                 VialrMetricCard(
@@ -230,12 +305,13 @@ public struct DesignSystemCatalogView: View {
         }
     }
 
-    // MARK: - 4. Buttons
+    // MARK: - 5. Buttons
     private var buttonsSection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.md) {
-            Text("Action Buttons")
+            Text("Action Buttons (≥44pt Touch Targets)")
                 .font(VialrTypography.title2)
                 .foregroundColor(VialrColors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
 
             VStack(spacing: VialrSpacing.sm) {
                 // Uber Stark White Primary
@@ -265,12 +341,13 @@ public struct DesignSystemCatalogView: View {
         }
     }
 
-    // MARK: - 5. Form Controls & Steppers
+    // MARK: - 6. Form Controls & Steppers
     private var formControlsSection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.md) {
             Text("Controls & Steppers")
                 .font(VialrTypography.title2)
                 .foregroundColor(VialrColors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
 
             VStack(spacing: VialrSpacing.md) {
                 VialrSegmentedControl(
@@ -297,12 +374,13 @@ public struct DesignSystemCatalogView: View {
         }
     }
 
-    // MARK: - 6. Action Rows
+    // MARK: - 7. Action Rows
     private var actionRowsSection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.md) {
             Text("Uber Action Rows")
                 .font(VialrTypography.title2)
                 .foregroundColor(VialrColors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
 
             VStack(spacing: VialrSpacing.xs) {
                 VialrRow(
@@ -335,12 +413,13 @@ public struct DesignSystemCatalogView: View {
         }
     }
 
-    // MARK: - 7. Domain Visuals
+    // MARK: - 8. Domain Visuals
     private var domainVisualsSection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.md) {
             Text("Domain Visualizations")
                 .font(VialrTypography.title2)
                 .foregroundColor(VialrColors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
 
             InteractiveSyringeView(
                 units: 12.5,
@@ -373,12 +452,13 @@ public struct DesignSystemCatalogView: View {
         }
     }
 
-    // MARK: - 8. Body Map
+    // MARK: - 9. Body Map
     private var bodyMapSection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.md) {
             Text("Injection Site Rotation")
                 .font(VialrTypography.title2)
                 .foregroundColor(VialrColors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
 
             BodyMapSelectorView(
                 sites: sampleSites,

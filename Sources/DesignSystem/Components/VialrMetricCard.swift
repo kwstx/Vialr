@@ -3,6 +3,7 @@ import SwiftUI
 /// VialrMetricCard: The signature Cal AI metric stat card.
 /// Combines an uppercase micro-eyebrow, massive numerical focus, precision unit,
 /// and an optional contextual status badge or minimal progress indicator.
+/// Engineered with accessible VoiceOver grouping, traits, and Dynamic Type scaling.
 public struct VialrMetricCard: View {
     public let eyebrow: String
     public let value: String
@@ -55,6 +56,8 @@ public struct VialrMetricCard: View {
                         .font(VialrTypography.metricLarge)
                         .foregroundColor(VialrColors.textPrimary)
                         .tracking(-0.5)
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
 
                     if let unit = unit {
                         Text(unit)
@@ -75,8 +78,28 @@ public struct VialrMetricCard: View {
                     Text(subtitle)
                         .font(VialrTypography.footnote)
                         .foregroundColor(VialrColors.textSecondary)
+                        .lineLimit(2)
                 }
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(eyebrow): \(value) \(unit ?? "")")
+        .accessibilityValue(accessibilityValueDescription)
+        .accessibilityHint(onTap != nil ? "Double tap to view detailed analytics" : "")
+        .accessibilityAddTraits(onTap != nil ? .isButton : [])
+    }
+
+    private var accessibilityValueDescription: String {
+        var components: [String] = []
+        if let subtitle = subtitle, !subtitle.isEmpty {
+            components.append(subtitle)
+        }
+        if let badge = badge {
+            components.append("Status: \(badge.title)")
+        }
+        if let progress = progress {
+            components.append("\(Int(progress * 100))% completed")
+        }
+        return components.joined(separator: ", ")
     }
 }

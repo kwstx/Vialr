@@ -298,129 +298,137 @@ public struct LaboratoryTimelineView: View {
                     Text("Protocol Overlays & Lab Points")
                         .font(VialrTypography.title3)
                         .foregroundColor(VialrColors.textPrimary)
+                        .accessibilityAddTraits(.isHeader)
                 }
 
                 Spacer()
 
-                if let selected = viewModel.selectedLabPoint {
+                if let _ = viewModel.selectedLabPoint {
                     Button("Reset Selection") {
                         withAnimation { viewModel.selectedLabPoint = nil }
                     }
                     .font(VialrTypography.captionBold)
                     .foregroundColor(VialrColors.accentTeal)
+                    .minTouchTarget(minWidth: 44, minHeight: 44)
+                    .accessibilityLabel("Reset point selection")
+                    .accessibilityHint("Double tap to clear selected point inspection")
                 }
             }
 
             if !points.isEmpty {
-                Chart {
-                    // 1. Reference Range Shaded Region
-                    if viewModel.isReferenceRangeVisible, let minV = refMin, let maxV = refMax, let start = points.first?.timestamp, let end = points.last?.timestamp {
-                        let extendedStart = start.addingTimeInterval(-86400 * 2)
-                        let extendedEnd = end.addingTimeInterval(86400 * 2)
+                AccessibleChartContainer(summary: labChartSummary(points: points, refMin: refMin, refMax: refMax)) {
+                    Chart {
+                        // 1. Reference Range Shaded Region
+                        if viewModel.isReferenceRangeVisible, let minV = refMin, let maxV = refMax, let start = points.first?.timestamp, let end = points.last?.timestamp {
+                            let extendedStart = start.addingTimeInterval(-86400 * 2)
+                            let extendedEnd = end.addingTimeInterval(86400 * 2)
 
-                        // Shaded Range Rectangle
-                        RectangleMark(
-                            xStart: .value("Range Start", extendedStart),
-                            xEnd: .value("Range End", extendedEnd),
-                            yStart: .value("Ref Min", minV),
-                            yEnd: .value("Ref Max", maxV)
-                        )
-                        .foregroundStyle(VialrColors.accentEmerald.opacity(0.08))
-
-                        // Upper & Lower Ref Limits
-                        RuleMark(y: .value("Max Ref", maxV))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                            .foregroundStyle(VialrColors.textTertiary.opacity(0.6))
-
-                        RuleMark(y: .value("Min Ref", minV))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                            .foregroundStyle(VialrColors.textTertiary.opacity(0.6))
-                    }
-
-                    // 2. Protocol Period Overlays (Vertical Period Bands)
-                    if viewModel.isProtocolOverlayEnabled {
-                        ForEach(overlays) { overlay in
-                            let oEnd = overlay.endDate ?? Date()
+                            // Shaded Range Rectangle
                             RectangleMark(
-                                xStart: .value("Protocol Start", overlay.startDate),
-                                xEnd: .value("Protocol End", oEnd)
+                                xStart: .value("Range Start", extendedStart),
+                                xEnd: .value("Range End", extendedEnd),
+                                yStart: .value("Ref Min", minV),
+                                yEnd: .value("Ref Max", maxV)
                             )
-                            .foregroundStyle(Color(hex: overlay.colorHex).opacity(0.12))
+                            .foregroundStyle(VialrColors.accentEmerald.opacity(0.08))
 
-                            RuleMark(x: .value("Phase Start", overlay.startDate))
-                                .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [2, 2]))
-                                .foregroundStyle(Color(hex: overlay.colorHex).opacity(0.5))
-                                .annotation(position: .top, alignment: .leading) {
-                                    Text(overlay.phaseType.shortName)
-                                        .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(Color(hex: overlay.colorHex))
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 2)
-                                        .background(VialrColors.cardBackground.opacity(0.9))
-                                        .cornerRadius(3)
-                                }
+                            // Upper & Lower Ref Limits
+                            RuleMark(y: .value("Max Ref", maxV))
+                                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                                .foregroundStyle(VialrColors.textTertiary.opacity(0.6))
+
+                            RuleMark(y: .value("Min Ref", minV))
+                                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                                .foregroundStyle(VialrColors.textTertiary.opacity(0.6))
                         }
-                    }
 
-                    // 3. Biomarker Continuous Trajectory Line
-                    ForEach(points) { pt in
-                        LineMark(
-                            x: .value("Date", pt.timestamp),
-                            y: .value("Value", pt.value)
-                        )
-                        .foregroundStyle(VialrColors.accentTeal)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5))
-                        .interpolationMethod(.catmullRom)
-                    }
+                        // 2. Protocol Period Overlays (Vertical Period Bands)
+                        if viewModel.isProtocolOverlayEnabled {
+                            ForEach(overlays) { overlay in
+                                let oEnd = overlay.endDate ?? Date()
+                                RectangleMark(
+                                    xStart: .value("Protocol Start", overlay.startDate),
+                                    xEnd: .value("Protocol End", oEnd)
+                                )
+                                .foregroundStyle(Color(hex: overlay.colorHex).opacity(0.12))
 
-                    // 4. Lab Result Point Markers
-                    ForEach(points) { pt in
-                        PointMark(
-                            x: .value("Date", pt.timestamp),
-                            y: .value("Value", pt.value)
-                        )
-                        .symbol {
-                            ZStack {
-                                Circle()
-                                    .fill(Color(hex: pt.flag.badgeColorHex))
-                                    .frame(width: viewModel.selectedLabPoint?.id == pt.id ? 14 : 10, height: viewModel.selectedLabPoint?.id == pt.id ? 14 : 10)
-
-                                Circle()
-                                    .stroke(VialrColors.backgroundPrimary, lineWidth: 2)
-                                    .frame(width: viewModel.selectedLabPoint?.id == pt.id ? 14 : 10, height: viewModel.selectedLabPoint?.id == pt.id ? 14 : 10)
+                                RuleMark(x: .value("Phase Start", overlay.startDate))
+                                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [2, 2]))
+                                    .foregroundStyle(Color(hex: overlay.colorHex).opacity(0.5))
+                                    .annotation(position: .top, alignment: .leading) {
+                                        Text(overlay.phaseType.shortName)
+                                            .font(.system(size: 8, weight: .bold))
+                                            .foregroundColor(Color(hex: overlay.colorHex))
+                                            .padding(.horizontal, 4)
+                                            .padding(.vertical, 2)
+                                            .background(VialrColors.cardSurface.opacity(0.9))
+                                            .cornerRadius(3)
+                                    }
                             }
                         }
-                    }
 
-                    // 5. Selected Inspection Marker
-                    if let sel = viewModel.selectedLabPoint {
-                        RuleMark(x: .value("Selected Date", sel.timestamp))
-                            .lineStyle(StrokeStyle(lineWidth: 1.5))
+                        // 3. Biomarker Continuous Trajectory Line
+                        ForEach(points) { pt in
+                            LineMark(
+                                x: .value("Date", pt.timestamp),
+                                y: .value("Value", pt.value)
+                            )
                             .foregroundStyle(VialrColors.accentTeal)
+                            .lineStyle(StrokeStyle(lineWidth: 2.5))
+                            .interpolationMethod(.catmullRom)
+                        }
+
+                        // 4. Lab Result Point Markers
+                        ForEach(points) { pt in
+                            PointMark(
+                                x: .value("Date", pt.timestamp),
+                                y: .value("Value", pt.value)
+                            )
+                            .symbol {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color(hex: pt.flag.badgeColorHex))
+                                        .frame(width: viewModel.selectedLabPoint?.id == pt.id ? 14 : 10, height: viewModel.selectedLabPoint?.id == pt.id ? 14 : 10)
+
+                                    Circle()
+                                        .stroke(VialrColors.backgroundPrimary, lineWidth: 2)
+                                        .frame(width: viewModel.selectedLabPoint?.id == pt.id ? 14 : 10, height: viewModel.selectedLabPoint?.id == pt.id ? 14 : 10)
+                                }
+                            }
+                            .accessibilityLabel("Date: \(formatShortDate(pt.timestamp)), Value: \(pt.formattedValue)")
+                            .accessibilityValue("Status: \(pt.flag.displayName), Phase: \(pt.protocolPhase.rawValue)")
+                        }
+
+                        // 5. Selected Inspection Marker
+                        if let sel = viewModel.selectedLabPoint {
+                            RuleMark(x: .value("Selected Date", sel.timestamp))
+                                .lineStyle(StrokeStyle(lineWidth: 1.5))
+                                .foregroundStyle(VialrColors.accentTeal)
+                        }
                     }
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading) { val in
-                        AxisGridLine().foregroundStyle(VialrColors.glassBorder)
-                        AxisValueLabel {
-                            if let num = val.as(Double.self) {
-                                Text("\(Int(num))")
-                                    .font(.system(size: 9, design: .monospaced))
-                                    .foregroundColor(VialrColors.textTertiary)
+                    .chartYAxis {
+                        AxisMarks(position: .leading) { val in
+                            AxisGridLine().foregroundStyle(VialrColors.glassBorder)
+                            AxisValueLabel {
+                                if let num = val.as(Double.self) {
+                                    Text("\(Int(num))")
+                                        .font(.system(size: 9, design: .monospaced))
+                                        .foregroundColor(VialrColors.textTertiary)
+                                }
                             }
                         }
                     }
-                }
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                        AxisGridLine().foregroundStyle(VialrColors.glassBorder)
-                        AxisValueLabel(format: .dateTime.month().day())
-                            .font(.system(size: 9))
-                            .foregroundStyle(VialrColors.textTertiary)
+                    .chartXAxis {
+                        AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                            AxisGridLine().foregroundStyle(VialrColors.glassBorder)
+                            AxisValueLabel(format: .dateTime.month().day())
+                                .font(.system(size: 9))
+                                .foregroundStyle(VialrColors.textTertiary)
+                        }
                     }
+                    .frame(height: 220)
+                    .padding(.top, 8)
                 }
-                .frame(height: 220)
-                .padding(.top, 8)
 
                 // Chart Legend
                 chartLegendView(refMin: refMin, refMax: refMax)
@@ -440,6 +448,49 @@ public struct LaboratoryTimelineView: View {
         }
         .padding(VialrSpacing.md)
         .vialrCard()
+    }
+
+    private func labChartSummary(points: [LabTimeSeriesPoint], refMin: Double?, refMax: Double?) -> ChartDataSummary {
+        let values = points.map(\.value)
+        let minV = values.min()
+        let maxV = values.max()
+        let avgV = values.isEmpty ? nil : values.reduce(0, +) / Double(values.count)
+        let curV = values.last
+        let baseline = points.first?.value
+        let unit = points.first?.unit ?? ""
+
+        var observations: [String] = []
+        if let rMin = refMin, let rMax = refMax {
+            observations.append("Clinical reference range: \(Int(rMin)) to \(Int(rMax)) \(unit)")
+        }
+        if let cur = curV, let rMax = refMax, cur > rMax {
+            observations.append("Latest reading (\(String(format: "%.1f", cur)) \(unit)) exceeds upper limit")
+        } else if let cur = curV, let rMin = refMin, cur < rMin {
+            observations.append("Latest reading (\(String(format: "%.1f", cur)) \(unit)) is below lower limit")
+        } else if curV != nil {
+            observations.append("Latest reading is within optimal reference limits")
+        }
+
+        let deltaStr: String
+        if let first = baseline, let last = curV {
+            let diff = last - first
+            deltaStr = diff >= 0 ? "Shifted +\(String(format: "%.1f", diff)) \(unit) from baseline" : "Shifted \(String(format: "%.1f", diff)) \(unit) from baseline"
+        } else {
+            deltaStr = "Stable trajectory"
+        }
+
+        return ChartDataSummary(
+            title: "\(viewModel.selectedBiomarkerName) Longitudinal Marker Trajectory",
+            metricUnit: unit,
+            totalDataPoints: points.count,
+            minimumValue: minV,
+            maximumValue: maxV,
+            averageValue: avgV,
+            currentValue: curV,
+            baselineValue: baseline,
+            trendDirectionDescription: deltaStr,
+            keyObservations: observations
+        )
     }
 
     private func chartLegendView(refMin: Double?, refMax: Double?) -> some View {

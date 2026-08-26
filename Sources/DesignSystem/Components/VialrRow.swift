@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// VialrRow: An Uber-style high-clarity list row / action cell.
+/// Accessible with unified VoiceOver reading order, 44pt minimum touch target, and clear button traits.
 public struct VialrRow: View {
     public let title: String
     public let subtitle: String?
@@ -41,10 +42,19 @@ public struct VialrRow: View {
                     rowContent
                 }
                 .buttonStyle(VialrCardPressStyle())
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(title)
+                .accessibilityValue(accessibilityValueSummary)
+                .accessibilityHint("Double tap to open")
+                .accessibilityAddTraits(.isButton)
             } else {
                 rowContent
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(title)
+                    .accessibilityValue(accessibilityValueSummary)
             }
         }
+        .frame(minHeight: VialrSpacing.minTouchTarget)
     }
 
     private var rowContent: some View {
@@ -98,5 +108,19 @@ public struct VialrRow: View {
             RoundedRectangle(cornerRadius: VialrSpacing.radiusMd, style: .continuous)
                 .stroke(VialrColors.glassBorder, lineWidth: 0.8)
         )
+    }
+
+    private var accessibilityValueSummary: String {
+        var summary: [String] = []
+        if let sub = subtitle, !sub.isEmpty {
+            summary.append(sub)
+        }
+        if let badge = trailingBadge {
+            summary.append("Status: \(badge.title)")
+        }
+        if let text = trailingText, !text.isEmpty {
+            summary.append(text)
+        }
+        return summary.joined(separator: ", ")
     }
 }
