@@ -133,16 +133,19 @@ public struct APNsPushService: APNsPushServiceProtocol {
         daysRemaining: Int?,
         on db: Database
     ) async throws -> NotificationRecordEntity {
-        let title = "Low Inventory: \(compoundName)"
-        let daysStr = daysRemaining != nil ? " (~ \(daysRemaining!) days supply left)" : ""
-        let body = "\(vialName) has approximately \(dosesRemaining) dose\(dosesRemaining == 1 ? "" : "s") remaining\(daysStr). Tap to review inventory."
+        let privacyFormatted = NotificationPrivacyFormatter.formatRestockAlert(
+            compoundName: compoundName,
+            vialName: vialName,
+            dosesRemaining: dosesRemaining,
+            mode: .redacted
+        )
         let deepLink = "vialr://inventory"
 
         return try await sendPushNotification(
             toUser: userId,
-            title: title,
-            body: body,
-            category: NotificationCategoryIdentifier.restockAlert.rawIdentifier,
+            title: privacyFormatted.title,
+            body: privacyFormatted.body,
+            category: privacyFormatted.categoryIdentifier,
             eventType: .restockWarning,
             deepLinkUri: deepLink,
             customData: [
@@ -162,15 +165,18 @@ public struct APNsPushService: APNsPushServiceProtocol {
         biomarkerCount: Int,
         on db: Database
     ) async throws -> NotificationRecordEntity {
-        let title = "Lab Analysis Complete: \(panelName)"
-        let body = "Extracted \(biomarkerCount) biomarker\(biomarkerCount == 1 ? "" : "s") successfully. Tap to review lab findings."
+        let privacyFormatted = NotificationPrivacyFormatter.formatLabReadyAlert(
+            panelName: panelName,
+            biomarkerCount: biomarkerCount,
+            mode: .redacted
+        )
         let deepLink = "vialr://bloodwork/panel/\(labPanelId.uuidString)"
 
         return try await sendPushNotification(
             toUser: userId,
-            title: title,
-            body: body,
-            category: NotificationCategoryIdentifier.labReminder.rawIdentifier,
+            title: privacyFormatted.title,
+            body: privacyFormatted.body,
+            category: privacyFormatted.categoryIdentifier,
             eventType: .labReportReady,
             deepLinkUri: deepLink,
             customData: [
@@ -189,15 +195,17 @@ public struct APNsPushService: APNsPushServiceProtocol {
         conflictingProtocolIds: [UUID],
         on db: Database
     ) async throws -> NotificationRecordEntity {
-        let title = "Protocol Inconsistency Detected"
-        let body = message
+        let privacyFormatted = NotificationPrivacyFormatter.formatProtocolConflictAlert(
+            message: message,
+            mode: .redacted
+        )
         let deepLink = "vialr://protocols"
 
         return try await sendPushNotification(
             toUser: userId,
-            title: title,
-            body: body,
-            category: NotificationCategoryIdentifier.conflictAlert.rawIdentifier,
+            title: privacyFormatted.title,
+            body: privacyFormatted.body,
+            category: privacyFormatted.categoryIdentifier,
             eventType: .protocolConflict,
             deepLinkUri: deepLink,
             customData: [

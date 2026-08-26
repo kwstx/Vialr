@@ -25,6 +25,7 @@ public enum Endpoint: Sendable {
     case updatePreferences
     case updateUnits
     case updateNotifications
+    case exportUserData
     case deleteAccount
 
     // MARK: - 3. Compounds
@@ -156,6 +157,7 @@ public enum Endpoint: Sendable {
         case .updatePreferences: return "/api/v1/users/preferences"
         case .updateUnits: return "/api/v1/users/units"
         case .updateNotifications: return "/api/v1/users/notifications"
+        case .exportUserData: return "/api/v1/users/export"
         case .deleteAccount: return "/api/v1/users/account"
 
         // Compounds
@@ -314,7 +316,8 @@ public enum Endpoint: Sendable {
              .requestUploadAuthorization, .confirmUpload, .processFile, .directFileUpload,
              .generateReport, .generatePdfReport, .registerDeviceToken, .sendTestNotification, .syncPush, .syncOutbox,
              .submitBackgroundJob, .cancelBackgroundJob, .retryBackgroundJob,
-             .generateReportAsync, .exportDataAsync, .calculateAnalyticsAsync, .prepareNotificationsAsync, .runSyncJobAsync:
+             .generateReportAsync, .exportDataAsync, .calculateAnalyticsAsync, .prepareNotificationsAsync, .runSyncJobAsync,
+             .exportUserData:
             return .post
 
         case .updateProfile, .updatePreferences, .updateUnits, .updateNotifications,

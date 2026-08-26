@@ -119,16 +119,25 @@ public final class NotificationClientManager: NSObject, @unchecked Sendable {
     }
 
     // MARK: - Snooze Handler
-    public func snoozeNotification(payload: ScheduledNotificationPayload, minutes: Int = 15) async throws {
+    public func snoozeNotification(
+        payload: ScheduledNotificationPayload,
+        minutes: Int = 15,
+        privacyMode: NotificationPrivacyMode = .redacted
+    ) async throws {
         #if canImport(UserNotifications) && !os(Linux) && !os(Windows)
         let center = UNUserNotificationCenter.current()
 
+        let privacyFormatted = NotificationPrivacyFormatter.formatDoseReminder(
+            compoundName: payload.compoundName,
+            doseAmount: payload.doseAmount,
+            doseUnit: payload.doseUnit,
+            route: payload.route,
+            mode: privacyMode
+        )
+
         let content = UNMutableNotificationContent()
-        content.title = "Snoozed Reminder: \(payload.compoundName)"
-        let amountStr = payload.doseAmount.truncatingRemainder(dividingBy: 1) == 0 ?
-            String(format: "%.0f", payload.doseAmount) :
-            String(format: "%.2f", payload.doseAmount)
-        content.body = "Scheduled dose: \(amountStr) \(payload.doseUnit.rawValue). Tap to log now."
+        content.title = privacyMode == .detailed ? "Snoozed: \(payload.compoundName)" : "Snoozed Dose Reminder"
+        content.body = privacyMode == .detailed ? "\(privacyFormatted.body) (Snoozed)" : "Time for your scheduled protocol dose. Tap to log now."
         content.sound = .default
         content.categoryIdentifier = NotificationCategoryIdentifier.doseReminder.rawIdentifier
         content.threadIdentifier = payload.protocolId?.uuidString ?? payload.compoundId.uuidString

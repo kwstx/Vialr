@@ -309,4 +309,9 @@ final class NotificationSchedulerTests: XCTestCase {
         // Day 14+ (Week 3): 750 mcg
         XCTAssertEqual(scheduled[14].plannedDoseAmount, 750)
     }
+
+    // MARK: - 6. Privacy Preservation in Notification Scheduler
+    func testNotificationSchedulerDefaultsToRedactedPrivacyMode() {
+        XCTAssertEqual(scheduler.privacyMode, .redacted, "NotificationScheduler must default to redacted privacy mode")
+    }
 }

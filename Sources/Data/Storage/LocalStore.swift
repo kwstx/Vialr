@@ -588,6 +588,33 @@ public actor LocalStore {
         }
     }
 
+    /// Atomically wipes all in-memory domain collections, outbox operations, and sync queue items.
+    /// Used by DataPrivacyCoordinator during full account erasure or user-initiated data wipe.
+    public func clearAllData() {
+        compounds.removeAll()
+        protocols.removeAll()
+        protocolRevisions.removeAll()
+        doseLogs.removeAll()
+        vials.removeAll()
+        supplies.removeAll()
+        biomarkers.removeAll()
+        symptomLogs.removeAll()
+        costs.removeAll()
+        injectionSiteEvents.removeAll()
+        reconstitutionRecords.removeAll()
+        measurements.removeAll()
+        metricDefinitions.removeAll()
+        labPanels.removeAll()
+        documents.removeAll()
+        outcomeMetrics.removeAll()
+        storedFiles.removeAll()
+        syncQueue.removeAll()
+        outboxOperations.removeAll()
+        inventoryEvents.removeAll()
+        currentUser = nil
+        isInitialized = false
+    }
+
     // MARK: - Injection Site Events
     public func getAllInjectionSiteEvents() -> [InjectionSiteEvent] { injectionSiteEvents }
 

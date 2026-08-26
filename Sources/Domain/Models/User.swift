@@ -190,24 +190,33 @@ public struct PrivacyPreferences: Codable, Sendable, Hashable {
     public var requireBiometricUnlock: Bool
     public var biometricLockTimeoutSeconds: Int
     public var maskSensitiveDosagesOnLockScreen: Bool
+    public var notificationPrivacyMode: NotificationPrivacyMode
+    public var redactPushNotifications: Bool
     public var allowDiagnosticTelemetry: Bool
     public var enableCloudBackupEncryption: Bool
     public var allowClinicianDataSharing: Bool
+    public var anonymizeClinicianExports: Bool
 
     public init(
         requireBiometricUnlock: Bool = true,
         biometricLockTimeoutSeconds: Int = 60,
         maskSensitiveDosagesOnLockScreen: Bool = true,
+        notificationPrivacyMode: NotificationPrivacyMode = .redacted,
+        redactPushNotifications: Bool = true,
         allowDiagnosticTelemetry: Bool = false,
         enableCloudBackupEncryption: Bool = true,
-        allowClinicianDataSharing: Bool = true
+        allowClinicianDataSharing: Bool = true,
+        anonymizeClinicianExports: Bool = false
     ) {
         self.requireBiometricUnlock = requireBiometricUnlock
         self.biometricLockTimeoutSeconds = biometricLockTimeoutSeconds
         self.maskSensitiveDosagesOnLockScreen = maskSensitiveDosagesOnLockScreen
+        self.notificationPrivacyMode = notificationPrivacyMode
+        self.redactPushNotifications = redactPushNotifications
         self.allowDiagnosticTelemetry = allowDiagnosticTelemetry
         self.enableCloudBackupEncryption = enableCloudBackupEncryption
         self.allowClinicianDataSharing = allowClinicianDataSharing
+        self.anonymizeClinicianExports = anonymizeClinicianExports
     }
 }
 

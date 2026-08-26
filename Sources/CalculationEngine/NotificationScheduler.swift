@@ -12,6 +12,7 @@ public final class NotificationScheduler: NotificationSchedulerProtocol, @unchec
     private let schedulingEngine: ProtocolSchedulingEngine
     private let defaultCalendar: Calendar
     private let maxPendingNotificationLimit: Int = 64
+    public var privacyMode: NotificationPrivacyMode
 
     // In-memory fallback tracking for cross-platform compatibility and unit testing
     private let stateLock = NSLock()
@@ -20,10 +21,12 @@ public final class NotificationScheduler: NotificationSchedulerProtocol, @unchec
 
     public init(
         schedulingEngine: ProtocolSchedulingEngine = ProtocolSchedulingEngine(),
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        privacyMode: NotificationPrivacyMode = .redacted
     ) {
         self.schedulingEngine = schedulingEngine
         self.defaultCalendar = calendar
+        self.privacyMode = privacyMode
     }
 
     // MARK: - 1. Schedule Next Single Dose Reminder
@@ -437,20 +440,23 @@ public final class NotificationScheduler: NotificationSchedulerProtocol, @unchec
     ) async throws {
         let center = UNUserNotificationCenter.current()
 
-        let content = UNMutableNotificationContent()
-        content.title = "Dose Reminder: \(payload.compoundName)"
-        let amountStr = payload.doseAmount.truncatingRemainder(dividingBy: 1) == 0 ?
-            String(format: "%.0f", payload.doseAmount) :
-            String(format: "%.2f", payload.doseAmount)
+        let privacyFormatted = NotificationPrivacyFormatter.formatDoseReminder(
+            compoundName: payload.compoundName,
+            doseAmount: payload.doseAmount,
+            doseUnit: payload.doseUnit,
+            route: payload.route,
+            mode: privacyMode
+        )
 
-        var bodyDetails = "\(amountStr) \(payload.doseUnit.rawValue) • \(payload.route.shortName)"
-        if let food = payload.foodRequirement, food != .unspecified {
-            bodyDetails += " (\(food.rawValue))"
+        let content = UNMutableNotificationContent()
+        content.title = privacyFormatted.title
+        content.body = privacyFormatted.body
+        if let sub = privacyFormatted.subtitle {
+            content.subtitle = sub
         }
-        content.body = "Scheduled dose: \(bodyDetails). Tap to log dose."
         content.sound = .default
-        content.categoryIdentifier = NotificationCategoryIdentifier.doseReminder.rawIdentifier
-        content.threadIdentifier = payload.protocolId?.uuidString ?? payload.compoundId.uuidString
+        content.categoryIdentifier = privacyFormatted.categoryIdentifier
+        content.threadIdentifier = privacyFormatted.threadIdentifier
         content.userInfo = payload.userInfoDictionary
 
         // Extract components in the user's specific timezone to preserve wall-clock time across DST transitions

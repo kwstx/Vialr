@@ -42,6 +42,7 @@ public struct AccountErasureService: Sendable {
         try await StoredFileEntity.query(on: req.db).filter(\.$user.$id == userId).delete()
         try await NotificationRecordEntity.query(on: req.db).filter(\.$user.$id == userId).delete()
         try await RefreshTokenEntity.query(on: req.db).filter(\.$user.$id == userId).delete()
+        try await DeviceTokenEntity.query(on: req.db).filter(\.$user.$id == userId).delete()
         try await BackgroundJobEntity.query(on: req.db).filter(\.$user.$id == userId).delete()
         try await SyncConflictEntity.query(on: req.db).filter(\.$user.$id == userId).delete()
         try await CompoundEntity.query(on: req.db).filter(\.$user.$id == userId).delete()

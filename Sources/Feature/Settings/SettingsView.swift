@@ -10,7 +10,17 @@ public struct SettingsView: View {
     @State private var lockTimeout: Int = 60
     @State private var enableReminders: Bool = true
     @State private var selectedUnit: DoseUnit = .mcg
-    @State private var showExportSuccess: Bool = false
+    @State private var notificationPrivacyMode: NotificationPrivacyMode = .redacted
+    @State private var allowDiagnosticTelemetry: Bool = false
+
+    // Export & Portability State
+    @State private var isExportingData: Bool = false
+    @State private var exportSummary: String? = nil
+    @State private var exportedJsonData: Data? = nil
+
+    // Account Erasure & Wipe State
+    @State private var showDeleteAccountAlert: Bool = false
+    @State private var isDeletingAccount: Bool = false
     @State private var showSignOutAlert: Bool = false
 
     // Apple Health Integration State
@@ -26,11 +36,13 @@ public struct SettingsView: View {
     private let securityManager: AppSecurityManager
     private let healthSettingsManager: HealthSettingsManager
     private let healthRepository: HealthRepositoryProtocol
+    private let privacyCoordinator: DataPrivacyCoordinatorProtocol
 
     public init(
         securityManager: AppSecurityManager = .shared,
         healthSettingsManager: HealthSettingsManager = .shared,
         healthRepository: HealthRepositoryProtocol? = nil,
+        privacyCoordinator: DataPrivacyCoordinatorProtocol = DataPrivacyCoordinator.shared,
         onOpenClinicianReport: @escaping () -> Void,
         onLockApp: (() -> Void)? = nil,
         onSignOut: (() -> Void)? = nil
@@ -41,6 +53,7 @@ public struct SettingsView: View {
             measurementRepository: LocalMeasurementRepository(),
             settingsManager: healthSettingsManager
         )
+        self.privacyCoordinator = privacyCoordinator
         self.onOpenClinicianReport = onOpenClinicianReport
         self.onLockApp = onLockApp
         self.onSignOut = onSignOut
@@ -93,11 +106,64 @@ public struct SettingsView: View {
 
                                 Image(systemName: "chevron.right")
                                     .foregroundColor(VialrColors.textTertiary)
+                                    .font(.system(size: 14, weight: .semibold))
                             }
                             .padding(VialrSpacing.md)
                             .vialrCard()
                         }
                         .buttonStyle(.plain)
+
+                        // MARK: - Privacy & Architectural Safeguards
+                        VStack(alignment: .leading, spacing: VialrSpacing.md) {
+                            HStack {
+                                Text("PRIVACY ARCHITECTURE")
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.accentTeal)
+                                Spacer()
+                                Image(systemName: "hand.raised.shield.fill")
+                                    .foregroundColor(VialrColors.accentTeal)
+                            }
+
+                            // Notification Privacy Mode
+                            VStack(alignment: .leading, spacing: VialrSpacing.xs) {
+                                Text("Notification Privacy Level")
+                                    .font(VialrTypography.footnote)
+                                    .foregroundColor(VialrColors.textPrimary)
+
+                                Picker("Notification Privacy Mode", selection: $notificationPrivacyMode) {
+                                    ForEach(NotificationPrivacyMode.allCases) { mode in
+                                        Text(mode.displayName).tag(mode)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+
+                                Text(notificationPrivacyMode.description)
+                                    .font(VialrTypography.caption)
+                                    .foregroundColor(VialrColors.textSecondary)
+                                    .padding(.top, 2)
+                            }
+
+                            Divider().background(VialrColors.borderSubtle)
+
+                            // Telemetry Scrubbing Toggle
+                            Toggle("Anonymous Diagnostic Telemetry", isOn: $allowDiagnosticTelemetry)
+                                .tint(VialrColors.accentTeal)
+                                .foregroundColor(VialrColors.textPrimary)
+
+                            HStack(alignment: .top, spacing: VialrSpacing.xs) {
+                                Image(systemName: "lock.fill")
+                                    .foregroundColor(VialrColors.accentEmerald)
+                                    .font(.caption)
+                                Text("Zero-Health Leakage Guarantee: Protocol names, compound dosages, and raw lab values are mathematically stripped before any operational telemetry is generated.")
+                                    .font(VialrTypography.caption)
+                                    .foregroundColor(VialrColors.textSecondary)
+                            }
+                            .padding(VialrSpacing.xs)
+                            .background(VialrColors.cardSurfaceElevated)
+                            .cornerRadius(VialrSpacing.radiusSm)
+                        }
+                        .padding(VialrSpacing.md)
+                        .vialrCard()
 
                         // MARK: - Account Security & Biometrics
                         VStack(alignment: .leading, spacing: VialrSpacing.md) {
@@ -158,7 +224,7 @@ public struct SettingsView: View {
                                 Image(systemName: "checkmark.seal.fill")
                                     .foregroundColor(VialrColors.accentEmerald)
                                     .font(.footnote)
-                                Text("Hardware Keychain protection active. Auth tokens are never stored in UserDefaults.")
+                                Text("Hardware Keychain protection active. Auth tokens and vault keys are never stored in UserDefaults.")
                                     .font(VialrTypography.caption)
                                     .foregroundColor(VialrColors.textSecondary)
                             }
@@ -258,7 +324,6 @@ public struct SettingsView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .padding(.top, 2)
-
                             }
                         }
                         .padding(VialrSpacing.md)
@@ -327,8 +392,7 @@ public struct SettingsView: View {
                         .padding(VialrSpacing.md)
                         .vialrCard()
 
-
-                        // Preferences
+                        // Preferences (Units)
                         VStack(alignment: .leading, spacing: VialrSpacing.md) {
                             Text("PREFERENCES")
                                 .font(VialrTypography.captionBold)
@@ -349,19 +413,26 @@ public struct SettingsView: View {
                         .padding(VialrSpacing.md)
                         .vialrCard()
 
-                        // Data Management & Export
+                        // MARK: - Data Portability & GDPR Right to Erasure
                         VStack(alignment: .leading, spacing: VialrSpacing.sm) {
-                            Text("DATA & BACKUPS")
+                            Text("DATA PORTABILITY & RIGHT TO ERASURE")
                                 .font(VialrTypography.captionBold)
                                 .foregroundColor(VialrColors.accentTeal)
 
+                            // Export JSON/CSV Button
                             Button {
-                                showExportSuccess = true
+                                performDataExport()
                             } label: {
                                 HStack {
-                                    Image(systemName: "arrow.down.doc.fill")
-                                        .foregroundColor(VialrColors.accentTeal)
-                                    Text("Export Protocol Archive (JSON / CSV)")
+                                    if isExportingData {
+                                        ProgressView()
+                                            .tint(VialrColors.accentTeal)
+                                            .padding(.trailing, 4)
+                                    } else {
+                                        Image(systemName: "arrow.down.doc.fill")
+                                            .foregroundColor(VialrColors.accentTeal)
+                                    }
+                                    Text(isExportingData ? "Packaging Archive..." : "Export Full Account Archive (JSON / CSV)")
                                         .foregroundColor(VialrColors.textPrimary)
                                     Spacer()
                                 }
@@ -370,12 +441,32 @@ public struct SettingsView: View {
                                 .cornerRadius(VialrSpacing.radiusSm)
                             }
                             .buttonStyle(.plain)
+                            .disabled(isExportingData)
 
-                            if showExportSuccess {
-                                Text("Protocol archive prepared and encrypted successfully.")
+                            if let summary = exportSummary {
+                                Text(summary)
                                     .font(VialrTypography.caption)
                                     .foregroundColor(VialrColors.accentEmerald)
                             }
+
+                            Divider().background(VialrColors.borderSubtle).padding(.vertical, 4)
+
+                            // Delete Account & Erase All Data Button
+                            Button(role: .destructive) {
+                                showDeleteAccountAlert = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "trash.circle.fill")
+                                        .foregroundColor(VialrColors.accentRose)
+                                    Text("Erase Account & Wipe Local Vault")
+                                        .foregroundColor(VialrColors.accentRose)
+                                    Spacer()
+                                }
+                                .padding(VialrSpacing.sm)
+                                .background(VialrColors.cardSurfaceElevated)
+                                .cornerRadius(VialrSpacing.radiusSm)
+                            }
+                            .buttonStyle(.plain)
                         }
                         .padding(VialrSpacing.md)
                         .vialrCard()
@@ -409,7 +500,7 @@ public struct SettingsView: View {
                             Text("Vialr for iOS — Version 1.0.0")
                                 .font(VialrTypography.footnote)
                                 .foregroundColor(VialrColors.textTertiary)
-                            Text("Apple Data Protection & Secure Enclave Active")
+                            Text("Privacy Architecture & Zero-PHI Telemetry Active")
                                 .font(VialrTypography.caption)
                                 .foregroundColor(VialrColors.textMuted)
                         }
@@ -428,6 +519,14 @@ public struct SettingsView: View {
                 }
             } message: {
                 Text("This will securely clear your local authentication tokens from the iOS Keychain. Your encrypted local data remains protected.")
+            }
+            .alert("Permanently Erase Account & All Data?", isPresented: $showDeleteAccountAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Erase Everything", role: .destructive) {
+                    performAccountErasure()
+                }
+            } message: {
+                Text("This action is permanent and irreversible (GDPR Right to Erasure). All local storage, hardware encryption keys, scheduled notifications, and server-side records will be immediately destroyed.")
             }
             .alert("Purge Imported HealthKit Data?", isPresented: $showPurgeHealthAlert) {
                 Button("Cancel", role: .cancel) {}
@@ -482,6 +581,37 @@ public struct SettingsView: View {
                 healthSyncSummary = "Successfully synced \(imported.count) measurements from Apple Health."
             } catch {
                 healthSyncSummary = "Sync failed: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func performDataExport() {
+        isExportingData = true
+        exportSummary = nil
+
+        Task {
+            defer { isExportingData = false }
+            do {
+                let bundle = try await privacyCoordinator.generateUserDataExportBundle()
+                let data = try await privacyCoordinator.exportUserDataAsJSON(prettyPrinted: true)
+                self.exportedJsonData = data
+                self.exportSummary = "Full archive generated: \(bundle.manifest.totalRecordCount) records verified (Checksum: \(bundle.manifest.sha256Checksum.prefix(8))...)."
+            } catch {
+                self.exportSummary = "Export failed: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func performAccountErasure() {
+        isDeletingAccount = true
+
+        Task {
+            defer { isDeletingAccount = false }
+            do {
+                _ = try await privacyCoordinator.eraseAllLocalData()
+                onSignOut?()
+            } catch {
+                exportSummary = "Erasure error: \(error.localizedDescription)"
             }
         }
     }
