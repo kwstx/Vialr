@@ -7,18 +7,22 @@ public struct ProtocolDetailView: View {
     public let protocolModel: ProtocolModel
     public var onEdit: (ProtocolModel) -> Void
     public var onToggleStatus: (ProtocolModel) -> Void
+    public var onOpenReplay: ((ProtocolModel) -> Void)?
     @Environment(\.dismiss) private var dismiss
+    @State private var isShowingReplaySheet = false
 
     private let schedulingEngine = ProtocolSchedulingEngine()
 
     public init(
         protocolModel: ProtocolModel,
         onEdit: @escaping (ProtocolModel) -> Void,
-        onToggleStatus: @escaping (ProtocolModel) -> Void
+        onToggleStatus: @escaping (ProtocolModel) -> Void,
+        onOpenReplay: ((ProtocolModel) -> Void)? = nil
     ) {
         self.protocolModel = protocolModel
         self.onEdit = onEdit
         self.onToggleStatus = onToggleStatus
+        self.onOpenReplay = onOpenReplay
     }
 
     public var body: some View {
@@ -62,6 +66,58 @@ public struct ProtocolDetailView: View {
                         }
                         .padding(VialrSpacing.lg)
                         .vialrCard()
+
+                        // Protocol History Replay Hero Card
+                        Button {
+                            if let onOpenReplay = onOpenReplay {
+                                onOpenReplay(protocolModel)
+                            } else {
+                                isShowingReplaySheet = true
+                            }
+                        } label: {
+                            HStack(spacing: VialrSpacing.md) {
+                                ZStack {
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [VialrColors.accentTeal, VialrColors.accentCyan],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .frame(width: 44, height: 44)
+                                        .shadow(color: VialrColors.accentTeal.opacity(0.35), radius: 8, x: 0, y: 3)
+
+                                    Image(systemName: "play.fill")
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(VialrColors.backgroundPrimary)
+                                        .offset(x: 1)
+                                }
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Protocol History Replay")
+                                        .font(VialrTypography.title3)
+                                        .foregroundColor(VialrColors.textPrimary)
+
+                                    Text("Watch doses, measurements, labs & changes unfold")
+                                        .font(VialrTypography.footnote)
+                                        .foregroundColor(VialrColors.textSecondary)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(VialrColors.textTertiary)
+                            }
+                            .padding(VialrSpacing.md)
+                            .vialrCard()
+                            .overlay(
+                                RoundedRectangle(cornerRadius: VialrSpacing.radiusLg)
+                                    .stroke(VialrColors.accentTeal.opacity(0.3), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
 
                         // Scheduled Compounds Section
                         VStack(alignment: .leading, spacing: VialrSpacing.sm) {
@@ -217,6 +273,9 @@ public struct ProtocolDetailView: View {
                     Button("Done") { dismiss() }
                         .foregroundColor(VialrColors.accentVitality)
                 }
+            }
+            .sheet(isPresented: $isShowingReplaySheet) {
+                ProtocolReplayView(viewModel: ProtocolReplayViewModel(protocolModel: protocolModel))
             }
         }
     }

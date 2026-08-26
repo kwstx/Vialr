@@ -31,6 +31,7 @@ public enum ActiveSheet: Identifiable {
     case siteRotation
     case createProtocol
     case protocolDetail(ProtocolModel)
+    case protocolReplay(ProtocolModel)
     case protocolComparison
     case addVial
     case logSymptoms
@@ -49,6 +50,7 @@ public enum ActiveSheet: Identifiable {
         case .siteRotation: return "siteRotation"
         case .createProtocol: return "createProtocol"
         case .protocolDetail(let p): return "protocolDetail_\(p.id.uuidString)"
+        case .protocolReplay(let p): return "protocolReplay_\(p.id.uuidString)"
         case .protocolComparison: return "protocolComparison"
         case .addVial: return "addVial"
         case .logSymptoms: return "logSymptoms"

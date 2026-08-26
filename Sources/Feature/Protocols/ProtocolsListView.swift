@@ -7,17 +7,20 @@ public struct ProtocolsListView: View {
     public var onSelectProtocol: (ProtocolModel) -> Void
     public var onCreateProtocol: () -> Void
     public var onCompareProtocols: () -> Void
+    public var onReplayProtocol: ((ProtocolModel) -> Void)?
 
     public init(
         viewModel: ProtocolsViewModel,
         onSelectProtocol: @escaping (ProtocolModel) -> Void,
         onCreateProtocol: @escaping () -> Void,
-        onCompareProtocols: @escaping () -> Void
+        onCompareProtocols: @escaping () -> Void,
+        onReplayProtocol: ((ProtocolModel) -> Void)? = nil
     ) {
         self.viewModel = viewModel
         self.onSelectProtocol = onSelectProtocol
         self.onCreateProtocol = onCreateProtocol
         self.onCompareProtocols = onCompareProtocols
+        self.onReplayProtocol = onReplayProtocol
     }
 
     public var body: some View {
@@ -161,6 +164,21 @@ public struct ProtocolsListView: View {
             .vialrCard()
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            if let onReplay = onReplayProtocol {
+                Button {
+                    onReplay(proto)
+                } label: {
+                    Label("Watch Protocol Replay", systemImage: "play.circle.fill")
+                }
+            }
+
+            Button {
+                onSelectProtocol(proto)
+            } label: {
+                Label("View Protocol Details", systemImage: "info.circle")
+            }
+        }
     }
 
     private var emptyProtocolsView: some View {

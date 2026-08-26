@@ -144,7 +144,8 @@ public struct RootNavigationView: View {
                     viewModel: protocolsVM,
                     onSelectProtocol: { proto in coordinator.presentSheet(.protocolDetail(proto)) },
                     onCreateProtocol: { coordinator.presentSheet(.createProtocol) },
-                    onCompareProtocols: { coordinator.presentSheet(.protocolComparison) }
+                    onCompareProtocols: { coordinator.presentSheet(.protocolComparison) },
+                    onReplayProtocol: { proto in coordinator.presentSheet(.protocolReplay(proto)) }
                 )
                 .tag(AppTab.protocols)
 
@@ -278,7 +279,23 @@ public struct RootNavigationView: View {
                         await protocolsVM.loadProtocols()
                         await dashboardVM.loadDashboardData()
                     }
+                },
+                onOpenReplay: { target in
+                    coordinator.presentSheet(.protocolReplay(target))
                 }
+            )
+
+        case .protocolReplay(let proto):
+            ProtocolReplayView(
+                viewModel: ProtocolReplayViewModel(
+                    protocolModel: proto,
+                    protocolRepo: container.protocolRepository,
+                    doseRepo: container.doseLogRepository,
+                    measurementRepo: container.measurementRepository,
+                    labRepo: container.labPanelRepository,
+                    symptomRepo: container.symptomRepository,
+                    siteEventRepo: container.injectionSiteEventRepository
+                )
             )
 
         case .protocolComparison:
