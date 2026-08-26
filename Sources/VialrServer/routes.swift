@@ -6,9 +6,8 @@ public func routes(_ app: Application) throws {
         ["status": "ok", "service": "Vialr API", "version": "1.0.0"]
     }
 
-    app.get("health") { req async in
-        ["status": "healthy", "timestamp": "\(Date())"]
-    }
+    // 0. Observability & Deep Diagnostics (Health checks, Prometheus /metrics, System stats)
+    try app.register(collection: ObservabilityController())
 
     // Versioned API grouping: /api/v1
     let apiV1 = app.grouped("api", "v1")

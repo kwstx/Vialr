@@ -23,11 +23,44 @@ public struct SyncController: RouteCollection {
         let pushReq = try req.content.decode(OutboxPushRequestDTO.self)
         let now = Date()
 
+        await req.application.syncMonitor.recordPushBatch(userId: payload.userId, operationsCount: pushReq.operations.count)
+
         var results: [OutboxOperationResultDTO] = []
 
         for op in pushReq.operations {
             let result = try await handleSingleOperation(op: op, userId: payload.userId, now: now, req: req)
             results.append(result)
+
+            if result.status == "rejected" {
+                let code: String
+                if let msg = result.message {
+                    if msg.contains("positive") {
+                        code = "NON_POSITIVE_DOSE"
+                    } else if msg.contains("format") || msg.contains("Invalid") {
+                        code = "INVALID_PAYLOAD"
+                    } else {
+                        code = "VALIDATION_FAILED"
+                    }
+                } else {
+                    code = "REJECTED_UNKNOWN"
+                }
+
+                await req.application.syncMonitor.recordOperationFailure(
+                    userId: payload.userId,
+                    operationId: op.id,
+                    entityType: op.entityType,
+                    operationType: op.operationType,
+                    rejectionCode: code,
+                    failureReason: result.message ?? "Operation rejected by server sync rules"
+                )
+            } else {
+                await req.application.syncMonitor.recordOperationSuccess(
+                    userId: payload.userId,
+                    operationId: op.id,
+                    entityType: op.entityType,
+                    status: result.status
+                )
+            }
         }
 
         return OutboxPushResponseDTO(
@@ -580,6 +613,8 @@ public struct SyncController: RouteCollection {
                 timestamp: c.timestamp
             )
         }
+
+        await req.application.syncMonitor.recordPullBatch(userId: payload.userId, deltasCount: dtoArray.count)
 
         return SyncPullResponseDTO(
             serverTimestamp: Date(),

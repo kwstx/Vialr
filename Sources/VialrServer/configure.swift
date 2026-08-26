@@ -9,14 +9,30 @@ public func configure(_ app: Application) async throws {
     app.http.server.configuration.port = port
     app.http.server.configuration.hostname = Environment.get("HOST") ?? "0.0.0.0"
 
-    // 2. Configure CORS Middleware
+    // 2. Configure CORS & Observability Middleware
     let corsConfiguration = CORSMiddleware.Configuration(
         allowedOrigin: .all,
         allowedMethods: [.GET, .POST, .PUT, .OPTIONS, .DELETE, .PATCH],
-        allowedHeaders: [.accept, .authorization, .contentType, .origin, .xRequestedWith, .userAgent, .accessControlAllowOrigin]
+        allowedHeaders: [.accept, .authorization, .contentType, .origin, .xRequestedWith, .userAgent, .accessControlAllowOrigin, .init("X-Request-ID"), .init("X-Correlation-ID"), .init("X-Client-Version"), .init("X-Platform")]
     )
     let cors = CORSMiddleware(configuration: corsConfiguration)
     app.middleware.use(cors, at: .beginning)
+
+    // Observability subsystems initialization
+    let perfMonitor = PerformanceMonitoringService()
+    app.performanceMonitor = perfMonitor
+    let errorMonitor = ErrorMonitoringService(app: app)
+    app.errorMonitor = errorMonitor
+    let syncMonitor = SyncObservabilityService(app: app)
+    app.syncMonitor = syncMonitor
+    let jobMonitor = BackgroundJobObservabilityService(app: app)
+    app.jobMonitor = jobMonitor
+
+    let observabilityMiddleware = ObservabilityMiddleware(
+        serviceName: Environment.get("SERVICE_NAME") ?? "vialr-api",
+        environment: app.environment.name
+    )
+    app.middleware.use(observabilityMiddleware)
 
     // 3. Configure JWT Signer
     let jwtSecret = Environment.get("JWT_SECRET") ?? "vialr-secret-jwt-key-minimum-32-chars-long-2026"

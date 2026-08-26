@@ -76,6 +76,7 @@ public actor BackgroundJobQueueService {
         )
         try await job.save(on: app.db)
         app.logger.info("BackgroundJobQueueService: Enqueued job [\(job.id?.uuidString ?? "")] of type '\(type.rawValue)' for user \(userId)")
+        await app.jobMonitor.recordJobEnqueued(jobId: job.id ?? UUID(), userId: userId, type: type.rawValue)
 
         // Trigger immediate processing wakeup
         Task.detached(priority: .userInitiated) { [weak self] in
@@ -129,9 +130,14 @@ public actor BackgroundJobQueueService {
         let jobType = BackgroundJobType(rawValue: job.jobType) ?? .pdfProcessing
         app.logger.info("BackgroundJobQueueService [\(jobId.uuidString)]: Beginning execution of '\(jobType.rawValue)'")
 
+        let claimTime = Date()
+        let queueLag = job.createdAt.map { claimTime.timeIntervalSince($0) } ?? 0.0
+        await app.jobMonitor.recordJobStarted(jobId: jobId, queueDurationSeconds: queueLag)
+        let startTime = DispatchTime.now()
+
         // 1. Mark as processing
         job.status = BackgroundJobStatus.processing.rawValue
-        job.startedAt = Date()
+        job.startedAt = claimTime
         job.progress = 0.05
         job.stepDescription = "Worker claimed job. Initializing context..."
         try? await job.save(on: app.db)
@@ -160,6 +166,11 @@ public actor BackgroundJobQueueService {
             job.completedAt = Date()
             job.stepDescription = "Processing completed successfully."
             try? await job.save(on: app.db)
+
+            let endTime = DispatchTime.now()
+            let durationSeconds = Double(endTime.uptimeNanoseconds - startTime.uptimeNanoseconds) / 1_000_000_000.0
+            await app.jobMonitor.recordJobCompleted(jobId: jobId, type: jobType.rawValue, durationSeconds: durationSeconds)
+
             app.logger.info("BackgroundJobQueueService [\(jobId.uuidString)]: Successfully completed '\(jobType.rawValue)'")
         } catch {
             app.logger.error("BackgroundJobQueueService [\(jobId.uuidString)]: Execution failed: \(error.localizedDescription)")
@@ -168,11 +179,29 @@ public actor BackgroundJobQueueService {
                 job.status = BackgroundJobStatus.queued.rawValue
                 job.stepDescription = "Transient failure. Retrying (\(job.retryCount)/\(job.maxRetries))... Error: \(error.localizedDescription)"
                 job.errorMessage = error.localizedDescription
+                await app.jobMonitor.recordJobRetry(
+                    jobId: jobId,
+                    userId: job.$user.id,
+                    type: jobType.rawValue,
+                    retryCount: job.retryCount,
+                    maxRetries: job.maxRetries,
+                    errorMessage: error.localizedDescription,
+                    step: job.stepDescription
+                )
             } else {
                 job.status = BackgroundJobStatus.failed.rawValue
                 job.completedAt = Date()
                 job.stepDescription = "Job failed after \(job.retryCount) attempts: \(error.localizedDescription)"
                 job.errorMessage = error.localizedDescription
+                await app.jobMonitor.recordJobDeadLetter(
+                    jobId: jobId,
+                    userId: job.$user.id,
+                    type: jobType.rawValue,
+                    totalAttempts: job.retryCount,
+                    maxRetries: job.maxRetries,
+                    errorMessage: error.localizedDescription,
+                    step: job.stepDescription
+                )
             }
             try? await job.save(on: app.db)
         }

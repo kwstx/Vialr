@@ -168,6 +168,7 @@ let package = Package(
                 "Domain",
                 "Data",
                 "Health",
+                "VialrServer",
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "Fluent", package: "fluent")
             ],
