@@ -155,6 +155,7 @@ public struct RootNavigationView: View {
                     onOpenSiteRotation: { coordinator.presentSheet(.siteRotation) },
                     onOpenProtocolDetail: { proto in coordinator.presentSheet(.protocolDetail(proto)) },
                     onOpenBloodwork: { coordinator.presentSheet(.bloodworkHub) },
+                    onOpenTimeline: { coordinator.presentSheet(.timeline) },
                     onNavigateToTab: { tab in coordinator.selectedTab = tab }
                 )
                 .tag(AppTab.dashboard)
@@ -392,6 +393,12 @@ public struct RootNavigationView: View {
                     coordinator.showToast(title: "Lab Record Deleted")
                 }
             }
+
+        case .timeline:
+            TimelineView(
+                viewModel: TimelineViewModel(timelineService: container.timelineService),
+                showCloseButton: true
+            )
         }
     }
 }

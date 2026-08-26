@@ -42,6 +42,7 @@ public enum ActiveSheet: Identifiable {
     case uploadLabReport
     case confirmLabReportCandidate(ExtractedLabReportCandidate)
     case labPanelDetail(LabPanel)
+    case timeline
 
     public var id: String {
         switch self {
@@ -61,6 +62,7 @@ public enum ActiveSheet: Identifiable {
         case .uploadLabReport: return "uploadLabReport"
         case .confirmLabReportCandidate(let c): return "confirmLabCandidate_\(c.id.uuidString)"
         case .labPanelDetail(let p): return "labPanelDetail_\(p.id.uuidString)"
+        case .timeline: return "timeline"
         }
     }
 }

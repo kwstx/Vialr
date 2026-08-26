@@ -1,8 +1,8 @@
 import Foundation
 
 /// Represents a unified chronological event in the user's longitudinal health stream.
-/// Aggregates dose events, measurements, lab diagnostics, vial preparations, protocol milestones,
-/// and document uploads into a single cohesive timeline.
+/// Aggregates dose events, measurements, lab diagnostics, vial preparations, protocol milestones/revisions,
+/// inventory movements, symptoms, and document uploads into a single cohesive timeline.
 public struct TimelineEvent: Identifiable, Codable, Sendable, Hashable {
     public let id: UUID
     public var timestamp: Date
@@ -81,7 +81,45 @@ public struct TimelineEvent: Identifiable, Codable, Sendable, Hashable {
             metadata: [
                 "compoundName": doseEvent.compoundName,
                 "amount": "\(doseEvent.actualDoseAmount)",
-                "unit": doseEvent.doseUnit.rawValue
+                "unit": doseEvent.doseUnit.rawValue,
+                "status": doseEvent.status.rawValue,
+                "route": doseEvent.actualRoute.rawValue,
+                "isTaken": "\(isTaken)"
+            ]
+        )
+    }
+
+    /// Builds a timeline event from a legacy or stored `DoseLog`.
+    public init(from doseLog: DoseLog) {
+        let isTaken = doseLog.status == .taken
+        let time = doseLog.loggedDate ?? doseLog.scheduledDate
+        let amountStr = String(format: doseLog.doseAmount.truncatingRemainder(dividingBy: 1) == 0 ? "%.0f" : "%.1f", doseLog.doseAmount)
+        
+        var subParts: [String] = ["\(amountStr) \(doseLog.doseUnit.rawValue)", doseLog.administrationRoute.rawValue]
+        if let site = doseLog.injectionSiteName {
+            subParts.append(site)
+        }
+
+        self.init(
+            id: UUID(),
+            timestamp: time,
+            category: .dose,
+            title: "\(doseLog.compoundName) Dose",
+            subtitle: subParts.joined(separator: " • "),
+            detailText: doseLog.skippedReason ?? (doseLog.notes.isEmpty ? nil : doseLog.notes),
+            badgeText: doseLog.status.rawValue,
+            badgeColorHex: doseLog.status.badgeColorHex,
+            iconName: doseLog.status.iconName,
+            associatedEntityId: doseLog.id,
+            associatedEntityType: .doseEvent,
+            isHighlighted: doseLog.status == .missed || doseLog.status == .partialDose,
+            metadata: [
+                "compoundName": doseLog.compoundName,
+                "amount": "\(doseLog.doseAmount)",
+                "unit": doseLog.doseUnit.rawValue,
+                "status": doseLog.status.rawValue,
+                "route": doseLog.administrationRoute.rawValue,
+                "isTaken": "\(isTaken)"
             ]
         )
     }
@@ -104,7 +142,8 @@ public struct TimelineEvent: Identifiable, Codable, Sendable, Hashable {
             metadata: [
                 "measurementType": measurement.type.rawValue,
                 "value": "\(measurement.value)",
-                "unit": measurement.unit
+                "unit": measurement.unit,
+                "status": measurement.status.rawValue
             ]
         )
     }
@@ -130,7 +169,94 @@ public struct TimelineEvent: Identifiable, Codable, Sendable, Hashable {
             metadata: [
                 "labName": labPanel.labName,
                 "resultCount": "\(labPanel.resultCount)",
-                "abnormalCount": "\(abnormalCount)"
+                "abnormalCount": "\(abnormalCount)",
+                "status": labPanel.status.rawValue
+            ]
+        )
+    }
+
+    /// Builds a timeline event from an audited `InventoryEvent`.
+    public init(from inventoryEvent: InventoryEvent) {
+        let name = inventoryEvent.compoundName ?? "Vial / Supply"
+        let subtitle = inventoryEvent.reason
+        var detail: String? = inventoryEvent.notes.isEmpty ? nil : inventoryEvent.notes
+        if let recReason = inventoryEvent.reconciliationReason {
+            detail = recReason.descriptionText + (inventoryEvent.notes.isEmpty ? "" : "\nNotes: \(inventoryEvent.notes)")
+        }
+
+        self.init(
+            id: UUID(),
+            timestamp: inventoryEvent.timestamp,
+            category: .inventory,
+            title: "\(inventoryEvent.eventType.rawValue): \(name)",
+            subtitle: subtitle,
+            detailText: detail,
+            badgeText: inventoryEvent.eventType.rawValue,
+            badgeColorHex: inventoryEvent.eventType.badgeColorHex,
+            iconName: inventoryEvent.eventType.iconName,
+            associatedEntityId: inventoryEvent.id,
+            associatedEntityType: .inventoryEvent,
+            isHighlighted: inventoryEvent.eventType == .reconciliation || inventoryEvent.eventType == .disposal,
+            metadata: [
+                "eventType": inventoryEvent.eventType.rawValue,
+                "compoundName": name
+            ]
+        )
+    }
+
+    /// Builds a timeline event from an immutable `ProtocolRevision` change.
+    public init(from revision: ProtocolRevision) {
+        let compoundsSummary = revision.compounds.map { c in
+            let amtStr = String(format: c.dosageAmount.truncatingRemainder(dividingBy: 1) == 0 ? "%.0f" : "%.1f", c.dosageAmount)
+            return "\(c.compoundName) \(amtStr)\(c.unit.rawValue)"
+        }.joined(separator: " • ")
+
+        self.init(
+            id: UUID(),
+            timestamp: revision.effectiveDate,
+            category: .protocolChange,
+            title: "Protocol Change (v\(revision.revisionNumber)): \(revision.name)",
+            subtitle: revision.reasonForChange,
+            detailText: compoundsSummary.isEmpty ? nil : compoundsSummary,
+            badgeText: "Revision v\(revision.revisionNumber)",
+            badgeColorHex: "#8B5CF6",
+            iconName: "slider.horizontal.3",
+            associatedEntityId: revision.id,
+            associatedEntityType: .protocolRevision,
+            isHighlighted: true,
+            metadata: [
+                "protocolId": revision.protocolId.uuidString,
+                "revisionNumber": "\(revision.revisionNumber)",
+                "reason": revision.reasonForChange
+            ]
+        )
+    }
+
+    /// Builds a timeline event from a `ProtocolModel` milestone.
+    public init(from protocolModel: ProtocolModel, milestoneTitle: String? = nil, timestamp: Date? = nil) {
+        let eventTime = timestamp ?? protocolModel.startDate
+        let titleText = milestoneTitle ?? "Protocol: \(protocolModel.name)"
+        let compoundsSummary = protocolModel.compounds.map { c in
+            let amtStr = String(format: c.dosageAmount.truncatingRemainder(dividingBy: 1) == 0 ? "%.0f" : "%.1f", c.dosageAmount)
+            return "\(c.compoundName) \(amtStr)\(c.unit.rawValue)"
+        }.joined(separator: " • ")
+
+        self.init(
+            id: UUID(),
+            timestamp: eventTime,
+            category: .protocolChange,
+            title: titleText,
+            subtitle: compoundsSummary.isEmpty ? "\(protocolModel.name) (\(protocolModel.status.rawValue))" : compoundsSummary,
+            detailText: protocolModel.notes.isEmpty ? nil : protocolModel.notes,
+            badgeText: protocolModel.status.rawValue,
+            badgeColorHex: protocolModel.status.badgeColorHex,
+            iconName: "flag.fill",
+            associatedEntityId: protocolModel.id,
+            associatedEntityType: .protocolModel,
+            isHighlighted: protocolModel.status == .active,
+            metadata: [
+                "protocolName": protocolModel.name,
+                "status": protocolModel.status.rawValue
             ]
         )
     }
@@ -148,7 +274,7 @@ public struct TimelineEvent: Identifiable, Codable, Sendable, Hashable {
             subtitle: sub,
             detailText: reconRecord.revisionReason ?? (reconRecord.notes.isEmpty ? nil : reconRecord.notes),
             badgeText: "v\(reconRecord.version)",
-            badgeColorHex: "#10B981",
+            badgeColorHex: "#06B6D4",
             iconName: "cross.vial.fill",
             associatedEntityId: reconRecord.id,
             associatedEntityType: .reconstitutionRecord,
@@ -184,52 +310,146 @@ public struct TimelineEvent: Identifiable, Codable, Sendable, Hashable {
         )
     }
 
-    /// Builds a timeline event from an audited `InventoryEvent`.
-    public init(from inventoryEvent: InventoryEvent) {
-        let name = inventoryEvent.compoundName ?? "Vial / Supply"
-        let subtitle = inventoryEvent.reason
-        var detail: String? = inventoryEvent.notes.isEmpty ? nil : inventoryEvent.notes
-        if let recReason = inventoryEvent.reconciliationReason {
-            detail = recReason.descriptionText + (inventoryEvent.notes.isEmpty ? "" : "\nNotes: \(inventoryEvent.notes)")
-        }
-
+    /// Builds a timeline event from a `SymptomLog`.
+    public init(from symptomLog: SymptomLog) {
+        let sub = symptomLog.symptomNames.joined(separator: ", ")
         self.init(
             id: UUID(),
-            timestamp: inventoryEvent.timestamp,
-            category: .inventory,
-            title: "\(inventoryEvent.eventType.rawValue): \(name)",
-            subtitle: subtitle,
-            detailText: detail,
-            badgeText: inventoryEvent.eventType.rawValue,
-            badgeColorHex: inventoryEvent.eventType.badgeColorHex,
-            iconName: inventoryEvent.eventType.iconName,
-            associatedEntityId: inventoryEvent.id,
-            associatedEntityType: .inventoryEvent,
-            isHighlighted: inventoryEvent.eventType == .reconciliation || inventoryEvent.eventType == .disposal,
+            timestamp: symptomLog.timestamp,
+            category: .symptom,
+            title: "Subjective Log (\(symptomLog.severity.rawValue))",
+            subtitle: sub.isEmpty ? "Energy: \(symptomLog.energyLevel)/10 • Mood: \(symptomLog.moodScore)/10" : sub,
+            detailText: symptomLog.notes.isEmpty ? nil : symptomLog.notes,
+            badgeText: symptomLog.severity.rawValue,
+            badgeColorHex: symptomLog.severity.badgeColorHex,
+            iconName: "waveform.path.ecg",
+            associatedEntityId: symptomLog.id,
+            associatedEntityType: .symptomLog,
+            isHighlighted: symptomLog.severity == .severe || symptomLog.severity == .moderate,
             metadata: [
-                "eventType": inventoryEvent.eventType.rawValue,
-                "compoundName": name
+                "severity": symptomLog.severity.rawValue,
+                "energy": "\(symptomLog.energyLevel)",
+                "mood": "\(symptomLog.moodScore)"
             ]
         )
     }
+}
 
-    /// Builds a timeline event from a `ProtocolModel` milestone.
-    public init(from protocolModel: ProtocolModel, milestoneTitle: String, timestamp: Date = Date()) {
-        self.init(
-            id: UUID(),
-            timestamp: timestamp,
-            category: .protocolMilestone,
-            title: milestoneTitle,
-            subtitle: "\(protocolModel.name) (\(protocolModel.status.rawValue))",
-            detailText: protocolModel.notes.isEmpty ? nil : protocolModel.notes,
-            badgeText: protocolModel.status.rawValue,
-            badgeColorHex: protocolModel.status.badgeColorHex,
-            iconName: "flag.fill",
-            associatedEntityId: protocolModel.id,
-            associatedEntityType: .protocolModel,
-            isHighlighted: protocolModel.status == .active,
-            metadata: ["protocolName": protocolModel.name]
-        )
+// MARK: - Timeline Day Group (Grouping by Day)
+/// Represents a cluster of timeline events belonging to a single calendar day.
+public struct TimelineDayGroup: Identifiable, Codable, Sendable, Hashable {
+    public let id: String // Unique day key formatted as "yyyy-MM-dd"
+    public var date: Date // Normalized start-of-day timestamp
+    public var formattedDayTitle: String // "Today", "Yesterday", "Wednesday, Aug 26"
+    public var formattedDaySubtitle: String // "August 26, 2026"
+    public var events: [TimelineEvent]
+    public var countsByCategory: [TimelineCategory: Int]
+    public var totalEventsCount: Int
+    public var hasHighlightedEvents: Bool
+    public var summaryText: String
+
+    public init(
+        id: String,
+        date: Date,
+        formattedDayTitle: String,
+        formattedDaySubtitle: String,
+        events: [TimelineEvent],
+        countsByCategory: [TimelineCategory: Int] = [:],
+        summaryText: String = ""
+    ) {
+        self.id = id
+        self.date = date
+        self.formattedDayTitle = formattedDayTitle
+        self.formattedDaySubtitle = formattedDaySubtitle
+        self.events = events
+        self.countsByCategory = countsByCategory
+        self.totalEventsCount = events.count
+        self.hasHighlightedEvents = events.contains(where: { $0.isHighlighted })
+        self.summaryText = summaryText
+    }
+}
+
+// MARK: - Timeline Filter Specification
+public struct TimelineFilter: Sendable, Hashable {
+    public var categories: Set<TimelineCategory>?
+    public var entityTypes: Set<TimelineEntityType>?
+    public var startDate: Date?
+    public var endDate: Date?
+    public var searchQuery: String?
+    public var highlightedOnly: Bool
+
+    public init(
+        categories: Set<TimelineCategory>? = nil,
+        entityTypes: Set<TimelineEntityType>? = nil,
+        startDate: Date? = nil,
+        endDate: Date? = nil,
+        searchQuery: String? = nil,
+        highlightedOnly: Bool = false
+    ) {
+        self.categories = categories
+        self.entityTypes = entityTypes
+        self.startDate = startDate
+        self.endDate = endDate
+        self.searchQuery = searchQuery
+        self.highlightedOnly = highlightedOnly
+    }
+}
+
+// MARK: - Timeline Statistics
+public struct TimelineStatistics: Codable, Sendable, Hashable {
+    public var totalEventsCount: Int
+    public var totalDosesCount: Int
+    public var takenDosesCount: Int
+    public var missedDosesCount: Int
+    public var totalLabPanelsCount: Int
+    public var abnormalLabCount: Int
+    public var totalMeasurementsCount: Int
+    public var totalProtocolChangesCount: Int
+    public var totalInventoryEventsCount: Int
+    public var adherenceScore: Double?
+
+    public init(
+        totalEventsCount: Int = 0,
+        totalDosesCount: Int = 0,
+        takenDosesCount: Int = 0,
+        missedDosesCount: Int = 0,
+        totalLabPanelsCount: Int = 0,
+        abnormalLabCount: Int = 0,
+        totalMeasurementsCount: Int = 0,
+        totalProtocolChangesCount: Int = 0,
+        totalInventoryEventsCount: Int = 0,
+        adherenceScore: Double? = nil
+    ) {
+        self.totalEventsCount = totalEventsCount
+        self.totalDosesCount = totalDosesCount
+        self.takenDosesCount = takenDosesCount
+        self.missedDosesCount = missedDosesCount
+        self.totalLabPanelsCount = totalLabPanelsCount
+        self.abnormalLabCount = abnormalLabCount
+        self.totalMeasurementsCount = totalMeasurementsCount
+        self.totalProtocolChangesCount = totalProtocolChangesCount
+        self.totalInventoryEventsCount = totalInventoryEventsCount
+        self.adherenceScore = adherenceScore
+    }
+}
+
+// MARK: - Timeline Query Result
+public struct TimelineResult: Sendable {
+    public var dayGroups: [TimelineDayGroup]
+    public var allEvents: [TimelineEvent]
+    public var statistics: TimelineStatistics
+    public var dateInterval: DateInterval?
+
+    public init(
+        dayGroups: [TimelineDayGroup] = [],
+        allEvents: [TimelineEvent] = [],
+        statistics: TimelineStatistics = TimelineStatistics(),
+        dateInterval: DateInterval? = nil
+    ) {
+        self.dayGroups = dayGroups
+        self.allEvents = allEvents
+        self.statistics = statistics
+        self.dateInterval = dateInterval
     }
 }
 
@@ -238,17 +458,26 @@ public extension TimelineEvent {
     /// Combines multiple domain entity collections into a unified, reverse-chronologically sorted timeline stream.
     static func unifiedFeed(
         doses: [DoseEvent] = [],
+        doseLogs: [DoseLog] = [],
         measurements: [Measurement] = [],
         labPanels: [LabPanel] = [],
         reconstitutions: [ReconstitutionRecord] = [],
         documents: [Document] = [],
         protocols: [ProtocolModel] = [],
-        inventoryEvents: [InventoryEvent] = []
+        protocolRevisions: [ProtocolRevision] = [],
+        inventoryEvents: [InventoryEvent] = [],
+        symptoms: [SymptomLog] = []
     ) -> [TimelineEvent] {
         var events: [TimelineEvent] = []
 
         for dose in doses {
             events.append(TimelineEvent(from: dose))
+        }
+        for log in doseLogs {
+            // Avoid duplicate if doseEvent ID matches
+            if !doses.contains(where: { $0.id == log.id }) {
+                events.append(TimelineEvent(from: log))
+            }
         }
         for measurement in measurements {
             events.append(TimelineEvent(from: measurement))
@@ -263,10 +492,19 @@ public extension TimelineEvent {
             events.append(TimelineEvent(from: doc))
         }
         for proto in protocols {
-            events.append(TimelineEvent(from: proto, milestoneTitle: "Protocol: \(proto.name)", timestamp: proto.startDate))
+            events.append(TimelineEvent(from: proto, milestoneTitle: "Protocol Start: \(proto.name)", timestamp: proto.startDate))
+            if let end = proto.endDate {
+                events.append(TimelineEvent(from: proto, milestoneTitle: "Protocol End: \(proto.name)", timestamp: end))
+            }
+        }
+        for rev in protocolRevisions {
+            events.append(TimelineEvent(from: rev))
         }
         for inv in inventoryEvents {
             events.append(TimelineEvent(from: inv))
+        }
+        for symptom in symptoms {
+            events.append(TimelineEvent(from: symptom))
         }
 
         return events.sorted(by: { $0.timestamp > $1.timestamp })
@@ -278,14 +516,57 @@ public enum TimelineCategory: String, Codable, Sendable, CaseIterable, Identifia
     case dose = "Dose Event"
     case measurement = "Health Measurement"
     case labPanel = "Laboratory Diagnostic"
-    case reconstitution = "Vial Reconstitution"
+    case protocolChange = "Protocol Change"
     case protocolMilestone = "Protocol Milestone"
     case inventory = "Inventory & Supplies"
+    case reconstitution = "Vial Reconstitution"
     case document = "Uploaded Document"
     case symptom = "Symptom & Subjective"
     case custom = "General Event"
 
     public var id: String { rawValue }
+
+    public var shortName: String {
+        switch self {
+        case .dose: return "Doses"
+        case .measurement: return "Metrics"
+        case .labPanel: return "Bloodwork"
+        case .protocolChange, .protocolMilestone: return "Protocols"
+        case .inventory: return "Inventory"
+        case .reconstitution: return "Reconstitution"
+        case .document: return "Documents"
+        case .symptom: return "Symptoms"
+        case .custom: return "Custom"
+        }
+    }
+
+    public var iconName: String {
+        switch self {
+        case .dose: return "syringe.fill"
+        case .measurement: return "waveform.path.ecg.rectangle.fill"
+        case .labPanel: return "testtube.2"
+        case .protocolChange, .protocolMilestone: return "slider.horizontal.3"
+        case .inventory: return "cylinder.split.1x2.fill"
+        case .reconstitution: return "cross.vial.fill"
+        case .document: return "doc.text.fill"
+        case .symptom: return "waveform.path.ecg"
+        case .custom: return "circle.fill"
+        }
+    }
+
+    public var badgeColorHex: String {
+        switch self {
+        case .dose: return "#10B981"
+        case .measurement: return "#3B82F6"
+        case .labPanel: return "#EC4899"
+        case .protocolChange, .protocolMilestone: return "#8B5CF6"
+        case .inventory: return "#F59E0B"
+        case .reconstitution: return "#06B6D4"
+        case .document: return "#6B7280"
+        case .symptom: return "#F97316"
+        case .custom: return "#9CA3AF"
+        }
+    }
 }
 
 // MARK: - Timeline Entity Type
@@ -295,6 +576,7 @@ public enum TimelineEntityType: String, Codable, Sendable, CaseIterable, Identif
     case labPanel = "LabPanel"
     case reconstitutionRecord = "ReconstitutionRecord"
     case protocolModel = "ProtocolModel"
+    case protocolRevision = "ProtocolRevision"
     case vial = "Vial"
     case inventoryEvent = "InventoryEvent"
     case document = "Document"
@@ -303,4 +585,3 @@ public enum TimelineEntityType: String, Codable, Sendable, CaseIterable, Identif
 
     public var id: String { rawValue }
 }
-

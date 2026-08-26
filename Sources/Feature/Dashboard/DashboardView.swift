@@ -9,6 +9,7 @@ public struct DashboardView: View {
     public var onOpenSiteRotation: () -> Void
     public var onOpenProtocolDetail: (ProtocolModel) -> Void
     public var onOpenBloodwork: (() -> Void)?
+    public var onOpenTimeline: (() -> Void)?
     public var onNavigateToTab: ((AppTab) -> Void)?
 
     public init(
@@ -18,6 +19,7 @@ public struct DashboardView: View {
         onOpenSiteRotation: @escaping () -> Void,
         onOpenProtocolDetail: @escaping (ProtocolModel) -> Void,
         onOpenBloodwork: (() -> Void)? = nil,
+        onOpenTimeline: (() -> Void)? = nil,
         onNavigateToTab: ((AppTab) -> Void)? = nil
     ) {
         self.viewModel = viewModel
@@ -26,6 +28,7 @@ public struct DashboardView: View {
         self.onOpenSiteRotation = onOpenSiteRotation
         self.onOpenProtocolDetail = onOpenProtocolDetail
         self.onOpenBloodwork = onOpenBloodwork
+        self.onOpenTimeline = onOpenTimeline
         self.onNavigateToTab = onNavigateToTab
     }
 
@@ -572,9 +575,25 @@ public struct DashboardView: View {
 
                 Spacer()
 
-                Text("\(viewModel.todayTimelineItems.count) Action\(viewModel.todayTimelineItems.count == 1 ? "" : "s")")
-                    .font(VialrTypography.footnote)
-                    .foregroundColor(VialrColors.textTertiary)
+                if let openTimeline = onOpenTimeline {
+                    Button {
+                        VialrHaptics.lightImpact()
+                        openTimeline()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("Full History")
+                                .font(VialrTypography.captionBold)
+                                .foregroundColor(VialrColors.accentVitality)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(VialrColors.accentVitality)
+                        }
+                    }
+                } else {
+                    Text("\(viewModel.todayTimelineItems.count) Action\(viewModel.todayTimelineItems.count == 1 ? "" : "s")")
+                        .font(VialrTypography.footnote)
+                        .foregroundColor(VialrColors.textTertiary)
+                }
             }
             .padding(.horizontal, 4)
 

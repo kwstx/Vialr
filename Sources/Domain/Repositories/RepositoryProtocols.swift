@@ -127,6 +127,8 @@ public protocol TimelineEventRepositoryProtocol: Sendable {
     func fetchUnifiedFeed(limit: Int?) async throws -> [TimelineEvent]
     func fetchForDateRange(start: Date, end: Date) async throws -> [TimelineEvent]
     func fetchByCategory(_ category: TimelineCategory) async throws -> [TimelineEvent]
+    func fetchTimeline(filter: TimelineFilter?) async throws -> TimelineResult
+    func fetchDayGroups(filter: TimelineFilter?) async throws -> [TimelineDayGroup]
 }
 
 public protocol OutcomeMetricRepositoryProtocol: Sendable {

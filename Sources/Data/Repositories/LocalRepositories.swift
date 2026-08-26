@@ -678,9 +678,11 @@ public final class LocalDocumentRepository: DocumentRepositoryProtocol, @uncheck
 // MARK: - Timeline Event Repository
 public final class LocalTimelineEventRepository: TimelineEventRepositoryProtocol, @unchecked Sendable {
     private let store: LocalStore
+    private let engine: TimelineEngineProtocol
 
-    public init(store: LocalStore = .shared) {
+    public init(store: LocalStore = .shared, engine: TimelineEngineProtocol = TimelineEngine()) {
         self.store = store
+        self.engine = engine
     }
 
     public func fetchUnifiedFeed(limit: Int? = nil) async throws -> [TimelineEvent] {
@@ -691,30 +693,49 @@ public final class LocalTimelineEventRepository: TimelineEventRepositoryProtocol
         let recons = await store.getAllReconstitutionRecords()
         let docs = await store.getAllDocuments()
         let protocols = await store.getAllProtocols()
+        let inventory = await store.getAllInventoryEvents()
+        let symptoms = await store.getAllSymptoms()
+        let revisions = await store.protocolRevisions
 
-        let feed = TimelineEvent.unifiedFeed(
-            doses: doses,
-            measurements: measurements,
+        let events = engine.compileUnifiedEvents(
+            doses: [],
+            doseLogs: doses,
             labPanels: labs,
+            measurements: measurements,
+            protocols: protocols,
+            revisions: revisions,
+            inventoryEvents: inventory,
             reconstitutions: recons,
             documents: docs,
-            protocols: protocols
+            symptoms: symptoms
         )
 
         if let max = limit {
-            return Array(feed.prefix(max))
+            return Array(events.prefix(max))
         }
-        return feed
+        return events
     }
 
     public func fetchForDateRange(start: Date, end: Date) async throws -> [TimelineEvent] {
-        let all = try await fetchUnifiedFeed(limit: nil)
-        return all.filter { $0.timestamp >= start && $0.timestamp <= end }
+        let filter = TimelineFilter(startDate: start, endDate: end)
+        let result = try await fetchTimeline(filter: filter)
+        return result.allEvents
     }
 
     public func fetchByCategory(_ category: TimelineCategory) async throws -> [TimelineEvent] {
+        let filter = TimelineFilter(categories: [category])
+        let result = try await fetchTimeline(filter: filter)
+        return result.allEvents
+    }
+
+    public func fetchTimeline(filter: TimelineFilter? = nil) async throws -> TimelineResult {
         let all = try await fetchUnifiedFeed(limit: nil)
-        return all.filter { $0.category == category }
+        return engine.processTimeline(events: all, filter: filter, calendar: .current)
+    }
+
+    public func fetchDayGroups(filter: TimelineFilter? = nil) async throws -> [TimelineDayGroup] {
+        let result = try await fetchTimeline(filter: filter)
+        return result.dayGroups
     }
 }
 

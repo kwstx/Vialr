@@ -36,6 +36,8 @@ public final class AppContainer: @unchecked Sendable {
     public let syncEngine: SyncEngineProtocol
     public let notificationScheduler: NotificationSchedulerProtocol
     public let doseLoggingEngine: DoseLoggingEngineProtocol
+    public let timelineEngine: TimelineEngineProtocol
+    public let timelineService: TimelineServiceProtocol
 
     public init(
         compoundRepository: CompoundRepositoryProtocol = LocalCompoundRepository(),
@@ -58,7 +60,9 @@ public final class AppContainer: @unchecked Sendable {
         healthRepository: HealthRepositoryProtocol? = nil,
         syncEngine: SyncEngineProtocol = SyncEngine.shared,
         notificationScheduler: NotificationSchedulerProtocol = NotificationScheduler(),
-        doseLoggingEngine: DoseLoggingEngineProtocol? = nil
+        doseLoggingEngine: DoseLoggingEngineProtocol? = nil,
+        timelineEngine: TimelineEngineProtocol = TimelineEngine(),
+        timelineService: TimelineServiceProtocol? = nil
     ) {
         self.compoundRepository = compoundRepository
         self.protocolRepository = protocolRepository
@@ -92,6 +96,19 @@ public final class AppContainer: @unchecked Sendable {
             supplyRepo: supplyRepository,
             inventoryEventRepo: inventoryEventRepository,
             notificationScheduler: notificationScheduler
+        )
+        self.timelineEngine = timelineEngine
+        self.timelineService = timelineService ?? TimelineService(
+            doseRepo: doseLogRepository,
+            labPanelRepo: labPanelRepository,
+            measurementRepo: measurementRepository,
+            protocolRepo: protocolRepository,
+            protocolRevisionRepo: LocalProtocolRevisionRepository(),
+            inventoryEventRepo: inventoryEventRepository,
+            reconstitutionRepo: LocalReconstitutionRecordRepository(),
+            symptomRepo: symptomRepository,
+            documentRepo: documentRepository,
+            engine: timelineEngine
         )
     }
 }
