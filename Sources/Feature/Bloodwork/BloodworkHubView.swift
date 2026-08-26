@@ -23,6 +23,9 @@ public struct BloodworkHubView: View {
                         // Header Action Bar
                         headerActionSection
 
+                        // Interactive Laboratory Timeline Banner
+                        timelineBannerCard
+
                         // Summary KPI Metrics
                         overviewKpiCard
 
@@ -48,9 +51,25 @@ public struct BloodworkHubView: View {
                     Button("Close") { dismiss() }
                         .foregroundColor(VialrColors.accentTeal)
                 }
+
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        viewModel.isTimelineSheetPresented = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "waveform.path.ecg")
+                            Text("Timeline")
+                        }
+                        .font(VialrTypography.captionBold)
+                        .foregroundColor(VialrColors.accentTeal)
+                    }
+                }
             }
             .task {
                 await viewModel.loadPanels()
+            }
+            .sheet(isPresented: $viewModel.isTimelineSheetPresented) {
+                LaboratoryTimelineView()
             }
             .sheet(isPresented: $viewModel.isManualEntrySheetPresented) {
                 ManualLabEntryView { newPanel in
@@ -126,6 +145,64 @@ public struct BloodworkHubView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    // MARK: - Interactive Laboratory Timeline Banner
+    private var timelineBannerCard: some View {
+        Button {
+            viewModel.isTimelineSheetPresented = true
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [VialrColors.accentTeal, VialrColors.accentCyan],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 44, height: 44)
+
+                    Image(systemName: "waveform.path.ecg")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(VialrColors.backgroundPrimary)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Text("Interactive Laboratory Timeline")
+                            .font(VialrTypography.subheadlineBold)
+                            .foregroundColor(VialrColors.textPrimary)
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(VialrColors.accentTeal)
+                    }
+
+                    Text("Align doses, protocol changes, and bloodwork on one chronological axis.")
+                        .font(VialrTypography.footnote)
+                        .foregroundColor(VialrColors.textSecondary)
+                        .lineLimit(2)
+                }
+            }
+            .padding(VialrSpacing.md)
+            .background(
+                LinearGradient(
+                    colors: [VialrColors.cardSurfaceElevated, VialrColors.cardBackground],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .cornerRadius(VialrSpacing.radiusMd)
+            .overlay(
+                RoundedRectangle(cornerRadius: VialrSpacing.radiusMd)
+                    .stroke(VialrColors.accentTeal.opacity(0.4), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Overview KPI Card

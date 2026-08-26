@@ -11,6 +11,7 @@ public final class BloodworkViewModel: @unchecked Sendable {
     public var selectedCategoryFilter: LabCategory? = nil
 
     // Sheets & Nav State
+    public var isTimelineSheetPresented: Bool = false
     public var isManualEntrySheetPresented: Bool = false
     public var isUploadSheetPresented: Bool = false
     public var isCandidateConfirmationPresented: Bool = false

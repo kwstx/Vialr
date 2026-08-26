@@ -15,6 +15,7 @@ public struct AnalyticsView: View {
     @Bindable public var viewModel: AnalyticsViewModel
     @State private var selectedSubTab: AnalyticsSubTab = .results
     @State private var resultsViewModel = ResultsTrackingViewModel()
+    @State private var isLabTimelinePresented: Bool = false
 
     public init(viewModel: AnalyticsViewModel) {
         self.viewModel = viewModel
@@ -102,6 +103,9 @@ public struct AnalyticsView: View {
             .navigationBarHidden(true)
             .task {
                 await viewModel.loadAnalytics()
+            }
+            .sheet(isPresented: $isLabTimelinePresented) {
+                LaboratoryTimelineView()
             }
         }
     }
@@ -216,9 +220,22 @@ public struct AnalyticsView: View {
     // MARK: - Biomarkers Overview
     private var biomarkersOverviewSection: some View {
         VStack(alignment: .leading, spacing: VialrSpacing.sm) {
-            Text("Latest Clinical Biomarkers")
-                .font(VialrTypography.title3)
-                .foregroundColor(VialrColors.textPrimary)
+            HStack {
+                Text("Latest Clinical Biomarkers")
+                    .font(VialrTypography.title3)
+                    .foregroundColor(VialrColors.textPrimary)
+                Spacer()
+                Button {
+                    isLabTimelinePresented = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "waveform.path.ecg")
+                        Text("Timeline")
+                    }
+                    .font(VialrTypography.captionBold)
+                    .foregroundColor(VialrColors.accentTeal)
+                }
+            }
 
             ForEach(viewModel.biomarkers) { marker in
                 HStack {
