@@ -70,7 +70,17 @@ public struct AuthController: RouteCollection {
         }
 
         let userAgent = req.headers.first(name: .userAgent)
-        return try await tokenService.issueTokenPair(for: authenticatedUser, deviceInfo: userAgent, req: req)
+        let tokenResponse = try await tokenService.issueTokenPair(for: authenticatedUser, deviceInfo: userAgent, req: req)
+
+        // Record security audit trail
+        await req.logSecurityEvent(
+            .loginSuccess,
+            resourceType: "AuthApple",
+            resourceId: authenticatedUser.id?.uuidString,
+            metadata: ["email": authenticatedUser.email]
+        )
+
+        return tokenResponse
     }
 
     // MARK: - Email Register
@@ -82,6 +92,13 @@ public struct AuthController: RouteCollection {
         if let _ = try await UserEntity.query(on: req.db)
             .filter(\.$email == body.email.lowercased())
             .first() {
+            await req.logSecurityEvent(
+                .userRegistered,
+                resourceType: "User",
+                status: "denied",
+                failureReason: "Account already exists",
+                metadata: ["email": body.email.lowercased()]
+            )
             throw Abort(.conflict, reason: "An account with this email already exists.")
         }
 
@@ -89,12 +106,23 @@ public struct AuthController: RouteCollection {
         let user = UserEntity(
             email: body.email.lowercased(),
             passwordHash: passwordHash,
-            displayName: body.displayName
+            displayName: body.displayName,
+            role: "user"
         )
         try await user.save(on: req.db)
 
         let userAgent = req.headers.first(name: .userAgent)
-        return try await tokenService.issueTokenPair(for: user, deviceInfo: userAgent, req: req)
+        let tokenResponse = try await tokenService.issueTokenPair(for: user, deviceInfo: userAgent, req: req)
+
+        // Record security audit trail
+        await req.logSecurityEvent(
+            .userRegistered,
+            resourceType: "User",
+            resourceId: user.id?.uuidString,
+            metadata: ["email": user.email]
+        )
+
+        return tokenResponse
     }
 
     // MARK: - Email Login
@@ -104,16 +132,40 @@ public struct AuthController: RouteCollection {
         guard let user = try await UserEntity.query(on: req.db)
             .filter(\.$email == body.email.lowercased())
             .first() else {
+            await req.logSecurityEvent(
+                .loginFailure,
+                resourceType: "AuthEmail",
+                status: "denied",
+                failureReason: "User not found",
+                metadata: ["email": body.email.lowercased()]
+            )
             throw Abort(.unauthorized, reason: "Invalid email or password.")
         }
 
         let isPasswordValid = try req.password.verify(body.password, created: user.passwordHash)
         guard isPasswordValid else {
+            await req.logSecurityEvent(
+                .loginFailure,
+                resourceType: "AuthEmail",
+                status: "denied",
+                failureReason: "Password mismatch",
+                metadata: ["email": body.email.lowercased()]
+            )
             throw Abort(.unauthorized, reason: "Invalid email or password.")
         }
 
         let userAgent = req.headers.first(name: .userAgent)
-        return try await tokenService.issueTokenPair(for: user, deviceInfo: userAgent, req: req)
+        let tokenResponse = try await tokenService.issueTokenPair(for: user, deviceInfo: userAgent, req: req)
+
+        // Record security audit trail
+        await req.logSecurityEvent(
+            .loginSuccess,
+            resourceType: "AuthEmail",
+            resourceId: user.id?.uuidString,
+            metadata: ["email": user.email]
+        )
+
+        return tokenResponse
     }
 
     // MARK: - Rotating Refresh Token
@@ -142,6 +194,13 @@ public struct AuthController: RouteCollection {
 
         let isCurrentValid = try req.password.verify(body.currentPassword, created: user.passwordHash)
         guard isCurrentValid else {
+            await req.logSecurityEvent(
+                .passwordChanged,
+                resourceType: "User",
+                resourceId: payload.userId.uuidString,
+                status: "denied",
+                failureReason: "Current password invalid"
+            )
             throw Abort(.badRequest, reason: "Current password does not match.")
         }
 
@@ -154,6 +213,14 @@ public struct AuthController: RouteCollection {
 
         // Revoke all refresh tokens on password change
         try await tokenService.revokeAllUserTokens(userId: payload.userId, req: req)
+
+        // Record security audit trail
+        await req.logSecurityEvent(
+            .passwordChanged,
+            resourceType: "User",
+            resourceId: payload.userId.uuidString,
+            metadata: ["email": payload.email]
+        )
 
         return .ok
     }

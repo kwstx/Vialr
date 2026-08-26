@@ -13,6 +13,7 @@ public struct UsersController: RouteCollection {
         usersGroup.put("preferences", use: updatePreferences)
         usersGroup.put("units", use: updateUnits)
         usersGroup.put("notifications", use: updateNotificationPreferences)
+        usersGroup.post("export", use: exportUserData)
         usersGroup.delete("account", use: deleteAccount)
     }
 
@@ -119,13 +120,18 @@ public struct UsersController: RouteCollection {
         return notif
     }
 
+    /// Generates a structured JSON archive of all personal tracking records (GDPR data portability).
+    public func exportUserData(req: Request) async throws -> UserDataExportDTO {
+        let payload = try req.auth.require(UserPayload.self)
+        let exportService = UserDataExportService()
+        return try await exportService.exportUserData(userId: payload.userId, req: req)
+    }
+
+    /// Permanently wipes the user's account and cascades deletions across all database tables & object storage.
     public func deleteAccount(req: Request) async throws -> HTTPStatus {
         let payload = try req.auth.require(UserPayload.self)
-        guard let user = try await UserEntity.find(payload.userId, on: req.db) else {
-            throw Abort(.notFound, reason: "User not found.")
-        }
-
-        try await user.delete(on: req.db)
+        let erasureService = AccountErasureService()
+        try await erasureService.eraseUserAccount(userId: payload.userId, req: req)
         return .noContent
     }
 }

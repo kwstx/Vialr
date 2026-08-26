@@ -28,6 +28,9 @@ public final class UserEntity: Model, Content, @unchecked Sendable {
     @Field(key: "tier")
     public var tier: String
 
+    @Field(key: "role")
+    public var role: String
+
     @Field(key: "status")
     public var status: String
 
@@ -91,6 +94,7 @@ public final class UserEntity: Model, Content, @unchecked Sendable {
         avatarUrl: String? = nil,
         phoneNumber: String? = nil,
         tier: String = "free",
+        role: String = "user",
         status: String = "active",
         timezone: String = "UTC",
         preferencesJson: String? = nil,
@@ -105,6 +109,7 @@ public final class UserEntity: Model, Content, @unchecked Sendable {
         self.avatarUrl = avatarUrl
         self.phoneNumber = phoneNumber
         self.tier = tier
+        self.role = role
         self.status = status
         self.timezone = timezone
         self.preferencesJson = preferencesJson

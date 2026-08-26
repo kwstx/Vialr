@@ -8,6 +8,7 @@ public struct CalculationController: RouteCollection {
 
     public func boot(routes: RoutesBuilder) throws {
         let calcGroup = routes.grouped("calculations")
+            .grouped(UserAuthenticator(), UserPayload.guardMiddleware())
 
         calcGroup.post("reconstitute", use: calculateReconstitution)
         calcGroup.post("solve-diluent", use: solveDiluentVolume)

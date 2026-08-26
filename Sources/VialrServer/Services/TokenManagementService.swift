@@ -32,8 +32,8 @@ public struct TokenManagementService: Sendable {
             throw Abort(.internalServerError, reason: "User ID missing for token generation.")
         }
 
-        // 1. Generate short-lived JWT access token (15 minutes)
-        let payload = UserPayload(userId: userId, email: user.email, expirationMinutes: accessTokenLifetimeMinutes)
+        // 1. Generate short-lived JWT access token (15 minutes) with user RBAC role
+        let payload = UserPayload(userId: userId, email: user.email, role: user.role, expirationMinutes: accessTokenLifetimeMinutes)
         let accessToken = try req.jwt.sign(payload)
 
         // 2. Generate cryptographically secure random refresh token string
@@ -61,6 +61,7 @@ public struct TokenManagementService: Sendable {
             userId: userId,
             email: user.email,
             displayName: user.displayName,
+            role: user.role,
             expiresAt: payload.expiration.value
         )
     }
@@ -111,7 +112,7 @@ public struct TokenManagementService: Sendable {
 
         // Generate new short-lived access token
         let user = tokenRecord.user
-        let payload = UserPayload(userId: userId, email: user.email, expirationMinutes: accessTokenLifetimeMinutes)
+        let payload = UserPayload(userId: userId, email: user.email, role: user.role, expirationMinutes: accessTokenLifetimeMinutes)
         let newAccessToken = try req.jwt.sign(payload)
 
         // Generate and persist new rotating refresh token in the same family
@@ -137,6 +138,7 @@ public struct TokenManagementService: Sendable {
             userId: userId,
             email: user.email,
             displayName: user.displayName,
+            role: user.role,
             expiresAt: payload.expiration.value
         )
     }

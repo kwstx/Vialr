@@ -17,8 +17,9 @@ public struct ObservabilityController: RouteCollection {
         routes.get("health", use: getLiveness)
         routes.get("health", "detailed", use: getDeepHealth)
 
-        // 3. API v1 Observability Group
+        // 3. API v1 Observability Group (Protected by Administrative RBAC)
         let obsGroup = routes.grouped("api", "v1", "observability")
+            .grouped(UserAuthenticator(), UserPayload.guardMiddleware(), AdminGuardMiddleware())
 
         obsGroup.get("status", use: getSystemStatus)
         obsGroup.get("metrics", use: getPerformanceMetricsJSON)

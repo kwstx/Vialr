@@ -9,7 +9,7 @@ public func configure(_ app: Application) async throws {
     app.http.server.configuration.port = port
     app.http.server.configuration.hostname = Environment.get("HOST") ?? "0.0.0.0"
 
-    // 2. Configure CORS & Observability Middleware
+    // 2. Configure CORS, Security Headers & Observability Middleware
     let corsConfiguration = CORSMiddleware.Configuration(
         allowedOrigin: .all,
         allowedMethods: [.GET, .POST, .PUT, .OPTIONS, .DELETE, .PATCH],
@@ -17,6 +17,13 @@ public func configure(_ app: Application) async throws {
     )
     let cors = CORSMiddleware(configuration: corsConfiguration)
     app.middleware.use(cors, at: .beginning)
+
+    // Encryption in transit & zero-trust security headers middleware
+    let transitSecurityMiddleware = TransitEncryptionMiddleware()
+    app.middleware.use(transitSecurityMiddleware)
+
+    // Audit logging service
+    app.auditLogService = AuditLogService()
 
     // Observability subsystems initialization
     let perfMonitor = PerformanceMonitoringService()
@@ -114,6 +121,7 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateNotificationsAndTokensMigration())
     app.migrations.add(CreateRefreshTokenAndAppleAuthMigration())
     app.migrations.add(CreateBackgroundJobsMigration())
+    app.migrations.add(CreateAuditLogsMigration())
 
     // 7. Configure & Start Background Processing Queue Service
     let jobQueue = BackgroundJobQueueService(app: app)

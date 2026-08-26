@@ -61,4 +61,7 @@ public func routes(_ app: Application) throws {
 
     // 16. Asynchronous Background Processing & Worker Queue Engine
     try apiV1.register(collection: BackgroundJobsController())
+
+    // 17. System Administration & Security Audit Trail Management
+    try apiV1.register(collection: AdminController())
 }

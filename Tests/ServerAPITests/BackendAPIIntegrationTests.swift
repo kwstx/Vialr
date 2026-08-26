@@ -32,6 +32,9 @@ final class BackendAPIIntegrationTests: XCTestCase {
     // MARK: - 2. Calculation API Integration Tests
 
     func testCalculationReconstitutionAPI() async throws {
+        let userId = UUID()
+        let token = try app.jwt.sign(UserPayload(userId: userId, email: "calc@example.com"))
+
         let payload = ReconstitutionCalculationRequestDTO(
             dryMassAmount: 5.0,
             dryMassUnit: "mg",
@@ -46,6 +49,7 @@ final class BackendAPIIntegrationTests: XCTestCase {
         )
 
         try await app.test(.POST, "/api/v1/calculations/reconstitute", beforeRequest: { req in
+            req.headers.bearerAuthorization = BearerAuthorization(token: token)
             try req.content.encode(payload)
         }, afterResponse: { res in
             XCTAssertEqual(res.status, .ok)
@@ -62,6 +66,9 @@ final class BackendAPIIntegrationTests: XCTestCase {
     }
 
     func testCalculationDiluentSolverAPI() async throws {
+        let userId = UUID()
+        let token = try app.jwt.sign(UserPayload(userId: userId, email: "calc@example.com"))
+
         let solverPayload = DiluentSolverRequestDTO(
             dryMassAmount: 10.0,
             dryMassUnit: "mg",
@@ -73,6 +80,7 @@ final class BackendAPIIntegrationTests: XCTestCase {
         )
 
         try await app.test(.POST, "/api/v1/calculations/solve-diluent", beforeRequest: { req in
+            req.headers.bearerAuthorization = BearerAuthorization(token: token)
             try req.content.encode(solverPayload)
         }, afterResponse: { res in
             XCTAssertEqual(res.status, .ok)
@@ -84,6 +92,9 @@ final class BackendAPIIntegrationTests: XCTestCase {
     }
 
     func testCalculationReverseDoseAPI() async throws {
+        let userId = UUID()
+        let token = try app.jwt.sign(UserPayload(userId: userId, email: "calc@example.com"))
+
         let reversePayload = ReverseDoseRequestDTO(
             drawnSyringeUnits: 15.0,
             syringeType: "U-100",
@@ -91,6 +102,7 @@ final class BackendAPIIntegrationTests: XCTestCase {
         )
 
         try await app.test(.POST, "/api/v1/calculations/reverse-dose", beforeRequest: { req in
+            req.headers.bearerAuthorization = BearerAuthorization(token: token)
             try req.content.encode(reversePayload)
         }, afterResponse: { res in
             XCTAssertEqual(res.status, .ok)
@@ -102,6 +114,9 @@ final class BackendAPIIntegrationTests: XCTestCase {
     }
 
     func testCalculationReconstitutionInvalidInputReturns400() async throws {
+        let userId = UUID()
+        let token = try app.jwt.sign(UserPayload(userId: userId, email: "calc@example.com"))
+
         let invalidPayload = ReconstitutionCalculationRequestDTO(
             dryMassAmount: -5.0, // Invalid negative mass
             dryMassUnit: "mg",
@@ -112,6 +127,7 @@ final class BackendAPIIntegrationTests: XCTestCase {
         )
 
         try await app.test(.POST, "/api/v1/calculations/reconstitute", beforeRequest: { req in
+            req.headers.bearerAuthorization = BearerAuthorization(token: token)
             try req.content.encode(invalidPayload)
         }, afterResponse: { res in
             XCTAssertEqual(res.status, .badRequest)
@@ -154,11 +170,10 @@ final class BackendAPIIntegrationTests: XCTestCase {
         try await app.test(.POST, "/api/v1/auth/register", beforeRequest: { req in
             try req.content.encode(registerPayload)
         }, afterResponse: { res in
-            // May succeed if DB is active or return conflict/error if offline
             if res.status == .ok {
                 let auth = try res.content.decode(AuthResponse.self)
-                accessToken = auth.tokens.accessToken
-                refreshToken = auth.tokens.refreshToken
+                accessToken = auth.accessToken
+                refreshToken = auth.refreshToken
                 XCTAssertFalse(accessToken.isEmpty)
                 XCTAssertFalse(refreshToken.isEmpty)
             }
@@ -179,7 +194,7 @@ final class BackendAPIIntegrationTests: XCTestCase {
             }, afterResponse: { res in
                 XCTAssertEqual(res.status, .ok)
                 let auth = try res.content.decode(AuthResponse.self)
-                XCTAssertFalse(auth.tokens.accessToken.isEmpty)
+                XCTAssertFalse(auth.accessToken.isEmpty)
             })
 
             // 4. Fetch Profile with Bearer token
@@ -199,8 +214,8 @@ final class BackendAPIIntegrationTests: XCTestCase {
             }, afterResponse: { res in
                 XCTAssertEqual(res.status, .ok)
                 let rotated = try res.content.decode(AuthResponse.self)
-                XCTAssertFalse(rotated.tokens.accessToken.isEmpty)
-                XCTAssertNotEqual(rotated.tokens.refreshToken, refreshToken) // Rotated
+                XCTAssertFalse(rotated.accessToken.isEmpty)
+                XCTAssertNotEqual(rotated.refreshToken, refreshToken) // Rotated
             })
         }
     }

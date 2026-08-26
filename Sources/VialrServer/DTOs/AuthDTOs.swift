@@ -84,6 +84,7 @@ public struct AuthResponse: Content, Sendable {
     public let userId: UUID
     public let email: String
     public let displayName: String
+    public let role: String
     public let expiresAt: Date
 
     public init(
@@ -94,6 +95,7 @@ public struct AuthResponse: Content, Sendable {
         userId: UUID,
         email: String,
         displayName: String,
+        role: String = "user",
         expiresAt: Date? = nil
     ) {
         self.token = accessToken
@@ -104,10 +106,11 @@ public struct AuthResponse: Content, Sendable {
         self.userId = userId
         self.email = email
         self.displayName = displayName
+        self.role = role
         self.expiresAt = expiresAt ?? Date().addingTimeInterval(TimeInterval(expiresIn))
     }
 
-    public init(token: String, userId: UUID, email: String, displayName: String, expiresAt: Date = Date().addingTimeInterval(900)) {
+    public init(token: String, userId: UUID, email: String, displayName: String, role: String = "user", expiresAt: Date = Date().addingTimeInterval(900)) {
         self.token = token
         self.accessToken = token
         self.refreshToken = UUID().uuidString
@@ -116,6 +119,7 @@ public struct AuthResponse: Content, Sendable {
         self.userId = userId
         self.email = email
         self.displayName = displayName
+        self.role = role
         self.expiresAt = expiresAt
     }
 }
@@ -127,14 +131,17 @@ public struct UserPayload: JWTPayload, Authenticatable, Sendable {
     public var subject: SubjectClaim
     public var userId: UUID
     public var email: String
+    public var role: String
 
     public init(
         userId: UUID,
         email: String,
+        role: String = "user",
         expirationMinutes: Int = 15
     ) {
         self.userId = userId
         self.email = email
+        self.role = role
         self.subject = SubjectClaim(value: userId.uuidString)
         self.issuer = IssuerClaim(value: "https://api.vialr.app")
         // Short-lived access token: 15 minutes
