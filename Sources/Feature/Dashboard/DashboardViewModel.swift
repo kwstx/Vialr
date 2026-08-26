@@ -146,6 +146,7 @@ public final class DashboardViewModel: @unchecked Sendable {
     public var inventorySummary: InventoryStatusSummary = InventoryStatusSummary()
 
     // Repositories & Engines
+    public let doseLoggingEngine: DoseLoggingEngineProtocol
     private let protocolRepo: ProtocolRepositoryProtocol
     private let doseRepo: DoseLogRepositoryProtocol
     private let vialRepo: VialRepositoryProtocol
@@ -163,7 +164,9 @@ public final class DashboardViewModel: @unchecked Sendable {
         vialRepo: VialRepositoryProtocol = LocalVialRepository(),
         supplyRepo: SupplyRepositoryProtocol = LocalSupplyRepository(),
         biomarkerRepo: BiomarkerRepositoryProtocol = LocalBiomarkerRepository(),
-        userRepo: UserRepositoryProtocol = LocalUserRepository()
+        userRepo: UserRepositoryProtocol = LocalUserRepository(),
+        siteEventRepo: InjectionSiteEventRepositoryProtocol = LocalInjectionSiteEventRepository(),
+        doseLoggingEngine: DoseLoggingEngineProtocol? = nil
     ) {
         self.protocolRepo = protocolRepo
         self.doseRepo = doseRepo
@@ -171,6 +174,13 @@ public final class DashboardViewModel: @unchecked Sendable {
         self.supplyRepo = supplyRepo
         self.biomarkerRepo = biomarkerRepo
         self.userRepo = userRepo
+        self.doseLoggingEngine = doseLoggingEngine ?? DoseLoggingEngine(
+            doseRepo: doseRepo,
+            vialRepo: vialRepo,
+            siteEventRepo: siteEventRepo,
+            protocolRepo: protocolRepo,
+            supplyRepo: supplyRepo
+        )
     }
 
     // MARK: - Computed Properties for Minimal Home Screen
@@ -471,29 +481,25 @@ public final class DashboardViewModel: @unchecked Sendable {
 
     // MARK: - User Actions
 
-    public func quickLogDose(_ dose: DoseLog, siteId: String?) async {
-        var updated = dose
-        updated.status = .taken
-        updated.loggedDate = Date()
-        updated.injectionSiteId = siteId ?? recommendedSite?.id
-        updated.injectionSiteName = recommendedSite?.name
-
+    public func quickLogDose(_ dose: DoseLog, siteId: String? = nil) async {
         do {
-            try await doseRepo.save(updated)
+            _ = try await doseLoggingEngine.quickLogDirect(scheduledDose: dose, siteId: siteId ?? recommendedSite?.id)
             await loadDashboardData()
         } catch {
-            print("Error logging dose: \(error)")
+            print("Error logging dose via engine: \(error)")
         }
     }
 
     public func skipDose(_ dose: DoseLog, reason: String? = "User skipped") async {
-        var updated = dose
-        updated.status = .skipped
-        updated.skippedReason = reason
-        updated.loggedDate = Date()
-
         do {
-            try await doseRepo.save(updated)
+            _ = try await doseLoggingEngine.skipDose(
+                doseEventId: dose.id,
+                protocolId: dose.protocolId,
+                compoundId: dose.compoundId,
+                compoundName: dose.compoundName,
+                scheduledDate: dose.scheduledDate,
+                reason: reason
+            )
             await loadDashboardData()
         } catch {
             print("Error skipping dose: \(error)")

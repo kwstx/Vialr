@@ -27,7 +27,10 @@ public struct RootNavigationView: View {
             doseRepo: container.doseLogRepository,
             vialRepo: container.vialRepository,
             supplyRepo: container.supplyRepository,
-            biomarkerRepo: container.biomarkerRepository
+            biomarkerRepo: container.biomarkerRepository,
+            userRepo: LocalUserRepository(),
+            siteEventRepo: container.injectionSiteEventRepository,
+            doseLoggingEngine: container.doseLoggingEngine
         ))
 
         _protocolsVM = State(initialValue: ProtocolsViewModel(
@@ -215,15 +218,21 @@ public struct RootNavigationView: View {
     private func sheetDestination(_ sheet: ActiveSheet) -> some View {
         switch sheet {
         case .quickLog(let dose):
-            QuickLogSheetView(
+            DoseConfirmationSheetView(
+                engine: container.doseLoggingEngine,
                 preselectedDose: dose,
                 availableVials: inventoryVM.vials,
-                onSave: { newLog in
+                onCompleted: { result in
                     Task {
-                        try? await container.doseLogRepository.save(newLog)
                         await dashboardVM.loadDashboardData()
                         await inventoryVM.loadInventory()
-                        coordinator.showToast(title: "Dose Logged Successfully", message: "\(newLog.compoundName) \(String(format: "%.0f", newLog.doseAmount)) \(newLog.doseUnit.rawValue)")
+                        let amountStr = result.doseEvent.actualDoseAmount.truncatingRemainder(dividingBy: 1) == 0 ?
+                            String(format: "%.0f", result.doseEvent.actualDoseAmount) :
+                            String(format: "%.1f", result.doseEvent.actualDoseAmount)
+                        coordinator.showToast(
+                            title: "Dose Logged Successfully",
+                            message: "\(result.doseEvent.compoundName) \(amountStr) \(result.doseEvent.doseUnit.rawValue)"
+                        )
                     }
                 }
             )

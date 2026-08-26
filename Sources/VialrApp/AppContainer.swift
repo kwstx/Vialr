@@ -21,11 +21,15 @@ public final class AppContainer: @unchecked Sendable {
     public let biomarkerRepository: BiomarkerRepositoryProtocol
     public let symptomRepository: SymptomRepositoryProtocol
     public let costRepository: CostRepositoryProtocol
+    public let injectionSiteEventRepository: InjectionSiteEventRepositoryProtocol
+    public let timelineEventRepository: TimelineEventRepositoryProtocol
     public let syncQueueRepository: SyncQueueRepositoryProtocol
 
-    // Services
+    // Services & Engines
     public let healthService: HealthServiceProtocol
     public let syncEngine: SyncEngineProtocol
+    public let notificationScheduler: NotificationSchedulerProtocol
+    public let doseLoggingEngine: DoseLoggingEngineProtocol
 
     public init(
         compoundRepository: CompoundRepositoryProtocol = LocalCompoundRepository(),
@@ -36,9 +40,13 @@ public final class AppContainer: @unchecked Sendable {
         biomarkerRepository: BiomarkerRepositoryProtocol = LocalBiomarkerRepository(),
         symptomRepository: SymptomRepositoryProtocol = LocalSymptomRepository(),
         costRepository: CostRepositoryProtocol = LocalCostRepository(),
+        injectionSiteEventRepository: InjectionSiteEventRepositoryProtocol = LocalInjectionSiteEventRepository(),
+        timelineEventRepository: TimelineEventRepositoryProtocol = LocalTimelineEventRepository(),
         syncQueueRepository: SyncQueueRepositoryProtocol = LocalSyncQueueRepository(),
         healthService: HealthServiceProtocol = HealthKitManager.shared,
-        syncEngine: SyncEngineProtocol = SyncEngine.shared
+        syncEngine: SyncEngineProtocol = SyncEngine.shared,
+        notificationScheduler: NotificationSchedulerProtocol = NotificationScheduler(),
+        doseLoggingEngine: DoseLoggingEngineProtocol? = nil
     ) {
         self.compoundRepository = compoundRepository
         self.protocolRepository = protocolRepository
@@ -48,8 +56,19 @@ public final class AppContainer: @unchecked Sendable {
         self.biomarkerRepository = biomarkerRepository
         self.symptomRepository = symptomRepository
         self.costRepository = costRepository
+        self.injectionSiteEventRepository = injectionSiteEventRepository
+        self.timelineEventRepository = timelineEventRepository
         self.syncQueueRepository = syncQueueRepository
         self.healthService = healthService
         self.syncEngine = syncEngine
+        self.notificationScheduler = notificationScheduler
+        self.doseLoggingEngine = doseLoggingEngine ?? DoseLoggingEngine(
+            doseRepo: doseLogRepository,
+            vialRepo: vialRepository,
+            siteEventRepo: injectionSiteEventRepository,
+            protocolRepo: protocolRepository,
+            supplyRepo: supplyRepository,
+            notificationScheduler: notificationScheduler
+        )
     }
 }
