@@ -223,6 +223,256 @@ public struct Measurement: SyncableRecord, TimeSeriesDataPoint, Identifiable, Co
         )
     }
 
+    /// Heart rate measurement (bpm)
+    public static func heartRate(
+        _ bpm: Double,
+        dateRecorded: Date = Date(),
+        source: MeasurementSource = .appleHealth,
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
+    ) -> Measurement {
+        Measurement(
+            name: "Heart Rate",
+            type: .restingHeartRate,
+            category: .cardiovascular,
+            value: bpm,
+            unit: "bpm",
+            dateRecorded: dateRecorded,
+            source: source,
+            referenceRangeMin: 50.0,
+            referenceRangeMax: 100.0,
+            notes: notes,
+            version: version,
+            syncState: syncState
+        )
+    }
+
+    /// Heart rate variability (SDNN in ms)
+    public static func hrv(
+        _ ms: Double,
+        dateRecorded: Date = Date(),
+        source: MeasurementSource = .appleHealth,
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
+    ) -> Measurement {
+        Measurement(
+            name: "Heart Rate Variability (HRV)",
+            type: .hrv,
+            category: .cardiovascular,
+            value: ms,
+            unit: "ms",
+            dateRecorded: dateRecorded,
+            source: source,
+            referenceRangeMin: 40.0,
+            referenceRangeMax: 120.0,
+            notes: notes,
+            version: version,
+            syncState: syncState
+        )
+    }
+
+    /// Fasting / blood glucose measurement (mg/dL)
+    public static func bloodGlucose(
+        _ mgDl: Double,
+        dateRecorded: Date = Date(),
+        source: MeasurementSource = .appleHealth,
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
+    ) -> Measurement {
+        Measurement(
+            name: "Fasting Blood Glucose",
+            type: .bloodGlucose,
+            category: .metabolic,
+            value: mgDl,
+            unit: "mg/dL",
+            dateRecorded: dateRecorded,
+            source: source,
+            referenceRangeMin: 70.0,
+            referenceRangeMax: 99.0,
+            notes: notes,
+            version: version,
+            syncState: syncState
+        )
+    }
+
+    /// Body fat percentage (%)
+    public static func bodyFat(
+        _ percentage: Double,
+        dateRecorded: Date = Date(),
+        source: MeasurementSource = .appleHealth,
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
+    ) -> Measurement {
+        Measurement(
+            name: "Body Fat %",
+            type: .bodyFat,
+            category: .bodyComposition,
+            value: percentage,
+            unit: "%",
+            dateRecorded: dateRecorded,
+            source: source,
+            referenceRangeMin: 10.0,
+            referenceRangeMax: 20.0,
+            notes: notes,
+            version: version,
+            syncState: syncState
+        )
+    }
+
+    /// Workout / Physical activity measurement (duration in minutes, calories burned in secondaryValue)
+    public static func workout(
+        activityName: String,
+        durationMinutes: Double,
+        caloriesBurned: Double? = nil,
+        dateRecorded: Date = Date(),
+        source: MeasurementSource = .appleHealth,
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
+    ) -> Measurement {
+        Measurement(
+            name: activityName.isEmpty ? "Workout / Activity" : activityName,
+            type: .workout,
+            category: .athletic,
+            value: durationMinutes,
+            secondaryValue: caloriesBurned,
+            unit: "min",
+            dateRecorded: dateRecorded,
+            source: source,
+            notes: notes,
+            version: version,
+            syncState: syncState
+        )
+    }
+
+    /// Daily steps measurement
+    public static func stepCount(
+        _ steps: Double,
+        dateRecorded: Date = Date(),
+        source: MeasurementSource = .appleHealth,
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
+    ) -> Measurement {
+        Measurement(
+            name: "Daily Steps",
+            type: .stepCount,
+            category: .athletic,
+            value: steps,
+            unit: "steps",
+            dateRecorded: dateRecorded,
+            source: source,
+            referenceRangeMin: 8000.0,
+            referenceRangeMax: 15000.0,
+            notes: notes,
+            version: version,
+            syncState: syncState
+        )
+    }
+
+    /// Active energy / calories burned (kcal)
+    public static func activeCalories(
+        _ kcal: Double,
+        dateRecorded: Date = Date(),
+        source: MeasurementSource = .appleHealth,
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
+    ) -> Measurement {
+        Measurement(
+            name: "Active Calories",
+            type: .activeEnergy,
+            category: .athletic,
+            value: kcal,
+            unit: "kcal",
+            dateRecorded: dateRecorded,
+            source: source,
+            notes: notes,
+            version: version,
+            syncState: syncState
+        )
+    }
+
+    /// Oxygen saturation (SpO2 in %)
+    public static func oxygenSaturation(
+        _ percentage: Double,
+        dateRecorded: Date = Date(),
+        source: MeasurementSource = .appleHealth,
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
+    ) -> Measurement {
+        Measurement(
+            name: "Oxygen Saturation (SpO2)",
+            type: .oxygenSaturation,
+            category: .cardiovascular,
+            value: percentage,
+            unit: "%",
+            dateRecorded: dateRecorded,
+            source: source,
+            referenceRangeMin: 95.0,
+            referenceRangeMax: 100.0,
+            notes: notes,
+            version: version,
+            syncState: syncState
+        )
+    }
+
+    /// Respiratory rate (breaths per minute)
+    public static func respiratoryRate(
+        _ breathsPerMin: Double,
+        dateRecorded: Date = Date(),
+        source: MeasurementSource = .appleHealth,
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
+    ) -> Measurement {
+        Measurement(
+            name: "Respiratory Rate",
+            type: .respiratoryRate,
+            category: .cardiovascular,
+            value: breathsPerMin,
+            unit: "brpm",
+            dateRecorded: dateRecorded,
+            source: source,
+            referenceRangeMin: 12.0,
+            referenceRangeMax: 20.0,
+            notes: notes,
+            version: version,
+            syncState: syncState
+        )
+    }
+
+    /// Body temperature (degrees)
+    public static func bodyTemperature(
+        _ degrees: Double,
+        unit: String = "°F",
+        dateRecorded: Date = Date(),
+        source: MeasurementSource = .appleHealth,
+        notes: String = "",
+        version: Int = 1,
+        syncState: SyncState = .synced
+    ) -> Measurement {
+        Measurement(
+            name: "Body Temperature",
+            type: .bodyTemperature,
+            category: .cardiovascular,
+            value: degrees,
+            unit: unit,
+            dateRecorded: dateRecorded,
+            source: source,
+            referenceRangeMin: unit == "°C" ? 36.1 : 97.0,
+            referenceRangeMax: unit == "°C" ? 37.2 : 99.0,
+            notes: notes,
+            version: version,
+            syncState: syncState
+        )
+    }
+
     /// Custom user-defined metric (e.g. "Grip Strength", "Water Intake", "VO2 Max")
     public static func custom(
         name: String,
@@ -258,6 +508,10 @@ public struct Measurement: SyncableRecord, TimeSeriesDataPoint, Identifiable, Co
         if type == .bloodPressure, let diastolic = secondaryValue {
             return "\(Int(value))/\(Int(diastolic)) \(unit)"
         }
+        if type == .workout, let kcal = secondaryValue {
+            let mins = Int(value)
+            return "\(mins) min (\(Int(kcal)) kcal)"
+        }
         if unit == "/10" {
             return "\(String(format: value.truncatingRemainder(dividingBy: 1) == 0 ? "%.0f" : "%.1f", value)) / 10"
         }
@@ -287,6 +541,12 @@ public enum MeasurementType: String, Codable, Sendable, CaseIterable, Identifiab
     case hrv = "Heart Rate Variability (HRV)"
     case bloodGlucose = "Fasting Blood Glucose"
     case sleep = "Sleep Duration & Quality"
+    case workout = "Workout / Activity"
+    case stepCount = "Daily Steps"
+    case activeEnergy = "Active Calories"
+    case oxygenSaturation = "Oxygen Saturation (SpO2)"
+    case respiratoryRate = "Respiratory Rate"
+    case bodyTemperature = "Body Temperature"
     case energy = "Energy Level"
     case appetite = "Appetite & Satiety"
     case pain = "Pain Index"
@@ -306,6 +566,12 @@ public enum MeasurementType: String, Codable, Sendable, CaseIterable, Identifiab
         case .hrv: return "bolt.heart.fill"
         case .bloodGlucose: return "drop.fill"
         case .sleep: return "bed.double.fill"
+        case .workout: return "figure.run"
+        case .stepCount: return "shoeprints.fill"
+        case .activeEnergy: return "flame.fill"
+        case .oxygenSaturation: return "lungs.fill"
+        case .respiratoryRate: return "wind"
+        case .bodyTemperature: return "thermometer.medium"
         case .energy: return "bolt.fill"
         case .appetite: return "fork.knife"
         case .pain: return "bandage.fill"

@@ -166,10 +166,16 @@ let package = Package(
             dependencies: [
                 "Domain",
                 "Data",
+                "Health",
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "Fluent", package: "fluent")
             ],
             path: "Tests/StorageTests"
+        ),
+        .testTarget(
+            name: "HealthTests",
+            dependencies: ["Health", "Domain", "Data"],
+            path: "Tests/HealthTests"
         )
     ]
 )

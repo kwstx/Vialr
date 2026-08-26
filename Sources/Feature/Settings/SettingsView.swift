@@ -13,24 +13,40 @@ public struct SettingsView: View {
     @State private var showExportSuccess: Bool = false
     @State private var showSignOutAlert: Bool = false
 
+    // Apple Health Integration State
+    @State private var isSyncingHealth: Bool = false
+    @State private var healthSyncSummary: String? = nil
+    @State private var showPurgeHealthAlert: Bool = false
+    @State private var showPurgeSuccess: Bool = false
+
     public var onOpenClinicianReport: () -> Void
     public var onLockApp: (() -> Void)?
     public var onSignOut: (() -> Void)?
 
     private let securityManager: AppSecurityManager
+    private let healthSettingsManager: HealthSettingsManager
+    private let healthRepository: HealthRepositoryProtocol
 
     public init(
         securityManager: AppSecurityManager = .shared,
+        healthSettingsManager: HealthSettingsManager = .shared,
+        healthRepository: HealthRepositoryProtocol? = nil,
         onOpenClinicianReport: @escaping () -> Void,
         onLockApp: (() -> Void)? = nil,
         onSignOut: (() -> Void)? = nil
     ) {
         self.securityManager = securityManager
+        self.healthSettingsManager = healthSettingsManager
+        self.healthRepository = healthRepository ?? HealthRepository(
+            measurementRepository: LocalMeasurementRepository(),
+            settingsManager: healthSettingsManager
+        )
         self.onOpenClinicianReport = onOpenClinicianReport
         self.onLockApp = onLockApp
         self.onSignOut = onSignOut
         _enableBiometrics = State(initialValue: securityManager.isBiometricsEnabled)
         _lockTimeout = State(initialValue: securityManager.lockTimeoutSeconds)
+        _enableHealthKit = State(initialValue: healthSettingsManager.isIntegrationEnabled)
     }
 
     public var body: some View {
@@ -151,15 +167,104 @@ public struct SettingsView: View {
                         .padding(VialrSpacing.md)
                         .vialrCard()
 
-                        // Health & Integrations
+                        // MARK: - Health & Integrations (Apple Health)
                         VStack(alignment: .leading, spacing: VialrSpacing.md) {
-                            Text("HEALTH INTEGRATIONS")
-                                .font(VialrTypography.captionBold)
-                                .foregroundColor(VialrColors.accentTeal)
+                            HStack {
+                                Text("APPLE HEALTH (HEALTHKIT)")
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.accentTeal)
+                                Spacer()
+                                Image(systemName: "heart.text.square.fill")
+                                    .foregroundColor(VialrColors.accentRose)
+                            }
 
-                            Toggle("Sync with Apple Health", isOn: $enableHealthKit)
+                            Toggle("Integrate with Apple Health", isOn: $enableHealthKit)
                                 .tint(VialrColors.accentTeal)
                                 .foregroundColor(VialrColors.textPrimary)
+                                .onChange(of: enableHealthKit) { _, newValue in
+                                    healthSettingsManager.setIntegrationEnabled(newValue)
+                                    Task {
+                                        try? await healthRepository.setIntegrationEnabled(newValue)
+                                    }
+                                }
+
+                            if enableHealthKit {
+                                Divider().background(VialrColors.borderSubtle)
+
+                                Text("SELECT METRICS TO IMPORT")
+                                    .font(VialrTypography.caption)
+                                    .foregroundColor(VialrColors.textSecondary)
+
+                                // Granular Metric Toggles
+                                metricToggleRow(title: "Body Weight", metric: .weight, icon: "scalemass.fill")
+                                metricToggleRow(title: "Resting Heart Rate", metric: .restingHeartRate, icon: "heart.fill")
+                                metricToggleRow(title: "Heart Rate Variability (HRV)", metric: .heartRateVariability, icon: "bolt.heart.fill")
+                                metricToggleRow(title: "Fasting Blood Glucose", metric: .bloodGlucose, icon: "drop.fill")
+                                metricToggleRow(title: "Sleep Duration & Stages", metric: .sleepAnalysis, icon: "bed.double.fill")
+                                metricToggleRow(title: "Workouts & Exercise", metric: .workout, icon: "figure.run")
+                                metricToggleRow(title: "Blood Pressure", metric: .bloodPressure, icon: "waveform.path.ecg.rectangle.fill")
+                                metricToggleRow(title: "Body Fat %", metric: .bodyFatPercentage, icon: "percent")
+                                metricToggleRow(title: "Daily Steps", metric: .stepCount, icon: "shoeprints.fill")
+
+                                Divider().background(VialrColors.borderSubtle)
+
+                                // Sync Trigger Button
+                                Button {
+                                    triggerHealthKitSync()
+                                } label: {
+                                    HStack {
+                                        if isSyncingHealth {
+                                            ProgressView()
+                                                .tint(VialrColors.accentTeal)
+                                                .padding(.trailing, 4)
+                                        } else {
+                                            Image(systemName: "arrow.triangle.2.circlepath")
+                                                .foregroundColor(VialrColors.accentTeal)
+                                        }
+                                        Text(isSyncingHealth ? "Syncing Apple Health..." : "Sync Apple Health Now")
+                                            .font(VialrTypography.headline)
+                                            .foregroundColor(VialrColors.textPrimary)
+                                        Spacer()
+                                    }
+                                    .padding(VialrSpacing.sm)
+                                    .background(VialrColors.cardSurfaceElevated)
+                                    .cornerRadius(VialrSpacing.radiusSm)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(isSyncingHealth)
+
+                                if let summary = healthSyncSummary {
+                                    Text(summary)
+                                        .font(VialrTypography.caption)
+                                        .foregroundColor(VialrColors.accentEmerald)
+                                }
+
+                                if let lastSync = healthSettingsManager.lastSyncDate {
+                                    Text("Last synced: \(lastSync.formatted(date: .abbreviated, time: .shortened))")
+                                        .font(VialrTypography.caption)
+                                        .foregroundColor(VialrColors.textTertiary)
+                                }
+
+                                // Purge option
+                                Button(role: .destructive) {
+                                    showPurgeHealthAlert = true
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "trash")
+                                        Text("Purge Imported HealthKit Measurements")
+                                    }
+                                    .font(VialrTypography.caption)
+                                    .foregroundColor(VialrColors.accentRose.opacity(0.8))
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.top, 2)
+
+                                if showPurgeSuccess {
+                                    Text("Imported Apple Health measurements removed from local store.")
+                                        .font(VialrTypography.caption)
+                                        .foregroundColor(VialrColors.accentTeal)
+                                }
+                            }
 
                             Toggle("Dose Reminders & Restock Alerts", isOn: $enableReminders)
                                 .tint(VialrColors.accentTeal)
@@ -238,7 +343,7 @@ public struct SettingsView: View {
                                 .overlay(
                                     RoundedRectangle(cornerRadius: VialrSpacing.radiusMd)
                                         .stroke(VialrColors.accentRose.opacity(0.3), lineWidth: 1)
-                                )
+                                 )
                             }
                             .buttonStyle(.plain)
                         }
@@ -268,6 +373,60 @@ public struct SettingsView: View {
                 }
             } message: {
                 Text("This will securely clear your local authentication tokens from the iOS Keychain. Your encrypted local data remains protected.")
+            }
+            .alert("Purge Imported HealthKit Data?", isPresented: $showPurgeHealthAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Purge Data", role: .destructive) {
+                    Task {
+                        try? await healthRepository.purgeImportedMeasurements()
+                        showPurgeSuccess = true
+                    }
+                }
+            } message: {
+                Text("This will delete all locally imported measurements with source 'Apple Health'. Your manual logs and lab panel records are untouched.")
+            }
+        }
+    }
+
+    // MARK: - Helper Views & Actions
+
+    @ViewBuilder
+    private func metricToggleRow(title: String, metric: HealthMetricType, icon: String) -> some View {
+        let isEnabled = Binding<Bool>(
+            get: { healthSettingsManager.isMetricEnabled(metric) },
+            set: { val in
+                healthSettingsManager.toggleMetric(metric, enabled: val)
+            }
+        )
+
+        HStack {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundColor(VialrColors.accentTeal)
+                .frame(width: 20)
+            Text(title)
+                .font(VialrTypography.footnote)
+                .foregroundColor(VialrColors.textPrimary)
+            Spacer()
+            Toggle("", isOn: isEnabled)
+                .labelsHidden()
+                .tint(VialrColors.accentTeal)
+        }
+    }
+
+    private func triggerHealthKitSync() {
+        isSyncingHealth = true
+        healthSyncSummary = nil
+        showPurgeSuccess = false
+
+        Task {
+            defer { isSyncingHealth = false }
+            do {
+                _ = try await healthRepository.requestPermissions(for: nil)
+                let imported = try await healthRepository.syncLatestMeasurements()
+                healthSyncSummary = "Successfully synced \(imported.count) measurements from Apple Health."
+            } catch {
+                healthSyncSummary = "Sync failed: \(error.localizedDescription)"
             }
         }
     }

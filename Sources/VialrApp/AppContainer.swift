@@ -19,15 +19,18 @@ public final class AppContainer: @unchecked Sendable {
     public let vialRepository: VialRepositoryProtocol
     public let supplyRepository: SupplyRepositoryProtocol
     public let biomarkerRepository: BiomarkerRepositoryProtocol
+    public let measurementRepository: MeasurementRepositoryProtocol
     public let symptomRepository: SymptomRepositoryProtocol
     public let costRepository: CostRepositoryProtocol
     public let injectionSiteEventRepository: InjectionSiteEventRepositoryProtocol
     public let timelineEventRepository: TimelineEventRepositoryProtocol
     public let syncQueueRepository: SyncQueueRepositoryProtocol
     public let inventoryEventRepository: InventoryEventRepositoryProtocol
+    public let healthRepository: HealthRepositoryProtocol
 
     // Services & Engines
     public let healthService: HealthServiceProtocol
+    public let healthSettingsManager: HealthSettingsManager
     public let syncEngine: SyncEngineProtocol
     public let notificationScheduler: NotificationSchedulerProtocol
     public let doseLoggingEngine: DoseLoggingEngineProtocol
@@ -39,6 +42,7 @@ public final class AppContainer: @unchecked Sendable {
         vialRepository: VialRepositoryProtocol = LocalVialRepository(),
         supplyRepository: SupplyRepositoryProtocol = LocalSupplyRepository(),
         biomarkerRepository: BiomarkerRepositoryProtocol = LocalBiomarkerRepository(),
+        measurementRepository: MeasurementRepositoryProtocol = LocalMeasurementRepository(),
         symptomRepository: SymptomRepositoryProtocol = LocalSymptomRepository(),
         costRepository: CostRepositoryProtocol = LocalCostRepository(),
         injectionSiteEventRepository: InjectionSiteEventRepositoryProtocol = LocalInjectionSiteEventRepository(),
@@ -46,6 +50,8 @@ public final class AppContainer: @unchecked Sendable {
         syncQueueRepository: SyncQueueRepositoryProtocol = LocalSyncQueueRepository(),
         inventoryEventRepository: InventoryEventRepositoryProtocol = LocalInventoryEventRepository(),
         healthService: HealthServiceProtocol = HealthKitManager.shared,
+        healthSettingsManager: HealthSettingsManager = .shared,
+        healthRepository: HealthRepositoryProtocol? = nil,
         syncEngine: SyncEngineProtocol = SyncEngine.shared,
         notificationScheduler: NotificationSchedulerProtocol = NotificationScheduler(),
         doseLoggingEngine: DoseLoggingEngineProtocol? = nil
@@ -56,6 +62,7 @@ public final class AppContainer: @unchecked Sendable {
         self.vialRepository = vialRepository
         self.supplyRepository = supplyRepository
         self.biomarkerRepository = biomarkerRepository
+        self.measurementRepository = measurementRepository
         self.symptomRepository = symptomRepository
         self.costRepository = costRepository
         self.injectionSiteEventRepository = injectionSiteEventRepository
@@ -63,6 +70,12 @@ public final class AppContainer: @unchecked Sendable {
         self.syncQueueRepository = syncQueueRepository
         self.inventoryEventRepository = inventoryEventRepository
         self.healthService = healthService
+        self.healthSettingsManager = healthSettingsManager
+        self.healthRepository = healthRepository ?? HealthRepository(
+            healthService: healthService,
+            measurementRepository: measurementRepository,
+            settingsManager: healthSettingsManager
+        )
         self.syncEngine = syncEngine
         self.notificationScheduler = notificationScheduler
         self.doseLoggingEngine = doseLoggingEngine ?? DoseLoggingEngine(

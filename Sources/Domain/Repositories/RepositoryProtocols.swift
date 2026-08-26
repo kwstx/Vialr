@@ -237,3 +237,24 @@ public protocol ProtocolRevisionRepositoryProtocol: Sendable {
     func save(_ revision: ProtocolRevision) async throws
 }
 
+// MARK: - Health Repository Protocol
+public protocol HealthRepositoryProtocol: Sendable {
+    /// Indicates whether HealthKit integration is currently enabled by the user.
+    var isIntegrationEnabled: Bool { get }
+    
+    /// Requests Apple Health permissions for specific metrics or all supported metrics.
+    func requestPermissions(for metrics: [String]?) async throws -> Bool
+    
+    /// Synchronizes health data for a specified date range and stores internal Measurement representations with HealthKit source metadata.
+    func syncMeasurements(for metrics: [String]?, dateInterval: DateInterval) async throws -> [Measurement]
+    
+    /// Synchronizes the latest measurements for all enabled health metrics.
+    func syncLatestMeasurements() async throws -> [Measurement]
+    
+    /// Enables or disables Apple Health integration at any time.
+    func setIntegrationEnabled(_ enabled: Bool) async throws
+    
+    /// Purges all locally stored measurements that originated from Apple Health.
+    func purgeImportedMeasurements() async throws
+}
+
