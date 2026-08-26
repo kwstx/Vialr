@@ -178,6 +178,32 @@ let package = Package(
             name: "HealthTests",
             dependencies: ["Health", "Domain", "Data"],
             path: "Tests/HealthTests"
+        ),
+        .testTarget(
+            name: "ServerAPITests",
+            dependencies: [
+                "VialrServer",
+                "Domain",
+                "CalculationEngine",
+                "Analytics",
+                "Data",
+                .product(name: "XCTVapor", package: "vapor"),
+                .product(name: "Fluent", package: "fluent")
+            ],
+            path: "Tests/ServerAPITests"
+        ),
+        .testTarget(
+            name: "FeatureUITests",
+            dependencies: [
+                "Feature",
+                "DesignSystem",
+                "Domain",
+                "CalculationEngine",
+                "Data",
+                "Health",
+                "Analytics"
+            ],
+            path: "Tests/FeatureUITests"
         )
     ]
 )
