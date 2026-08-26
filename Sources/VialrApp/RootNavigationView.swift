@@ -13,6 +13,8 @@ public struct RootNavigationView: View {
     @State private var onboardingVM = OnboardingViewModel()
     @State private var dashboardVM: DashboardViewModel
     @State private var protocolsVM: ProtocolsViewModel
+    @State private var loggingVM: LoggingViewModel
+    @State private var bloodworkVM: BloodworkViewModel
     @State private var inventoryVM: InventoryViewModel
     @State private var siteRotationVM: SiteRotationViewModel
     @State private var analyticsVM: AnalyticsViewModel
@@ -35,6 +37,19 @@ public struct RootNavigationView: View {
 
         _protocolsVM = State(initialValue: ProtocolsViewModel(
             protocolRepo: container.protocolRepository
+        ))
+
+        _loggingVM = State(initialValue: LoggingViewModel(
+            doseRepo: container.doseLogRepository,
+            protocolRepo: container.protocolRepository,
+            vialRepo: container.vialRepository,
+            siteEventRepo: container.injectionSiteEventRepository,
+            doseLoggingEngine: container.doseLoggingEngine
+        ))
+
+        _bloodworkVM = State(initialValue: BloodworkViewModel(
+            labPanelRepo: container.labPanelRepository,
+            biomarkerRepo: container.biomarkerRepository
         ))
 
         _inventoryVM = State(initialValue: InventoryViewModel(
@@ -85,7 +100,7 @@ public struct RootNavigationView: View {
                     VStack(spacing: 12) {
                         Image(systemName: "shield.fill")
                             .font(.system(size: 44))
-                            .foregroundColor(VialrColors.accentTeal)
+                            .foregroundColor(VialrColors.accentVitality)
                         Text("Vialr")
                             .font(VialrTypography.largeHero)
                             .foregroundColor(VialrColors.textPrimary)
@@ -123,120 +138,368 @@ public struct RootNavigationView: View {
         .task {
             let notifManager = NotificationClientManager.shared
             await notifManager.initialize()
-            notifManager.onDoseLogRequested = { payload in
+            notifManager.onDoseLogRequested = { _ in
                 coordinator.presentSheet(.quickLog(nil))
             }
             notifManager.onDeepLinkTriggered = { url in
-                if url.host == "inventory" {
-                    coordinator.selectedTab = .inventory
-                } else if url.host == "protocols" {
-                    coordinator.selectedTab = .protocols
-                } else if url.host == "bloodwork" {
-                    coordinator.presentSheet(.bloodworkHub)
-                } else {
-                    coordinator.presentSheet(.quickLog(nil))
-                }
+                coordinator.handleDeepLink(url)
             }
+        }
+        .onOpenURL { url in
+            coordinator.handleDeepLink(url)
         }
         .onChange(of: scenePhase) { _, newPhase in
             coordinator.securityManager.handleScenePhaseChange(to: newPhase)
         }
-
     }
 
-    // MARK: - Main Tab Content
+    // MARK: - Main Tab Content (5 Primary Tabs with Independent Navigation Stacks)
     private var mainTabContent: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $coordinator.selectedTab) {
-                DashboardView(
-                    viewModel: dashboardVM,
-                    onOpenQuickLog: { dose in coordinator.presentSheet(.quickLog(dose)) },
-                    onOpenReconstitution: { coordinator.presentSheet(.reconstitution) },
-                    onOpenSiteRotation: { coordinator.presentSheet(.siteRotation) },
-                    onOpenProtocolDetail: { proto in coordinator.presentSheet(.protocolDetail(proto)) },
-                    onOpenBloodwork: { coordinator.presentSheet(.bloodworkHub) },
-                    onOpenTimeline: { coordinator.presentSheet(.timeline) },
-                    onNavigateToTab: { tab in coordinator.selectedTab = tab }
-                )
-                .tag(AppTab.dashboard)
+                // Tab 1: Home / Dashboard
+                homeNavigationStack
+                    .tag(AppTab.home)
 
-                ProtocolsListView(
-                    viewModel: protocolsVM,
-                    onSelectProtocol: { proto in coordinator.presentSheet(.protocolDetail(proto)) },
-                    onCreateProtocol: { coordinator.presentSheet(.createProtocol) },
-                    onCompareProtocols: { coordinator.presentSheet(.protocolComparison) },
-                    onReplayProtocol: { proto in coordinator.presentSheet(.protocolReplay(proto)) }
-                )
-                .tag(AppTab.protocols)
+                // Tab 2: Protocols & Stacks
+                protocolsNavigationStack
+                    .tag(AppTab.protocols)
 
-                InventoryView(
-                    viewModel: inventoryVM,
-                    onAddVial: { coordinator.presentSheet(.addVial) }
-                )
-                .tag(AppTab.inventory)
+                // Tab 3: Fast Dose Log Hub
+                logNavigationStack
+                    .tag(AppTab.log)
 
-                AnalyticsView(
-                    viewModel: analyticsVM
-                )
-                .tag(AppTab.analytics)
+                // Tab 4: Labs & Bloodwork
+                labsNavigationStack
+                    .tag(AppTab.labs)
 
-                SettingsView(
-                    onOpenClinicianReport: { coordinator.presentSheet(.clinicianReport) },
-                    onLockApp: { coordinator.securityManager.lockApp() },
-                    onSignOut: { coordinator.signOut() }
-                )
-                .tag(AppTab.settings)
+                // Tab 5: Inventory & Supplies
+                inventoryNavigationStack
+                    .tag(AppTab.inventory)
             }
 
-            // Sleek Floating Modern Tab Bar
-            floatingTabBar
+            // Sleek Floating Modern Tab Bar with Prominent Center Action
+            VialrFloatingTabBar(
+                selectedTab: $coordinator.selectedTab,
+                onSelectTab: { tab in
+                    coordinator.selectTab(tab)
+                },
+                onProminentAction: {
+                    coordinator.triggerProminentLogAction()
+                }
+            )
         }
         .ignoresSafeArea(.keyboard)
     }
 
-    // MARK: - Floating Tab Bar
-    private var floatingTabBar: some View {
-        HStack(spacing: 0) {
-            ForEach(AppTab.allCases) { tab in
-                let isSelected = coordinator.selectedTab == tab
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        coordinator.selectedTab = tab
+    // MARK: - Tab 1: Home Navigation Stack
+    private var homeNavigationStack: some View {
+        NavigationStack(path: $coordinator.homePath) {
+            DashboardView(
+                viewModel: dashboardVM,
+                onOpenQuickLog: { dose in coordinator.presentSheet(.quickLog(dose)) },
+                onOpenReconstitution: { coordinator.presentSheet(.reconstitution) },
+                onOpenSiteRotation: { coordinator.presentSheet(.siteRotation) },
+                onOpenProtocolDetail: { proto in coordinator.presentSheet(.protocolDetail(proto)) },
+                onOpenBloodwork: { coordinator.selectTab(.labs) },
+                onOpenTimeline: { coordinator.presentSheet(.timeline) },
+                onNavigateToTab: { tab in coordinator.selectTab(tab) }
+            )
+            .navigationDestination(for: HomeDestination.self) { destination in
+                switch destination {
+                case .protocolDetail(let id):
+                    if let proto = protocolsVM.allProtocols.first(where: { $0.id == id }) {
+                        ProtocolDetailView(
+                            protocolModel: proto,
+                            onEdit: { updated in
+                                Task {
+                                    try? await container.protocolRepository.save(updated)
+                                    await protocolsVM.loadProtocols()
+                                }
+                            },
+                            onToggleStatus: { target in
+                                var mod = target
+                                mod.status = target.status == .active ? .paused : .active
+                                Task {
+                                    try? await container.protocolRepository.save(mod)
+                                    await protocolsVM.loadProtocols()
+                                    await dashboardVM.loadDashboardData()
+                                }
+                            },
+                            onOpenReplay: { target in
+                                coordinator.presentSheet(.protocolReplay(target))
+                            }
+                        )
                     }
-                    #if os(iOS)
-                    UISelectionFeedbackGenerator().selectionChanged()
-                    #endif
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: tab.iconName)
-                            .font(.system(size: 19, weight: isSelected ? .bold : .medium))
-                            .foregroundColor(isSelected ? VialrColors.accentTeal : VialrColors.textTertiary)
-
-                        Text(tab.rawValue)
-                            .font(VialrTypography.caption)
-                            .foregroundColor(isSelected ? VialrColors.textPrimary : VialrColors.textTertiary)
+                case .siteRotation:
+                    SiteRotationView(viewModel: siteRotationVM)
+                case .reconstitution:
+                    ReconstitutionCalculatorView(viewModel: reconstitutionVM) { newVial in
+                        Task {
+                            try? await container.vialRepository.save(newVial)
+                            await inventoryVM.loadInventory()
+                            coordinator.showToast(title: "Vial Added", message: "\(newVial.compoundName)")
+                        }
                     }
-                    .frame(maxWidth: .infinity)
+                case .timeline:
+                    TimelineView(
+                        viewModel: TimelineViewModel(timelineService: container.timelineService),
+                        showCloseButton: false
+                    )
+                case .settings:
+                    SettingsView(
+                        onOpenClinicianReport: { coordinator.presentSheet(.clinicianReport) },
+                        onLockApp: { coordinator.securityManager.lockApp() },
+                        onSignOut: { coordinator.signOut() }
+                    )
+                case .clinicianReport:
+                    ClinicianReportView()
+                case .analytics:
+                    AnalyticsView(viewModel: analyticsVM)
                 }
-                .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: VialrSpacing.radiusPill, style: .continuous)
-                .fill(VialrColors.cardSurfaceElevated.opacity(0.95))
-                .shadow(color: Color.black.opacity(0.45), radius: 24, x: 0, y: 10)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: VialrSpacing.radiusPill, style: .continuous)
-                .stroke(VialrColors.glassBorder, lineWidth: 1)
-        )
-        .padding(.horizontal, VialrSpacing.lg)
-        .padding(.bottom, VialrSpacing.sm)
     }
 
-    // MARK: - Sheet Router
+    // MARK: - Tab 2: Protocols Navigation Stack
+    private var protocolsNavigationStack: some View {
+        NavigationStack(path: $coordinator.protocolsPath) {
+            ProtocolsListView(
+                viewModel: protocolsVM,
+                onSelectProtocol: { proto in coordinator.presentSheet(.protocolDetail(proto)) },
+                onCreateProtocol: { coordinator.presentSheet(.createProtocol) },
+                onCompareProtocols: { coordinator.presentSheet(.protocolComparison) },
+                onReplayProtocol: { proto in coordinator.presentSheet(.protocolReplay(proto)) }
+            )
+            .navigationDestination(for: ProtocolsDestination.self) { destination in
+                switch destination {
+                case .protocolDetail(let id):
+                    if let proto = protocolsVM.allProtocols.first(where: { $0.id == id }) {
+                        ProtocolDetailView(
+                            protocolModel: proto,
+                            onEdit: { updated in
+                                Task {
+                                    try? await container.protocolRepository.save(updated)
+                                    await protocolsVM.loadProtocols()
+                                }
+                            },
+                            onToggleStatus: { target in
+                                var mod = target
+                                mod.status = target.status == .active ? .paused : .active
+                                Task {
+                                    try? await container.protocolRepository.save(mod)
+                                    await protocolsVM.loadProtocols()
+                                }
+                            },
+                            onOpenReplay: { target in
+                                coordinator.presentSheet(.protocolReplay(target))
+                            }
+                        )
+                    }
+                case .createProtocol:
+                    CreateProtocolView { newProtocol in
+                        Task {
+                            try? await container.protocolRepository.save(newProtocol)
+                            await protocolsVM.loadProtocols()
+                            coordinator.showToast(title: "Protocol Created", message: newProtocol.name)
+                        }
+                    }
+                case .compareProtocols:
+                    ProtocolComparisonView(
+                        viewModel: ProtocolComparisonViewModel(
+                            protocolRepo: container.protocolRepository,
+                            measurementRepo: container.measurementRepository,
+                            doseRepo: container.doseLogRepository,
+                            symptomRepo: container.symptomRepository,
+                            biomarkerRepo: container.biomarkerRepository,
+                            costRepo: container.costRepository,
+                            initialProtocols: protocolsVM.allProtocols
+                        )
+                    )
+                case .protocolReplay(let id):
+                    if let proto = protocolsVM.allProtocols.first(where: { $0.id == id }) {
+                        ProtocolReplayView(
+                            viewModel: ProtocolReplayViewModel(
+                                protocolModel: proto,
+                                protocolRepo: container.protocolRepository,
+                                doseRepo: container.doseLogRepository,
+                                measurementRepo: container.measurementRepository,
+                                labRepo: container.labPanelRepository,
+                                symptomRepo: container.symptomRepository,
+                                siteEventRepo: container.injectionSiteEventRepository
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Tab 3: Fast Dose Log Hub Navigation Stack
+    private var logNavigationStack: some View {
+        NavigationStack(path: $coordinator.logPath) {
+            LoggingHubView(
+                viewModel: loggingVM,
+                onOpenDoseConfirmation: { dose in
+                    coordinator.presentSheet(.quickLog(dose))
+                },
+                onOpenSiteRotation: {
+                    coordinator.presentSheet(.siteRotation)
+                },
+                onOpenSymptomLog: {
+                    coordinator.presentSheet(.logSymptoms)
+                },
+                onOpenBiomarkerLog: {
+                    coordinator.presentSheet(.logBiomarker)
+                },
+                onOpenReconstitution: {
+                    coordinator.presentSheet(.reconstitution)
+                }
+            )
+            .navigationDestination(for: LogDestination.self) { destination in
+                switch destination {
+                case .doseConfirmation(let doseId):
+                    DoseConfirmationSheetView(
+                        engine: container.doseLoggingEngine,
+                        availableVials: inventoryVM.vials,
+                        onCompleted: { result in
+                            Task {
+                                await loggingVM.loadLoggingData()
+                                await dashboardVM.loadDashboardData()
+                                coordinator.showToast(
+                                    title: "Dose Logged Successfully",
+                                    message: "\(result.doseEvent.compoundName)"
+                                )
+                            }
+                        }
+                    )
+                case .siteRotation:
+                    SiteRotationView(viewModel: siteRotationVM)
+                case .logSymptoms:
+                    SymptomLogSheetView { log in
+                        Task {
+                            try? await container.symptomRepository.save(log)
+                            coordinator.showToast(title: "Symptoms Logged")
+                        }
+                    }
+                case .logBiomarker:
+                    BiomarkerLogSheetView { b in
+                        Task {
+                            try? await container.biomarkerRepository.save(b)
+                            coordinator.showToast(title: "Biomarker Saved", message: "\(b.name): \(b.value) \(b.unit)")
+                        }
+                    }
+                case .reconstitution:
+                    ReconstitutionCalculatorView(viewModel: reconstitutionVM) { newVial in
+                        Task {
+                            try? await container.vialRepository.save(newVial)
+                            await inventoryVM.loadInventory()
+                            coordinator.showToast(title: "Vial Added", message: "\(newVial.compoundName)")
+                        }
+                    }
+                case .doseHistory:
+                    LoggingHubView(viewModel: loggingVM)
+                }
+            }
+        }
+    }
+
+    // MARK: - Tab 4: Labs Navigation Stack
+    private var labsNavigationStack: some View {
+        NavigationStack(path: $coordinator.labsPath) {
+            BloodworkHubView(viewModel: bloodworkVM)
+                .navigationDestination(for: LabsDestination.self) { destination in
+                    switch destination {
+                    case .timeline:
+                        LaboratoryTimelineView()
+                    case .manualEntry:
+                        ManualLabEntryView { newPanel in
+                            Task {
+                                await bloodworkVM.saveConfirmedPanel(newPanel)
+                                coordinator.showToast(title: "Lab Record Saved", message: "\(newPanel.panelName)")
+                            }
+                        }
+                    case .uploadDocument:
+                        LabDocumentUploadView { candidate in
+                            coordinator.presentSheet(.confirmLabReportCandidate(candidate))
+                        }
+                    case .panelDetail(let id):
+                        if let panel = bloodworkVM.panels.first(where: { $0.id == id }) {
+                            LabPanelDetailView(panel: panel) {
+                                Task {
+                                    await bloodworkVM.deletePanel(id: panel.id)
+                                    coordinator.showToast(title: "Lab Record Deleted")
+                                }
+                            }
+                        }
+                    case .biomarkerSelector:
+                        BiomarkerSelectorView { selected in
+                            coordinator.showToast(title: "Biomarker Selected", message: selected.name)
+                        }
+                    case .clinicianReport:
+                        ClinicianReportView()
+                    }
+                }
+        }
+    }
+
+    // MARK: - Tab 5: Inventory Navigation Stack
+    private var inventoryNavigationStack: some View {
+        NavigationStack(path: $coordinator.inventoryPath) {
+            InventoryView(
+                viewModel: inventoryVM,
+                onAddVial: { coordinator.presentSheet(.addVial) }
+            )
+            .navigationDestination(for: InventoryDestination.self) { destination in
+                switch destination {
+                case .addVial:
+                    AddVialSheetView { newVial in
+                        Task {
+                            try? await container.vialRepository.save(newVial)
+                            await inventoryVM.loadInventory()
+                            coordinator.showToast(title: "Vial Added", message: "\(newVial.compoundName)")
+                        }
+                    }
+                case .reconstitution:
+                    ReconstitutionCalculatorView(viewModel: reconstitutionVM) { newVial in
+                        Task {
+                            try? await container.vialRepository.save(newVial)
+                            await inventoryVM.loadInventory()
+                            coordinator.showToast(title: "Vial Added", message: "\(newVial.compoundName)")
+                        }
+                    }
+                case .vialDetail(let id):
+                    if let vial = inventoryVM.vials.first(where: { $0.id == id }) {
+                        VialLedgerDetailView(
+                            vial: vial,
+                            repository: container.vialRepository,
+                            inventoryEventRepo: container.inventoryEventRepository
+                        )
+                    }
+                case .vialReconciliation(let id):
+                    if let vial = inventoryVM.vials.first(where: { $0.id == id }) {
+                        VialReconciliationSheetView(vial: vial, engine: container.doseLoggingEngine) { updated in
+                            Task {
+                                await inventoryVM.loadInventory()
+                                coordinator.showToast(title: "Reconciled", message: "\(updated.compoundName)")
+                            }
+                        }
+                    }
+                case .vialDisposal(let id):
+                    if let vial = inventoryVM.vials.first(where: { $0.id == id }) {
+                        VialDisposalSheetView(vial: vial, engine: container.doseLoggingEngine) {
+                            Task {
+                                await inventoryVM.loadInventory()
+                                coordinator.showToast(title: "Disposed", message: "\(vial.compoundName)")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Sheet Router (High-Velocity Modal Flows)
     @ViewBuilder
     private func sheetDestination(_ sheet: ActiveSheet) -> some View {
         switch sheet {
@@ -248,6 +511,7 @@ public struct RootNavigationView: View {
                 onCompleted: { result in
                     Task {
                         await dashboardVM.loadDashboardData()
+                        await loggingVM.loadLoggingData()
                         await inventoryVM.loadInventory()
                         let amountStr = result.doseEvent.actualDoseAmount.truncatingRemainder(dividingBy: 1) == 0 ?
                             String(format: "%.0f", result.doseEvent.actualDoseAmount) :
@@ -278,6 +542,7 @@ public struct RootNavigationView: View {
                     try? await container.protocolRepository.save(newProtocol)
                     await protocolsVM.loadProtocols()
                     await dashboardVM.loadDashboardData()
+                    await loggingVM.loadLoggingData()
                     coordinator.showToast(title: "Protocol Created", message: newProtocol.name)
                 }
             }
@@ -360,15 +625,12 @@ public struct RootNavigationView: View {
             ClinicianReportView()
 
         case .bloodworkHub:
-            BloodworkHubView(viewModel: BloodworkViewModel(
-                labPanelRepo: container.labPanelRepository,
-                biomarkerRepo: container.biomarkerRepository
-            ))
+            BloodworkHubView(viewModel: bloodworkVM)
 
         case .manualBloodworkEntry:
             ManualLabEntryView { newPanel in
                 Task {
-                    try? await container.labPanelRepository.save(newPanel)
+                    await bloodworkVM.saveConfirmedPanel(newPanel)
                     coordinator.showToast(title: "Lab Record Saved", message: "\(newPanel.panelName) (\(newPanel.results.count) analytes)")
                 }
             }
@@ -381,7 +643,7 @@ public struct RootNavigationView: View {
         case .confirmLabReportCandidate(let candidate):
             LabCandidateConfirmationView(candidateReport: candidate) { confirmedPanel in
                 Task {
-                    try? await container.labPanelRepository.save(confirmedPanel)
+                    await bloodworkVM.saveConfirmedPanel(confirmedPanel)
                     coordinator.showToast(title: "Lab Record Verified & Saved", message: "\(confirmedPanel.panelName) (\(confirmedPanel.results.count) analytes)")
                 }
             }
@@ -389,7 +651,7 @@ public struct RootNavigationView: View {
         case .labPanelDetail(let panel):
             LabPanelDetailView(panel: panel) {
                 Task {
-                    try? await container.labPanelRepository.delete(byId: panel.id)
+                    await bloodworkVM.deletePanel(id: panel.id)
                     coordinator.showToast(title: "Lab Record Deleted")
                 }
             }
@@ -399,6 +661,16 @@ public struct RootNavigationView: View {
                 viewModel: TimelineViewModel(timelineService: container.timelineService),
                 showCloseButton: true
             )
+
+        case .settings:
+            SettingsView(
+                onOpenClinicianReport: { coordinator.presentSheet(.clinicianReport) },
+                onLockApp: { coordinator.securityManager.lockApp() },
+                onSignOut: { coordinator.signOut() }
+            )
+
+        case .analytics:
+            AnalyticsView(viewModel: analyticsVM)
         }
     }
 }
