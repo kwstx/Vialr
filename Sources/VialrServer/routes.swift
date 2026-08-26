@@ -56,4 +56,7 @@ public func routes(_ app: Application) throws {
 
     // 14. Delta Synchronization & Outbox Conflict Engine
     try apiV1.register(collection: SyncController())
+
+    // 15. Server-Side Calculations & Verification Engine
+    try apiV1.register(collection: CalculationController())
 }

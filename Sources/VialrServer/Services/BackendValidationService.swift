@@ -1,6 +1,7 @@
 import Vapor
 import Fluent
 import Domain
+import CalculationEngine
 
 /// Domain validation service enforcing Zero-Trust rules on all client inputs before persistence.
 /// Ensures relational integrity, physical reality constraints, mathematical validity,
@@ -110,25 +111,27 @@ public enum BackendValidationService {
 
     // MARK: - 2. Structural & Mathematical Sanity
 
-    /// Validates that reconstitution parameters are physically sound.
+    /// Validates that reconstitution parameters are physically sound using the shared CalculationEngine.
     public static func validateReconstitutionParams(
         dryMassMg: Double,
         diluentVolumeMl: Double
     ) throws -> (concentrationMgMl: Double, concentrationMcgMl: Double) {
-        guard dryMassMg > 0 else {
-            throw Abort(.badRequest, reason: "Vial dry mass must be greater than 0 mg (received: \(dryMassMg)).")
+        let calculator = ReconstitutionCalculator()
+        let input = ReconstitutionInput(
+            dryMass: MassQuantity(dryMassMg, .mg),
+            diluentVolume: VolumeQuantity(diluentVolumeMl, .ml),
+            targetDose: DoseQuantity.mass(MassQuantity(100, .mcg))
+        )
+        
+        do {
+            try calculator.validate(input)
+            let result = try calculator.calculate(input)
+            return (result.concentrationMgMl, result.concentrationMcgMl)
+        } catch let err as ReconstitutionCalculationError {
+            throw Abort(.badRequest, reason: err.localizedDescription)
+        } catch {
+            throw Abort(.badRequest, reason: error.localizedDescription)
         }
-        guard diluentVolumeMl > 0 else {
-            throw Abort(.badRequest, reason: "Diluent volume added must be greater than 0 mL (received: \(diluentVolumeMl)).")
-        }
-        guard diluentVolumeMl <= 100.0 else {
-            throw Abort(.badRequest, reason: "Diluent volume (\(diluentVolumeMl) mL) exceeds standard physiological vial capacity (100 mL).")
-        }
-
-        let concMgMl = dryMassMg / diluentVolumeMl
-        let concMcgMl = concMgMl * 1000.0
-
-        return (concMgMl, concMcgMl)
     }
 
     /// Validates physiological sanity for body measurements.
