@@ -366,10 +366,10 @@ public struct DoseConfirmationSheetView: View {
                     if let drawMl = vial.drawVolumeMl(for: request.actualDoseAmount, unit: request.doseUnit),
                        let units = vial.u100SyringeUnits(for: request.actualDoseAmount, unit: request.doseUnit) {
                         VStack(alignment: .trailing, spacing: 1) {
-                            Text("\(String(format: "%.1f", units)) IU")
+                            Text("\(String(format: "%.1f", units)) Units")
                                 .font(VialrTypography.metricSmall)
                                 .foregroundColor(VialrColors.accentVitality)
-                            Text("(\(String(format: "%.2f", drawMl)) mL)")
+                            Text("(\(String(format: "%.3f", drawMl)) mL)")
                                 .font(VialrTypography.caption)
                                 .foregroundColor(VialrColors.textTertiary)
                         }
@@ -378,6 +378,18 @@ public struct DoseConfirmationSheetView: View {
                 .padding(VialrSpacing.sm)
                 .background(VialrColors.cardSurfaceElevated)
                 .cornerRadius(VialrSpacing.radiusSm)
+
+                if let drawMl = vial.drawVolumeMl(for: request.actualDoseAmount, unit: request.doseUnit),
+                   let units = vial.u100SyringeUnits(for: request.actualDoseAmount, unit: request.doseUnit) {
+                    InteractiveSyringeView(
+                        units: units,
+                        syringeSize: units <= 30 ? .point3ml : (units <= 50 ? .point5ml : .oneMl),
+                        doseDescription: "\(String(format: "%.0f", request.actualDoseAmount)) \(request.doseUnit.rawValue)",
+                        volumeMl: drawMl,
+                        compoundName: vial.compoundName,
+                        presentationStyle: .compact
+                    )
+                }
             } else {
                 HStack {
                     Image(systemName: "info.circle")

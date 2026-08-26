@@ -344,8 +344,23 @@ public struct DesignSystemCatalogView: View {
 
             InteractiveSyringeView(
                 units: 12.5,
+                syringeSize: .point5ml,
+                doseDescription: "250 mcg (0.25 mg)",
+                volumeMl: 0.125,
+                concentrationMgMl: 2.0,
+                compoundName: "BPC-157",
+                presentationStyle: .full,
+                showUnderlyingNumbers: true,
+                showTargetCallout: true,
+                showScaleNumbers: true
+            )
+
+            InteractiveSyringeView(
+                units: 25.0,
                 syringeSize: .oneMl,
-                doseDescription: "250 mcg BPC-157 (2mg/mL)"
+                doseDescription: "500 mcg Tirzepatide",
+                volumeMl: 0.25,
+                presentationStyle: .compact
             )
 
             VialGraphicView(

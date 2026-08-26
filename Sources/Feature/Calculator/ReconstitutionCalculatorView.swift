@@ -67,7 +67,14 @@ public struct ReconstitutionCalculatorView: View {
                 InteractiveSyringeView(
                     units: result.selectedSyringeUnits,
                     syringeSize: viewModel.selectedSyringeSize,
-                    doseDescription: "\(String(format: "%.0f", result.normalizedDoseMcg)) mcg (\(String(format: "%.3g", result.normalizedDoseMg)) mg)"
+                    doseDescription: "\(String(format: "%.0f", result.normalizedDoseMcg)) mcg (\(String(format: "%.3g", result.normalizedDoseMg)) mg)",
+                    volumeMl: result.drawVolumeMl,
+                    concentrationMgMl: result.concentrationMgMl,
+                    compoundName: viewModel.selectedCompoundName,
+                    presentationStyle: .full,
+                    showUnderlyingNumbers: true,
+                    showTargetCallout: true,
+                    showScaleNumbers: true
                 )
             }
 
@@ -434,6 +441,20 @@ public struct ReconstitutionCalculatorView: View {
             .vialrCard()
 
             if let res = viewModel.diluentSolverResult {
+                InteractiveSyringeView(
+                    units: res.syringeUnits,
+                    syringeSize: viewModel.selectedSyringeSize,
+                    doseDescription: "\(String(format: "%.0f", res.targetDoseMcg)) mcg (\(String(format: "%.3g", res.targetDoseMg)) mg)",
+                    volumeMl: res.drawVolumeMl,
+                    concentrationMgMl: res.resultingConcentrationMgMl,
+                    compoundName: viewModel.selectedCompoundName,
+                    presentationStyle: .full,
+                    showUnderlyingNumbers: true,
+                    showTargetCallout: true,
+                    showScaleNumbers: true,
+                    titleOverride: "CALCULATED DRAW MARKING"
+                )
+
                 VStack(alignment: .leading, spacing: VialrSpacing.sm) {
                     Text("SOLVER RECOMMENDATION")
                         .font(VialrTypography.captionBold)
@@ -491,6 +512,20 @@ public struct ReconstitutionCalculatorView: View {
             .vialrCard()
 
             if let res = viewModel.reverseDoseResult {
+                InteractiveSyringeView(
+                    units: viewModel.drawnSyringeUnits,
+                    syringeSize: viewModel.selectedSyringeSize,
+                    doseDescription: "\(String(format: "%.0f", res.administeredDoseMcg)) mcg (\(String(format: "%.3g", res.administeredDoseMg)) mg)",
+                    volumeMl: res.drawnVolumeMl,
+                    concentrationMgMl: viewModel.currentConcentrationMgMl,
+                    compoundName: viewModel.selectedCompoundName,
+                    presentationStyle: .full,
+                    showUnderlyingNumbers: true,
+                    showTargetCallout: true,
+                    showScaleNumbers: true,
+                    titleOverride: "ADMINISTERED SYRINGE DRAW"
+                )
+
                 VStack(alignment: .leading, spacing: VialrSpacing.sm) {
                     Text("ADMINISTERED DOSE RESULT")
                         .font(VialrTypography.captionBold)
