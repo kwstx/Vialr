@@ -2,6 +2,7 @@ import SwiftUI
 import Observation
 import Domain
 import Data
+import CalculationEngine
 
 @Observable
 public final class ProtocolsViewModel: @unchecked Sendable {
@@ -11,9 +12,14 @@ public final class ProtocolsViewModel: @unchecked Sendable {
     public var selectedProtocolForDetail: ProtocolModel?
 
     private let protocolRepo: ProtocolRepositoryProtocol
+    private let notificationScheduler: NotificationSchedulerProtocol
 
-    public init(protocolRepo: ProtocolRepositoryProtocol = LocalProtocolRepository()) {
+    public init(
+        protocolRepo: ProtocolRepositoryProtocol = LocalProtocolRepository(),
+        notificationScheduler: NotificationSchedulerProtocol = NotificationScheduler()
+    ) {
         self.protocolRepo = protocolRepo
+        self.notificationScheduler = notificationScheduler
     }
 
     public func loadProtocols() async {
@@ -42,14 +48,32 @@ public final class ProtocolsViewModel: @unchecked Sendable {
     public func saveProtocol(_ model: ProtocolModel) async {
         do {
             try await protocolRepo.save(model)
+            if model.status == .active {
+                _ = try? await notificationScheduler.rescheduleReminders(
+                    for: model,
+                    referenceDate: Date(),
+                    horizonDays: 30,
+                    timeZone: .current
+                )
+            } else {
+                try? await notificationScheduler.cancelReminders(forProtocol: model.id)
+            }
             await loadProtocols()
         } catch {
             print("Failed to save protocol: \(error)")
         }
     }
 
+    public func toggleProtocolStatus(_ model: ProtocolModel) async {
+        var updated = model
+        updated.status = (model.status == .active) ? .paused : .active
+        updated.updatedAt = Date()
+        await saveProtocol(updated)
+    }
+
     public func deleteProtocol(id: UUID) async {
         do {
+            try await notificationScheduler.cancelReminders(forProtocol: id)
             try await protocolRepo.delete(byId: id)
             await loadProtocols()
         } catch {
@@ -57,6 +81,7 @@ public final class ProtocolsViewModel: @unchecked Sendable {
         }
     }
 }
+
 
 public enum ProtocolFilter: String, CaseIterable, Identifiable, CustomStringConvertible {
     case active = "Active"

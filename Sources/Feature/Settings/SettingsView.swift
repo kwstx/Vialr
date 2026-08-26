@@ -259,19 +259,74 @@ public struct SettingsView: View {
                                 .buttonStyle(.plain)
                                 .padding(.top, 2)
 
-                                if showPurgeSuccess {
-                                    Text("Imported Apple Health measurements removed from local store.")
-                                        .font(VialrTypography.caption)
-                                        .foregroundColor(VialrColors.accentTeal)
-                                }
                             }
-
-                            Toggle("Dose Reminders & Restock Alerts", isOn: $enableReminders)
-                                .tint(VialrColors.accentTeal)
-                                .foregroundColor(VialrColors.textPrimary)
                         }
                         .padding(VialrSpacing.md)
                         .vialrCard()
+
+                        // MARK: - Smart Notifications & Dose Reminders
+                        VStack(alignment: .leading, spacing: VialrSpacing.md) {
+                            HStack {
+                                Text("NOTIFICATIONS & REMINDERS")
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.accentTeal)
+                                Spacer()
+                                Image(systemName: "bell.badge.fill")
+                                    .foregroundColor(VialrColors.accentTeal)
+                            }
+
+                            Toggle("Dose Reminders & Scheduled Alerts", isOn: $enableReminders)
+                                .tint(VialrColors.accentTeal)
+                                .foregroundColor(VialrColors.textPrimary)
+
+                            if enableReminders {
+                                Divider().background(VialrColors.borderSubtle)
+
+                                HStack {
+                                    Text("Reminder Lead Time")
+                                        .font(VialrTypography.footnote)
+                                        .foregroundColor(VialrColors.textPrimary)
+                                    Spacer()
+                                    Text("15 minutes before")
+                                        .font(VialrTypography.captionBold)
+                                        .foregroundColor(VialrColors.accentTeal)
+                                }
+
+                                HStack {
+                                    Text("Timezone & DST Auto-Sync")
+                                        .font(VialrTypography.footnote)
+                                        .foregroundColor(VialrColors.textPrimary)
+                                    Spacer()
+                                    Text(TimeZone.current.abbreviation() ?? "Local")
+                                        .font(VialrTypography.caption)
+                                        .foregroundColor(VialrColors.textSecondary)
+                                }
+
+                                Button {
+                                    Task {
+                                        let manager = NotificationClientManager.shared
+                                        _ = await manager.requestNotificationPermission()
+                                        await manager.synchronizeTimezoneChange()
+                                    }
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "arrow.clockwise")
+                                            .foregroundColor(VialrColors.accentTeal)
+                                        Text("Sync & Refresh Scheduled Reminders")
+                                            .font(VialrTypography.footnote)
+                                            .foregroundColor(VialrColors.textPrimary)
+                                        Spacer()
+                                    }
+                                    .padding(VialrSpacing.sm)
+                                    .background(VialrColors.cardSurfaceElevated)
+                                    .cornerRadius(VialrSpacing.radiusSm)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(VialrSpacing.md)
+                        .vialrCard()
+
 
                         // Preferences
                         VStack(alignment: .leading, spacing: VialrSpacing.md) {

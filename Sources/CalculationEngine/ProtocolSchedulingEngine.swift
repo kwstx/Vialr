@@ -11,6 +11,13 @@ public struct ProtocolSchedulingEngine: Sendable {
         self.calendar = calendar
     }
 
+    public init(timeZone: TimeZone) {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = timeZone
+        self.calendar = cal
+    }
+
+
     // MARK: - Occurrence Generation Across Date Range
     /// Generates expected dose occurrences for a single protocol over a given date range.
     public func generateOccurrences(

@@ -120,9 +120,28 @@ public struct RootNavigationView: View {
         .sheet(item: $coordinator.activeSheet) { sheet in
             sheetDestination(sheet)
         }
+        .task {
+            let notifManager = NotificationClientManager.shared
+            await notifManager.initialize()
+            notifManager.onDoseLogRequested = { payload in
+                coordinator.presentSheet(.quickLog(nil))
+            }
+            notifManager.onDeepLinkTriggered = { url in
+                if url.host == "inventory" {
+                    coordinator.selectedTab = .inventory
+                } else if url.host == "protocols" {
+                    coordinator.selectedTab = .protocols
+                } else if url.host == "bloodwork" {
+                    coordinator.presentSheet(.bloodworkHub)
+                } else {
+                    coordinator.presentSheet(.quickLog(nil))
+                }
+            }
+        }
         .onChange(of: scenePhase) { _, newPhase in
             coordinator.securityManager.handleScenePhaseChange(to: newPhase)
         }
+
     }
 
     // MARK: - Main Tab Content

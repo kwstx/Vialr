@@ -65,12 +65,13 @@ let package = Package(
         // MARK: - Data Layer (Persistence, Networking, Remote Sync)
         .target(
             name: "Data",
-            dependencies: ["Domain"],
+            dependencies: ["Domain", "CalculationEngine"],
             path: "Sources/Data",
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
+
 
         // MARK: - HealthKit Integration
         .target(

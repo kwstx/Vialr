@@ -230,9 +230,52 @@ public protocol NotificationSchedulerProtocol: Sendable {
         leadTimeMinutes: Int
     ) async throws -> ScheduledReminderInfo?
 
+    /// Schedules all upcoming dose reminders for an active protocol across a time horizon.
+    func scheduleReminders(
+        for protocolModel: ProtocolModel,
+        referenceDate: Date,
+        horizonDays: Int,
+        timeZone: TimeZone
+    ) async throws -> [ScheduledReminderInfo]
+
+    /// Cancels obsolete notifications for a protocol and schedules new ones from the updated protocol definition.
+    func rescheduleReminders(
+        for protocolModel: ProtocolModel,
+        referenceDate: Date,
+        horizonDays: Int,
+        timeZone: TimeZone
+    ) async throws -> [ScheduledReminderInfo]
+
     /// Cancels a previously scheduled reminder by its identifier.
     func cancelReminder(identifier: String) async throws
 
     /// Cancels all pending dose reminders for a protocol.
     func cancelReminders(forProtocol protocolId: UUID) async throws
+
+    /// Reschedules all reminders across multiple protocols (e.g., app launch or global sync).
+    func rescheduleAll(
+        protocols: [ProtocolModel],
+        referenceDate: Date,
+        horizonDays: Int,
+        timeZone: TimeZone
+    ) async throws -> [ScheduledReminderInfo]
+
+    /// Handles daylight-saving time shifts or user timezone changes by recalculating all calendar triggers.
+    func handleTimezoneOrDSTChange(
+        protocols: [ProtocolModel],
+        timeZone: TimeZone
+    ) async throws -> [ScheduledReminderInfo]
+
+    /// Returns the currently pending scheduled reminders.
+    func getPendingReminders() async -> [ScheduledReminderInfo]
+
+    /// Registers the custom notification action categories with UserNotifications framework.
+    func registerNotificationCategories() async throws
+
+    /// Requests user authorization for local notifications.
+    func requestAuthorization(options: NotificationAuthorizationOptions) async throws -> Bool
+
+    /// Checks the current notification authorization status.
+    func getAuthorizationStatus() async -> NotificationAuthorizationStatus
 }
+

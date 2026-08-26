@@ -106,6 +106,7 @@ public final class ProtocolCreationViewModel: @unchecked Sendable {
     private let vialRepo: VialRepositoryProtocol
     private let protocolRepo: ProtocolRepositoryProtocol
     private let schedulingEngine: ProtocolSchedulingEngine
+    private let notificationScheduler: NotificationSchedulerProtocol
 
     // Step 1: Compound
     public var availableCompounds: [Compound] = []
@@ -174,13 +175,16 @@ public final class ProtocolCreationViewModel: @unchecked Sendable {
         compoundRepo: CompoundRepositoryProtocol = LocalCompoundRepository(),
         vialRepo: VialRepositoryProtocol = LocalVialRepository(),
         protocolRepo: ProtocolRepositoryProtocol = LocalProtocolRepository(),
-        schedulingEngine: ProtocolSchedulingEngine = ProtocolSchedulingEngine()
+        schedulingEngine: ProtocolSchedulingEngine = ProtocolSchedulingEngine(),
+        notificationScheduler: NotificationSchedulerProtocol = NotificationScheduler()
     ) {
         self.compoundRepo = compoundRepo
         self.vialRepo = vialRepo
         self.protocolRepo = protocolRepo
         self.schedulingEngine = schedulingEngine
+        self.notificationScheduler = notificationScheduler
     }
+
 
     // MARK: - Data Loading
     public func loadData() async {
@@ -477,6 +481,17 @@ public final class ProtocolCreationViewModel: @unchecked Sendable {
 
         let newProtocol = buildFinalProtocol()
         try await protocolRepo.save(newProtocol)
+
+        if newProtocol.status == .active {
+            _ = try? await notificationScheduler.rescheduleReminders(
+                for: newProtocol,
+                referenceDate: Date(),
+                horizonDays: 30,
+                timeZone: .current
+            )
+        }
+
         return newProtocol
     }
 }
+

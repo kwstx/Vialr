@@ -1,8 +1,13 @@
 import Vapor
 import Fluent
+import Domain
 
 public struct NotificationsController: RouteCollection {
-    public init() {}
+    private let pushService: APNsPushServiceProtocol
+
+    public init(pushService: APNsPushServiceProtocol = APNsPushService.shared) {
+        self.pushService = pushService
+    }
 
     public func boot(routes: RoutesBuilder) throws {
         let notifGroup = routes.grouped("notifications")
@@ -12,14 +17,31 @@ public struct NotificationsController: RouteCollection {
         notifGroup.post("devices", use: registerDeviceToken)
         notifGroup.post("test", use: sendTestNotification)
         notifGroup.patch(":notificationId", "read", use: markAsRead)
+        notifGroup.post("read-all", use: markAllAsRead)
         notifGroup.delete(":notificationId", use: deleteNotification)
+
+        // Server-Side Event Trigger Endpoints
+        let eventsGroup = notifGroup.grouped("events")
+        eventsGroup.post("restock", use: triggerRestockAlert)
+        eventsGroup.post("lab-ready", use: triggerLabReadyAlert)
+        eventsGroup.post("conflict", use: triggerConflictAlert)
     }
 
+    // MARK: - List User Notifications Inbox
     public func listNotifications(req: Request) async throws -> [NotificationRecordDTO] {
         let payload = try req.auth.require(UserPayload.self)
-        let notifications = try await NotificationRecordEntity.query(on: req.db)
+        let unreadOnly = req.query[Bool.self, at: "unreadOnly"] ?? false
+
+        var query = NotificationRecordEntity.query(on: req.db)
             .filter(\.$user.$id == payload.userId)
+
+        if unreadOnly {
+            query = query.filter(\.$isRead == false)
+        }
+
+        let notifications = try await query
             .sort(\.$scheduledDate, .descending)
+            .limit(100)
             .all()
 
         return notifications.map { n in
@@ -36,6 +58,7 @@ public struct NotificationsController: RouteCollection {
         }
     }
 
+    // MARK: - Device Token Registration
     public func registerDeviceToken(req: Request) async throws -> HTTPStatus {
         let payload = try req.auth.require(UserPayload.self)
         let dto = try req.content.decode(DeviceTokenRegistrationDTO.self)
@@ -65,25 +88,24 @@ public struct NotificationsController: RouteCollection {
         return .ok
     }
 
+    // MARK: - Send Test Push Notification
     public func sendTestNotification(req: Request) async throws -> NotificationRecordDTO {
         let payload = try req.auth.require(UserPayload.self)
         let dto = try req.content.decode(TestNotificationRequestDTO.self)
 
-        let recordId = UUID()
-        let notif = NotificationRecordEntity(
-            id: recordId,
-            userId: payload.userId,
+        let notif = try await pushService.sendPushNotification(
+            toUser: payload.userId,
             title: dto.title,
             body: dto.body,
-            category: dto.category ?? "reminder",
-            scheduledDate: Date(),
-            isRead: false,
-            deepLinkUri: "vialr://notifications/\(recordId.uuidString)"
+            category: dto.category ?? NotificationCategoryIdentifier.systemAlert.rawIdentifier,
+            eventType: .systemBroadcast,
+            deepLinkUri: "vialr://notifications",
+            customData: ["source": "test_endpoint"],
+            on: req.db
         )
-        try await notif.save(on: req.db)
 
         return NotificationRecordDTO(
-            id: recordId,
+            id: notif.id ?? UUID(),
             title: notif.title,
             body: notif.body,
             category: notif.category,
@@ -94,6 +116,97 @@ public struct NotificationsController: RouteCollection {
         )
     }
 
+    // MARK: - Trigger Server-Aware Restock Alert
+    public func triggerRestockAlert(req: Request) async throws -> NotificationRecordDTO {
+        let payload = try req.auth.require(UserPayload.self)
+        struct RestockTriggerDTO: Content {
+            let compoundName: String
+            let vialName: String
+            let dosesRemaining: Int
+            let daysRemaining: Int?
+        }
+        let dto = try req.content.decode(RestockTriggerDTO.self)
+
+        let notif = try await pushService.sendLowInventoryAlert(
+            userId: payload.userId,
+            compoundName: dto.compoundName,
+            vialName: dto.vialName,
+            dosesRemaining: dto.dosesRemaining,
+            daysRemaining: dto.daysRemaining,
+            on: req.db
+        )
+
+        return NotificationRecordDTO(
+            id: notif.id ?? UUID(),
+            title: notif.title,
+            body: notif.body,
+            category: notif.category,
+            scheduledDate: notif.scheduledDate,
+            isRead: notif.isRead,
+            deepLinkUri: notif.deepLinkUri,
+            createdAt: notif.createdAt
+        )
+    }
+
+    // MARK: - Trigger Server-Aware Lab Ready Alert
+    public func triggerLabReadyAlert(req: Request) async throws -> NotificationRecordDTO {
+        let payload = try req.auth.require(UserPayload.self)
+        struct LabReadyTriggerDTO: Content {
+            let labPanelId: UUID
+            let panelName: String
+            let biomarkerCount: Int
+        }
+        let dto = try req.content.decode(LabReadyTriggerDTO.self)
+
+        let notif = try await pushService.sendLabReportReadyAlert(
+            userId: payload.userId,
+            labPanelId: dto.labPanelId,
+            panelName: dto.panelName,
+            biomarkerCount: dto.biomarkerCount,
+            on: req.db
+        )
+
+        return NotificationRecordDTO(
+            id: notif.id ?? UUID(),
+            title: notif.title,
+            body: notif.body,
+            category: notif.category,
+            scheduledDate: notif.scheduledDate,
+            isRead: notif.isRead,
+            deepLinkUri: notif.deepLinkUri,
+            createdAt: notif.createdAt
+        )
+    }
+
+    // MARK: - Trigger Server-Aware Conflict Alert
+    public func triggerConflictAlert(req: Request) async throws -> NotificationRecordDTO {
+        let payload = try req.auth.require(UserPayload.self)
+        struct ConflictTriggerDTO: Content {
+            let message: String
+            let conflictingProtocolIds: [UUID]
+        }
+        let dto = try req.content.decode(ConflictTriggerDTO.self)
+
+        let notif = try await pushService.sendProtocolConflictAlert(
+            userId: payload.userId,
+            message: dto.message,
+            conflictingProtocolIds: dto.conflictingProtocolIds,
+            on: req.db
+        )
+
+        return NotificationRecordDTO(
+            id: notif.id ?? UUID(),
+            title: notif.title,
+            body: notif.body,
+            category: notif.category,
+            scheduledDate: notif.scheduledDate,
+            isRead: notif.isRead,
+            deepLinkUri: notif.deepLinkUri,
+            createdAt: notif.createdAt
+        )
+    }
+
+    // MARK: - Mark Notification Read
     public func markAsRead(req: Request) async throws -> HTTPStatus {
         let payload = try req.auth.require(UserPayload.self)
         guard let notifId = req.parameters.get("notificationId", as: UUID.self),
@@ -109,6 +222,22 @@ public struct NotificationsController: RouteCollection {
         return .ok
     }
 
+    // MARK: - Mark All Read
+    public func markAllAsRead(req: Request) async throws -> HTTPStatus {
+        let payload = try req.auth.require(UserPayload.self)
+        let unread = try await NotificationRecordEntity.query(on: req.db)
+            .filter(\.$user.$id == payload.userId)
+            .filter(\.$isRead == false)
+            .all()
+
+        for notif in unread {
+            notif.isRead = true
+            try await notif.save(on: req.db)
+        }
+        return .ok
+    }
+
+    // MARK: - Delete Notification
     public func deleteNotification(req: Request) async throws -> HTTPStatus {
         let payload = try req.auth.require(UserPayload.self)
         guard let notifId = req.parameters.get("notificationId", as: UUID.self),
