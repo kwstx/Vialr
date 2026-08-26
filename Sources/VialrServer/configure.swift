@@ -97,12 +97,18 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateMeasurementsMigration())
     app.migrations.add(CreateNotificationsAndTokensMigration())
     app.migrations.add(CreateRefreshTokenAndAppleAuthMigration())
+    app.migrations.add(CreateBackgroundJobsMigration())
+
+    // 7. Configure & Start Background Processing Queue Service
+    let jobQueue = BackgroundJobQueueService(app: app)
+    app.backgroundJobQueue = jobQueue
+    await jobQueue.start()
 
     // Auto-migrate if flag is passed
     if app.environment != .testing {
         try await app.autoMigrate()
     }
 
-    // 7. Register Routes
+    // 8. Register Routes
     try routes(app)
 }

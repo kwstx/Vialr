@@ -12,12 +12,24 @@ public struct StoredFilesController: RouteCollection {
         let filesGroup = routes.grouped("files")
             .grouped(UserAuthenticator(), UserPayload.guardMiddleware())
 
+        // 1. Direct Object Storage Authorization & Lifecycle (Scalable Architecture)
+        filesGroup.post("upload-authorization", use: requestUploadAuthorization)
+        filesGroup.post("confirm-upload", use: confirmUpload)
+        filesGroup.post(":fileId", "process", use: processDocumentFile)
+
+        // 2. Standard Multipart Fallback & Metadata Queries
         filesGroup.post("upload", use: uploadFile)
         filesGroup.get(use: listFiles)
         filesGroup.get(":fileId", use: getFileMetadata)
         filesGroup.get(":fileId", "download", use: downloadFile)
         filesGroup.patch(":fileId", "relate", use: relateFile)
         filesGroup.delete(":fileId", use: deleteFile)
+
+        // 3. Direct Storage Streaming Endpoint (for dev/local filesystem storage backend)
+        routes.grouped("files", "direct")
+            .on(.PUT, ":bucket", "**", body: .collect(max: "55mb"), use: handleDirectStorageUpload)
+        routes.grouped("files", "direct")
+            .on(.POST, ":bucket", "**", body: .collect(max: "55mb"), use: handleDirectStorageUpload)
     }
 
     // MARK: - Multipart Form Input Struct
@@ -287,6 +299,228 @@ public struct StoredFilesController: RouteCollection {
         try await entity.delete(on: req.db)
 
         return .noContent
+    }
+
+    // MARK: - 7. Direct Object Storage Upload Authorization (Scalable Architecture)
+
+    public func requestUploadAuthorization(req: Request) async throws -> UploadAuthorizationResponseDTO {
+        let payload = try req.auth.require(UserPayload.self)
+        let input = try req.content.decode(UploadAuthorizationRequestDTO.self)
+
+        guard let category = StoredFileCategory(rawValue: input.category) else {
+            throw Abort(.badRequest, reason: "Invalid category. Allowed: \(StoredFileCategory.allCases.map { $0.rawValue }.joined(separator: ", "))")
+        }
+
+        // Validate related entity ownership if specified
+        if let vialId = input.vialId {
+            let vial = try await VialEntity.query(on: req.db)
+                .filter(\.$id == vialId)
+                .filter(\.$user.$id == payload.userId)
+                .first()
+            guard vial != nil else {
+                throw Abort(.badRequest, reason: "Referenced vial not found or unauthorized.")
+            }
+        }
+        if let biomarkerId = input.biomarkerId {
+            let marker = try await BiomarkerEntity.query(on: req.db)
+                .filter(\.$id == biomarkerId)
+                .filter(\.$user.$id == payload.userId)
+                .first()
+            guard marker != nil else {
+                throw Abort(.badRequest, reason: "Referenced biomarker not found or unauthorized.")
+            }
+        }
+        if let doseLogId = input.doseLogId {
+            let dose = try await DoseLogEntity.query(on: req.db)
+                .filter(\.$id == doseLogId)
+                .filter(\.$user.$id == payload.userId)
+                .first()
+            guard dose != nil else {
+                throw Abort(.badRequest, reason: "Referenced dose log not found or unauthorized.")
+            }
+        }
+
+        // Generate signed upload authorization directly to object storage
+        let fileId = UUID()
+        let authResult = try await req.encryptedStorage.authorizeDirectUpload(
+            userId: payload.userId,
+            category: category,
+            fileId: fileId,
+            fileName: input.fileName,
+            byteSize: input.byteSize,
+            contentType: input.contentType,
+            expiresInSeconds: 900
+        )
+
+        return UploadAuthorizationResponseDTO(
+            fileId: authResult.fileId,
+            storageKey: authResult.storageKey,
+            storageBucket: authResult.bucket,
+            uploadUrl: authResult.uploadUrl.absoluteString,
+            httpMethod: "PUT",
+            headers: authResult.headers,
+            expiresAt: authResult.expiresAt,
+            maxAllowedSizeBytes: category.maxAllowedSizeBytes,
+            encryptionAlgorithm: "AES-256-GCM"
+        )
+    }
+
+    // MARK: - 8. Confirm Direct Upload & Record Object Identifier in PostgreSQL
+
+    public func confirmUpload(req: Request) async throws -> UploadConfirmationResponseDTO {
+        let payload = try req.auth.require(UserPayload.self)
+        let input = try req.content.decode(UploadConfirmationRequestDTO.self)
+
+        guard let category = StoredFileCategory(rawValue: input.category) else {
+            throw Abort(.badRequest, reason: "Invalid category. Allowed: \(StoredFileCategory.allCases.map { $0.rawValue }.joined(separator: ", "))")
+        }
+
+        let targetBucket = input.storageBucket ?? req.encryptedStorage.bucket
+
+        // 1. Verify object exists in Object Storage vault
+        let exists = try await req.encryptedStorage.objectExists(storageKey: input.storageKey, bucket: targetBucket)
+        guard exists else {
+            throw Abort(.badRequest, reason: "Object '\(input.storageKey)' not found in storage bucket '\(targetBucket)'. Verify direct upload succeeded before confirmation.")
+        }
+
+        // 2. Construct encryption metadata
+        let encryptionMeta = StorageEncryptionMetadata(
+            algorithm: "AES-256-GCM",
+            keyId: input.encryptionKeyId ?? "vialr-vault-primary",
+            initializationVector: input.encryptionIV ?? "",
+            authenticationTag: input.encryptionTag ?? "",
+            isEncrypted: true
+        )
+
+        // 3. Build metadata JSON
+        var metaDict = input.metadata ?? [:]
+        metaDict["originalExtension"] = (input.fileName as NSString).pathExtension
+        metaDict["uploadedVia"] = "direct_object_storage"
+        let metaJsonData = try? JSONEncoder().encode(metaDict)
+        let metaJsonString = metaJsonData.flatMap { String(data: $0, encoding: .utf8) }
+
+        // 4. Record object identifier and metadata in PostgreSQL (zero BLOB columns in DB!)
+        let entity = StoredFileEntity(
+            id: input.fileId,
+            userId: payload.userId,
+            category: category,
+            fileName: input.fileName,
+            contentType: input.contentType,
+            byteSize: input.byteSize,
+            sha256Checksum: input.sha256Checksum,
+            storageBucket: targetBucket,
+            storageKey: input.storageKey,
+            encryption: encryptionMeta,
+            vialId: input.vialId,
+            biomarkerId: input.biomarkerId,
+            doseLogId: input.doseLogId,
+            protocolId: input.protocolId,
+            symptomLogId: input.symptomLogId,
+            metadataJson: metaJsonString
+        )
+        try await entity.save(on: req.db)
+
+        // 5. Trigger non-blocking background worker processing if requested or if document is a lab PDF/image
+        var processingJobDTO: DocumentProcessingJobDTO? = nil
+        let shouldProcess = (input.triggerProcessing ?? true) && (category == .labPdf || category == .userDocument || category == .vialPhoto || category == .progressPhoto)
+        if shouldProcess {
+            let jobType: BackgroundJobType = (category == .labPdf || category == .userDocument) ? .pdfProcessing : .imageProcessing
+            let jobPayload = PdfProcessingJobPayload(
+                fileId: input.fileId,
+                fileName: input.fileName,
+                autoCreatePanel: true
+            )
+            let payloadData = try? JSONEncoder().encode(jobPayload)
+            let payloadString = payloadData.flatMap { String(data: $0, encoding: .utf8) }
+
+            let bgJob = try await req.application.backgroundJobQueue.enqueueJob(
+                userId: payload.userId,
+                type: jobType,
+                payloadJson: payloadString
+            )
+
+            processingJobDTO = DocumentProcessingJobDTO(
+                jobId: bgJob.id ?? UUID(),
+                fileId: input.fileId,
+                status: bgJob.status,
+                extractedCandidatesCount: 0,
+                resultSummary: "Background \(jobType.displayName) job queued. Worker will process document asynchronously without blocking.",
+                createdAt: bgJob.createdAt ?? Date()
+            )
+        }
+
+        let dto = makeDTO(from: entity, req: req)
+        return UploadConfirmationResponseDTO(
+            file: dto,
+            processingJob: processingJobDTO,
+            message: "Object identifier registered in database. Background processing job created."
+        )
+    }
+
+    // MARK: - 9. Trigger Backend Worker Document Processing (Non-blocking)
+
+    public func processDocumentFile(req: Request) async throws -> Response {
+        let payload = try req.auth.require(UserPayload.self)
+        guard let fileId = req.parameters.get("fileId", as: UUID.self) else {
+            throw Abort(.badRequest, reason: "Missing fileId parameter.")
+        }
+
+        guard let fileEntity = try await StoredFileEntity.query(on: req.db)
+            .filter(\.$id == fileId)
+            .filter(\.$user.$id == payload.userId)
+            .first() else {
+            throw Abort(.notFound, reason: "Stored file not found.")
+        }
+
+        let jobType: BackgroundJobType = (fileEntity.category == .vialPhoto || fileEntity.category == .progressPhoto) ? .imageProcessing : .pdfProcessing
+        let jobPayload = PdfProcessingJobPayload(
+            fileId: fileId,
+            fileName: fileEntity.fileName,
+            autoCreatePanel: true
+        )
+        let payloadData = try? JSONEncoder().encode(jobPayload)
+        let payloadString = payloadData.flatMap { String(data: $0, encoding: .utf8) }
+
+        let bgJob = try await req.application.backgroundJobQueue.enqueueJob(
+            userId: payload.userId,
+            type: jobType,
+            payloadJson: payloadString
+        )
+
+        let dto = BackgroundJobDTO(from: bgJob)
+        let response = Response(status: .accepted)
+        try response.content.encode(dto)
+        return response
+    }
+
+    // MARK: - 10. Direct Storage Streaming Endpoint (Local / Dev FileSystem Backend)
+
+    public func handleDirectStorageUpload(req: Request) async throws -> Response {
+        guard let bucket = req.parameters.get("bucket") else {
+            throw Abort(.badRequest, reason: "Missing bucket parameter")
+        }
+        let catchall = req.parameters.getCatchall()
+        let key = catchall.joined(separator: "/")
+        guard !key.isEmpty else {
+            throw Abort(.badRequest, reason: "Missing object storage key")
+        }
+
+        guard let bodyBuffer = req.body.data else {
+            throw Abort(.badRequest, reason: "Missing file stream body")
+        }
+
+        let contentType = req.headers.first(name: .contentType) ?? "application/octet-stream"
+        let data = Data(buffer: bodyBuffer)
+
+        // Write directly to Object Storage
+        try await req.encryptedStorage.storageBackend.putObject(
+            key: key,
+            bucket: bucket,
+            data: data,
+            contentType: contentType
+        )
+
+        return Response(status: .ok, body: .init(string: "{\"status\":\"uploaded\",\"key\":\"\(key)\"}"))
     }
 
     // MARK: - Helper

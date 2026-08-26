@@ -103,6 +103,10 @@ public enum Endpoint: Sendable {
     case getFileMetadata(id: UUID)
     case downloadFile(id: UUID)
     case uploadFile
+    case requestUploadAuthorization
+    case confirmUpload
+    case processFile(id: UUID)
+    case directFileUpload(url: String)
     case relateFile(id: UUID)
     case deleteFile(id: UUID)
 
@@ -121,6 +125,18 @@ public enum Endpoint: Sendable {
     case syncPush
     case syncPull(since: Date? = nil)
     case syncOutbox
+
+    // MARK: - 15. Background Processing Jobs
+    case listBackgroundJobs(status: String? = nil, type: String? = nil)
+    case getBackgroundJob(id: UUID)
+    case submitBackgroundJob
+    case cancelBackgroundJob(id: UUID)
+    case retryBackgroundJob(id: UUID)
+    case generateReportAsync
+    case exportDataAsync
+    case calculateAnalyticsAsync
+    case prepareNotificationsAsync
+    case runSyncJobAsync
 
     public var path: String {
         switch self {
@@ -236,6 +252,10 @@ public enum Endpoint: Sendable {
         case .getFileMetadata(let id): return "/api/v1/files/\(id.uuidString)"
         case .downloadFile(let id): return "/api/v1/files/\(id.uuidString)/download"
         case .uploadFile: return "/api/v1/files/upload"
+        case .requestUploadAuthorization: return "/api/v1/files/upload-authorization"
+        case .confirmUpload: return "/api/v1/files/confirm-upload"
+        case .processFile(let id): return "/api/v1/files/\(id.uuidString)/process"
+        case .directFileUpload(let url): return url
         case .relateFile(let id): return "/api/v1/files/\(id.uuidString)/relate"
         case .deleteFile(let id): return "/api/v1/files/\(id.uuidString)"
 
@@ -254,6 +274,24 @@ public enum Endpoint: Sendable {
         case .syncPush: return "/api/v1/sync/push"
         case .syncPull: return "/api/v1/sync/pull"
         case .syncOutbox: return "/api/v1/sync/outbox"
+
+        // Background Jobs
+        case .listBackgroundJobs(let status, let type):
+            var parts: [String] = []
+            if let s = status { parts.append("status=\(s)") }
+            if let t = type { parts.append("jobType=\(t)") }
+            let query = parts.isEmpty ? "" : "?\(parts.joined(separator: "&"))"
+            return "/api/v1/jobs\(query)"
+
+        case .getBackgroundJob(let id): return "/api/v1/jobs/\(id.uuidString)"
+        case .submitBackgroundJob: return "/api/v1/jobs"
+        case .cancelBackgroundJob(let id): return "/api/v1/jobs/\(id.uuidString)/cancel"
+        case .retryBackgroundJob(let id): return "/api/v1/jobs/\(id.uuidString)/retry"
+        case .generateReportAsync: return "/api/v1/jobs/reports/generate-async"
+        case .exportDataAsync: return "/api/v1/jobs/export-async"
+        case .calculateAnalyticsAsync: return "/api/v1/jobs/analytics/calculate-async"
+        case .prepareNotificationsAsync: return "/api/v1/jobs/notifications/prepare-async"
+        case .runSyncJobAsync: return "/api/v1/jobs/sync/run-async"
         }
     }
 
@@ -264,7 +302,8 @@ public enum Endpoint: Sendable {
              .listReconstitutionRecords, .getReconstitutionRecord, .listInjectionSites, .getSiteRecommendation, .listSiteEvents,
              .listMeasurements, .getMeasurement, .measurementTrends, .listLabPanels, .getLabPanel,
              .listBiomarkers, .getBiomarkerHistory, .listFiles, .getFileMetadata, .downloadFile,
-             .listNotifications, .syncPull, .userProfile, .getMe:
+             .listNotifications, .syncPull, .userProfile, .getMe,
+             .listBackgroundJobs, .getBackgroundJob:
             return .get
 
         case .register, .login, .appleSignIn, .refreshToken, .changePassword, .logout, .revokeToken,
@@ -272,7 +311,10 @@ public enum Endpoint: Sendable {
              .createVial, .depleteVial, .discardVial, .createSupply, .adjustSupply,
              .createReconstitutionRecord, .reviseReconstitutionRecord, .logSiteEvent,
              .createMeasurement, .createLabPanel, .logBiomarker, .uploadFile,
-             .generateReport, .generatePdfReport, .registerDeviceToken, .sendTestNotification, .syncPush, .syncOutbox:
+             .requestUploadAuthorization, .confirmUpload, .processFile, .directFileUpload,
+             .generateReport, .generatePdfReport, .registerDeviceToken, .sendTestNotification, .syncPush, .syncOutbox,
+             .submitBackgroundJob, .cancelBackgroundJob, .retryBackgroundJob,
+             .generateReportAsync, .exportDataAsync, .calculateAnalyticsAsync, .prepareNotificationsAsync, .runSyncJobAsync:
             return .post
 
         case .updateProfile, .updatePreferences, .updateUnits, .updateNotifications,

@@ -68,6 +68,177 @@ public final class RemoteStoredFileRepository: StoredFileRepositoryProtocol, @un
         let endpoint = Endpoint.deleteFile(id: id)
         try await apiClient.request(endpoint: endpoint)
     }
+
+    // MARK: - Direct Object Storage Upload Workflow (No BLOBs in PostgreSQL)
+
+    /// 1. Requests temporary upload authorization and presigned URL from backend.
+    public func requestUploadAuthorization(
+        category: StoredFileCategory,
+        fileName: String,
+        contentType: String,
+        byteSize: Int64,
+        vialId: UUID? = nil,
+        biomarkerId: UUID? = nil,
+        doseLogId: UUID? = nil,
+        protocolId: UUID? = nil,
+        symptomLogId: UUID? = nil,
+        metadata: [String: String]? = nil
+    ) async throws -> UploadAuthorizationResponseDTO {
+        let endpoint = Endpoint.requestUploadAuthorization
+        let body = UploadAuthorizationRequestDTO(
+            fileName: fileName,
+            contentType: contentType,
+            byteSize: byteSize,
+            category: category.rawValue,
+            vialId: vialId,
+            biomarkerId: biomarkerId,
+            doseLogId: doseLogId,
+            protocolId: protocolId,
+            symptomLogId: symptomLogId,
+            metadata: metadata
+        )
+        return try await apiClient.request(endpoint: endpoint, body: body, responseType: UploadAuthorizationResponseDTO.self)
+    }
+
+    /// 2. Streams binary data directly to encrypted object storage using presigned URL.
+    public func uploadDirectlyToStorage(
+        uploadUrlString: String,
+        data: Data,
+        contentType: String,
+        headers: [String: String] = [:]
+    ) async throws {
+        guard let url = URL(string: uploadUrlString) else {
+            throw NetworkError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        request.setValue("\(data.count)", forHTTPHeaderField: "Content-Length")
+        for (k, v) in headers {
+            request.setValue(v, forHTTPHeaderField: k)
+        }
+        request.httpBody = data
+
+        let (responseData, response) = try await URLSession.shared.data(for: request)
+        guard let httpResp = response as? HTTPURLResponse, (200...299).contains(httpResp.statusCode) else {
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
+            let bodyText = String(data: responseData, encoding: .utf8) ?? ""
+            throw NetworkError.serverError(statusCode: statusCode, message: "Direct storage upload failed: \(bodyText)")
+        }
+    }
+
+    /// 3. Confirms upload with backend, recording object identifier and metadata in PostgreSQL.
+    public func confirmDirectUpload(
+        fileId: UUID,
+        storageKey: String,
+        storageBucket: String? = nil,
+        fileName: String,
+        contentType: String,
+        byteSize: Int64,
+        sha256Checksum: String,
+        category: StoredFileCategory,
+        encryptionIV: String? = nil,
+        encryptionTag: String? = nil,
+        encryptionKeyId: String? = nil,
+        triggerProcessing: Bool = true,
+        vialId: UUID? = nil,
+        biomarkerId: UUID? = nil,
+        doseLogId: UUID? = nil,
+        protocolId: UUID? = nil,
+        symptomLogId: UUID? = nil,
+        metadata: [String: String]? = nil
+    ) async throws -> (record: StoredFileRecord, job: DocumentProcessingJobDTO?) {
+        let endpoint = Endpoint.confirmUpload
+        let body = UploadConfirmationRequestDTO(
+            fileId: fileId,
+            storageKey: storageKey,
+            storageBucket: storageBucket,
+            fileName: fileName,
+            contentType: contentType,
+            byteSize: byteSize,
+            sha256Checksum: sha256Checksum,
+            category: category.rawValue,
+            encryptionIV: encryptionIV,
+            encryptionTag: encryptionTag,
+            encryptionKeyId: encryptionKeyId,
+            triggerProcessing: triggerProcessing,
+            vialId: vialId,
+            biomarkerId: biomarkerId,
+            doseLogId: doseLogId,
+            protocolId: protocolId,
+            symptomLogId: symptomLogId,
+            metadata: metadata
+        )
+        let resp = try await apiClient.request(endpoint: endpoint, body: body, responseType: UploadConfirmationResponseDTO.self)
+        return (record: resp.file.toDomainRecord(), job: resp.processingJob)
+    }
+
+    /// 4. Convenience orchestrator: executes complete 3-step direct object storage upload pipeline.
+    public func uploadDocumentDirectly(
+        category: StoredFileCategory,
+        fileName: String,
+        data: Data,
+        contentType: String,
+        vialId: UUID? = nil,
+        biomarkerId: UUID? = nil,
+        doseLogId: UUID? = nil,
+        protocolId: UUID? = nil,
+        symptomLogId: UUID? = nil,
+        metadata: [String: String]? = nil,
+        triggerProcessing: Bool = true
+    ) async throws -> (record: StoredFileRecord, job: DocumentProcessingJobDTO?) {
+        let byteSize = Int64(data.count)
+
+        // Step 1: Request temporary upload authorization from backend
+        let auth = try await requestUploadAuthorization(
+            category: category,
+            fileName: fileName,
+            contentType: contentType,
+            byteSize: byteSize,
+            vialId: vialId,
+            biomarkerId: biomarkerId,
+            doseLogId: doseLogId,
+            protocolId: protocolId,
+            symptomLogId: symptomLogId,
+            metadata: metadata
+        )
+
+        // Step 2: Upload file directly to object storage vault
+        try await uploadDirectlyToStorage(
+            uploadUrlString: auth.uploadUrl,
+            data: data,
+            contentType: contentType,
+            headers: auth.headers
+        )
+
+        // Step 3: Record object identifier and trigger worker in backend
+        let sha256 = StorageEncryptionService.computeChecksum(data: data)
+        return try await confirmDirectUpload(
+            fileId: auth.fileId,
+            storageKey: auth.storageKey,
+            storageBucket: auth.storageBucket,
+            fileName: fileName,
+            contentType: contentType,
+            byteSize: byteSize,
+            sha256Checksum: sha256,
+            category: category,
+            triggerProcessing: triggerProcessing,
+            vialId: vialId,
+            biomarkerId: biomarkerId,
+            doseLogId: doseLogId,
+            protocolId: protocolId,
+            symptomLogId: symptomLogId,
+            metadata: metadata
+        )
+    }
+
+    /// 5. Triggers backend worker to extract structured data from an existing stored document.
+    public func processDocument(fileId: UUID) async throws -> DocumentProcessingResultDTO {
+        let endpoint = Endpoint.processFile(id: fileId)
+        let emptyBody: String? = nil
+        return try await apiClient.request(endpoint: endpoint, body: emptyBody, responseType: DocumentProcessingResultDTO.self)
+    }
 }
 
 /// DTO for decoding remote stored file metadata on client

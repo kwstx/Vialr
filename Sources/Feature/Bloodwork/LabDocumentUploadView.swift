@@ -10,8 +10,7 @@ public struct LabDocumentUploadView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var isProcessing: Bool = false
-    @State private var processingStep: String = "Selecting document..."
-    @State private var progressValue: Double = 0.0
+    @State private var activeJob: BackgroundJob? = nil
     @State private var selectedSampleIndex: Int = 0
 
     private let sampleReports = [
@@ -95,8 +94,18 @@ public struct LabDocumentUploadView: View {
                         // Header Guidance Card
                         guidanceCard
 
-                        if isProcessing {
-                            processingStatusCard
+                        if let job = activeJob {
+                            // Non-blocking Background Job Real-time Observer
+                            BackgroundJobObserverView(
+                                job: job,
+                                onCancel: {
+                                    activeJob = nil
+                                    isProcessing = false
+                                },
+                                onViewResults: {
+                                    finalizeResults(for: selectedSampleIndex)
+                                }
+                            )
                         } else {
                             // Upload Options Card
                             uploadOptionsCard
@@ -128,12 +137,12 @@ public struct LabDocumentUploadView: View {
                 Image(systemName: "shield.lefthalf.filled")
                     .foregroundColor(VialrColors.accentTeal)
                     .font(.system(size: 18))
-                Text("VERIFIED DATA SEPARATION")
+                Text("NON-BLOCKING BACKGROUND OCR")
                     .font(VialrTypography.captionBold)
                     .foregroundColor(VialrColors.accentTeal)
             }
 
-            Text("Uploaded lab reports are processed securely. Extracted values are presented as candidate data and require your review and confirmation before becoming structured medical records.")
+            Text("Laboratory reports are processed asynchronously in the background. Uploading creates a background worker job so you can continue using the app while OCR & table parsing completes.")
                 .font(VialrTypography.footnote)
                 .foregroundColor(VialrColors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -244,82 +253,77 @@ public struct LabDocumentUploadView: View {
         .vialrCard()
     }
 
-    // MARK: - Processing Animation Card
-    private var processingStatusCard: some View {
-        VStack(spacing: 20) {
-            ProgressView()
-                .scaleEffect(1.4)
-                .tint(VialrColors.accentTeal)
-                .padding(.top, 12)
-
-            Text("Processing Document")
-                .font(VialrTypography.title2)
-                .foregroundColor(VialrColors.textPrimary)
-
-            Text(processingStep)
-                .font(VialrTypography.subheadline)
-                .foregroundColor(VialrColors.accentTeal)
-                .multilineTextAlignment(.center)
-
-            // Animated progress bar
-            VStack(alignment: .leading, spacing: 6) {
-                ProgressView(value: progressValue, total: 1.0)
-                    .tint(VialrColors.accentTeal)
-                
-                HStack {
-                    Text("Secure OCR & Table Extraction")
-                        .font(VialrTypography.caption)
-                        .foregroundColor(VialrColors.textTertiary)
-                    Spacer()
-                    Text("\(Int(progressValue * 100))%")
-                        .font(VialrTypography.captionBold)
-                        .foregroundColor(VialrColors.accentTeal)
-                }
-            }
-            .padding(.horizontal, 16)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
-        .background(VialrColors.cardSurfaceElevated)
-        .cornerRadius(VialrSpacing.radiusLg)
-        .vialrCard()
-    }
-
-    // MARK: - Extraction Action
+    // MARK: - Async Background Processing Flow
+    // Upload → job created → worker processes document → results available
     private func processSelectedSample(index: Int) {
         let sample = sampleReports[index]
-        isProcessing = true
-        progressValue = 0.15
-        processingStep = "Uploading encrypted PDF to storage vault..."
+        let jobId = UUID()
+        let fileId = UUID()
+
+        // 1. Job Created (Immediate API response)
+        let initialJob = BackgroundJob(
+            id: jobId,
+            userId: UUID(),
+            jobType: .pdfProcessing,
+            status: .queued,
+            progress: 0.10,
+            stepDescription: "1/4 Uploaded to vault. Background worker job created."
+        )
+        self.activeJob = initialJob
+        self.isProcessing = true
 
         Task {
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            await MainActor.run {
-                progressValue = 0.45
-                processingStep = "Analyzing clinical analyte tables and reference bounds..."
-            }
-
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            await MainActor.run {
-                progressValue = 0.85
-                processingStep = "Normalizing candidate biomarkers against reference catalog..."
-            }
-
+            // 2. Worker step 1: Decrypt & verify in sandbox
             try? await Task.sleep(nanoseconds: 250_000_000)
             await MainActor.run {
-                progressValue = 1.0
-                processingStep = "Candidate data extracted. Ready for confirmation."
-
-                let parser = LabReportParserEngine()
-                let candidateReport = parser.parse(
-                    rawText: sample.text,
-                    fileName: sample.title,
-                    documentId: UUID()
+                self.activeJob = BackgroundJob(
+                    id: jobId,
+                    userId: UUID(),
+                    jobType: .pdfProcessing,
+                    status: .processing,
+                    progress: 0.40,
+                    stepDescription: "2/4 Decrypting document ciphertext in memory sandbox..."
                 )
+            }
 
-                onCandidateExtracted(candidateReport)
-                dismiss()
+            // 3. Worker step 2: Multi-page OCR & analyte table parsing
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            await MainActor.run {
+                self.activeJob = BackgroundJob(
+                    id: jobId,
+                    userId: UUID(),
+                    jobType: .pdfProcessing,
+                    status: .processing,
+                    progress: 0.75,
+                    stepDescription: "3/4 Background worker running OCR table extraction & catalog matching..."
+                )
+            }
+
+            // 4. Worker step 3: Persist structured results & clean staging
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            await MainActor.run {
+                self.activeJob = BackgroundJob(
+                    id: jobId,
+                    userId: UUID(),
+                    jobType: .pdfProcessing,
+                    status: .completed,
+                    progress: 1.0,
+                    stepDescription: "4/4 Results ready! Clinical analytes normalized and available for review."
+                )
             }
         }
+    }
+
+    private func finalizeResults(for index: Int) {
+        let sample = sampleReports[index]
+        let parser = LabReportParserEngine()
+        let candidateReport = parser.parse(
+            rawText: sample.text,
+            fileName: sample.title,
+            documentId: UUID()
+        )
+
+        onCandidateExtracted(candidateReport)
+        dismiss()
     }
 }

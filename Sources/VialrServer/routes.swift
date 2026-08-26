@@ -59,4 +59,7 @@ public func routes(_ app: Application) throws {
 
     // 15. Server-Side Calculations & Verification Engine
     try apiV1.register(collection: CalculationController())
+
+    // 16. Asynchronous Background Processing & Worker Queue Engine
+    try apiV1.register(collection: BackgroundJobsController())
 }

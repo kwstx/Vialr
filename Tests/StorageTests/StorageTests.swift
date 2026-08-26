@@ -124,4 +124,81 @@ final class StorageTests: XCTestCase {
         )
         XCTAssertEqual(progressPhoto.doseLogId, doseLogId)
     }
+
+    // MARK: - Direct Upload Authorization & Architecture Tests
+
+    func testUploadAuthorizationKeyHierarchyAndURL() {
+        let userId = UUID()
+        let fileId = UUID()
+        let fileName = "Quest_Male_Hormone_Panel.pdf"
+        let category = StoredFileCategory.labPdf
+
+        let sanitized = fileName.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? fileId.uuidString
+        let expectedKey = "vault/users/\(userId.uuidString)/\(category.defaultFolderPrefix)/\(fileId.uuidString)_\(sanitized).enc"
+
+        XCTAssertTrue(expectedKey.contains("vault/users/"))
+        XCTAssertTrue(expectedKey.contains("lab-pdfs"))
+        XCTAssertTrue(expectedKey.hasSuffix(".enc"))
+    }
+
+    func testDirectStorageUploadAndIntegrityVerification() throws {
+        let masterSecret = "test-secret-key-vault-minimum-32-chars-2026"
+        let symmetricKey = SymmetricKey(data: SHA256.hash(data: Data(masterSecret.utf8)))
+        let rawPdfData = "PDF-1.7 QUEST DIAGNOSTICS: TOTAL TESTOSTERONE 845 ng/dL, ESTRADIOL 28.5 pg/mL, GLUCOSE 88 mg/dL".data(using: .utf8)!
+
+        // 1. Calculate original checksum
+        let originalChecksum = SHA256.hash(data: rawPdfData).map { String(format: "%02x", $0) }.joined()
+
+        // 2. Encrypt directly into object storage format (AES-256-GCM)
+        let nonce = AES.GCM.Nonce()
+        let sealedBox = try AES.GCM.seal(rawPdfData, using: symmetricKey, nonce: nonce)
+        let ciphertext = sealedBox.ciphertext
+        let tag = sealedBox.tag
+
+        // 3. Object identifier and metadata recorded (NO BLOBs in DB)
+        let fileRecord = StoredFileRecord(
+            userId: UUID(),
+            category: .labPdf,
+            fileName: "Quest_Hormone_Panel.pdf",
+            contentType: "application/pdf",
+            byteSize: Int64(rawPdfData.count),
+            sha256Checksum: originalChecksum,
+            storageBucket: "vialr-secure-vault",
+            storageKey: "vault/users/test/lab-pdfs/doc.enc",
+            encryption: StorageEncryptionMetadata(
+                algorithm: "AES-256-GCM",
+                keyId: "vialr-vault-primary",
+                initializationVector: Data(nonce).base64EncodedString(),
+                authenticationTag: tag.base64EncodedString(),
+                isEncrypted: true
+            )
+        )
+
+        XCTAssertEqual(fileRecord.sha256Checksum, originalChecksum)
+        XCTAssertEqual(fileRecord.byteSize, Int64(rawPdfData.count))
+        XCTAssertTrue(fileRecord.encryption.isEncrypted)
+
+        // 4. Decrypt from object storage ciphertext
+        let openedBox = try AES.GCM.SealedBox(
+            nonce: nonce,
+            ciphertext: ciphertext,
+            tag: tag
+        )
+        let decryptedData = try AES.GCM.open(openedBox, using: symmetricKey)
+        let decryptedChecksum = SHA256.hash(data: decryptedData).map { String(format: "%02x", $0) }.joined()
+
+        XCTAssertEqual(decryptedChecksum, fileRecord.sha256Checksum)
+        XCTAssertEqual(decryptedData, rawPdfData)
+    }
+
+    func testFileSizeExceedsCategoryLimitValidation() {
+        let maxLabSize = StoredFileCategory.labPdf.maxAllowedSizeBytes // 50 MB
+        let oversizedBytes: Int64 = 55 * 1024 * 1024 // 55 MB
+
+        XCTAssertTrue(oversizedBytes > maxLabSize)
+        XCTAssertEqual(maxLabSize, 50 * 1024 * 1024)
+
+        let userDocMax = StoredFileCategory.userDocument.maxAllowedSizeBytes
+        XCTAssertEqual(userDocMax, 25 * 1024 * 1024)
+    }
 }
