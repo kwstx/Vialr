@@ -282,7 +282,17 @@ public struct RootNavigationView: View {
             )
 
         case .protocolComparison:
-            ProtocolComparisonView(protocols: protocolsVM.allProtocols)
+            ProtocolComparisonView(
+                viewModel: ProtocolComparisonViewModel(
+                    protocolRepo: container.protocolRepository,
+                    measurementRepo: container.measurementRepository,
+                    doseRepo: container.doseLogRepository,
+                    symptomRepo: container.symptomRepository,
+                    biomarkerRepo: container.biomarkerRepository,
+                    costRepo: container.costRepository,
+                    initialProtocols: protocolsVM.allProtocols
+                )
+            )
 
         case .addVial:
             AddVialSheetView { newVial in
