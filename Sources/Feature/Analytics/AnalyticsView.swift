@@ -107,48 +107,64 @@ public struct AnalyticsView: View {
             .sheet(isPresented: $isLabTimelinePresented) {
                 LaboratoryTimelineView()
             }
+            .sheet(isPresented: $viewModel.isExplainabilitySheetPresented) {
+                if let audit = viewModel.selectedAuditTrail {
+                    ExplainabilityInspectionSheet(auditTrail: audit)
+                }
+            }
         }
     }
 
     // MARK: - Adherence Card
     private func adherenceSummaryCard(_ adh: AdherenceCalculator.AdherenceReport) -> some View {
-        VStack(alignment: .leading, spacing: VialrSpacing.md) {
-            HStack {
-                Text("PROTOCOL ADHERENCE")
-                    .font(VialrTypography.captionBold)
-                    .foregroundColor(VialrColors.accentTeal)
-                Spacer()
-                MetricBadge(.success("\(Int(adh.overallPercentage))% Compliance"))
+        Button {
+            if let audit = viewModel.explainableAdherence?.auditTrail {
+                viewModel.presentAuditTrail(audit)
             }
-
-            HStack(spacing: VialrSpacing.md) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("ACTIVE STREAK")
+        } label: {
+            VStack(alignment: .leading, spacing: VialrSpacing.md) {
+                HStack {
+                    Text("PROTOCOL ADHERENCE")
                         .font(VialrTypography.captionBold)
-                        .foregroundColor(VialrColors.textTertiary)
-                    HStack(spacing: 4) {
-                        Image(systemName: "flame.fill")
-                            .foregroundColor(VialrColors.accentEmerald)
-                        Text("\(adh.currentStreakDays) Days")
-                            .font(VialrTypography.metricMedium)
-                            .foregroundColor(VialrColors.textPrimary)
+                        .foregroundColor(VialrColors.accentTeal)
+                    Spacer()
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 11))
+                        .foregroundColor(VialrColors.accentTeal)
+                    MetricBadge(.success("\(Int(adh.overallPercentage))% Compliance"))
+                }
+
+                HStack(spacing: VialrSpacing.md) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("ACTIVE STREAK")
+                            .font(VialrTypography.captionBold)
+                            .foregroundColor(VialrColors.textTertiary)
+                        HStack(spacing: 4) {
+                            Image(systemName: "flame.fill")
+                                .foregroundColor(VialrColors.accentEmerald)
+                            Text("\(adh.currentStreakDays) Days")
+                                .font(VialrTypography.metricMedium)
+                                .foregroundColor(VialrColors.textPrimary)
+                        }
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("TAKEN / SCHEDULED")
+                            .font(VialrTypography.captionBold)
+                            .foregroundColor(VialrColors.textTertiary)
+                        Text("\(adh.totalTaken) of \(adh.totalScheduled)")
+                            .font(VialrTypography.metricSmall)
+                            .foregroundColor(VialrColors.accentCyan)
                     }
                 }
-
-                Spacer()
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("TAKEN / SCHEDULED")
-                        .font(VialrTypography.captionBold)
-                        .foregroundColor(VialrColors.textTertiary)
-                    Text("\(adh.totalTaken) of \(adh.totalScheduled)")
-                        .font(VialrTypography.metricSmall)
-                        .foregroundColor(VialrColors.accentCyan)
-                }
             }
+            .padding(VialrSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .vialrCard()
         }
-        .padding(VialrSpacing.md)
-        .vialrCard()
+        .buttonStyle(.plain)
     }
 
     // MARK: - Serum Clearance Chart
@@ -309,29 +325,42 @@ public struct AnalyticsView: View {
                 .font(VialrTypography.title3)
                 .foregroundColor(VialrColors.textPrimary)
 
-            HStack(spacing: VialrSpacing.md) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("TOTAL SPENT")
-                        .font(VialrTypography.captionBold)
-                        .foregroundColor(VialrColors.textTertiary)
-                    Text("$\(String(format: "%.0f", spend.totalSpentUsd))")
-                        .font(VialrTypography.metricMedium)
-                        .foregroundColor(VialrColors.accentEmerald)
+            Button {
+                if let audit = viewModel.explainableSpend?.auditTrail {
+                    viewModel.presentAuditTrail(audit)
                 }
+            } label: {
+                HStack(spacing: VialrSpacing.md) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) {
+                            Text("TOTAL SPENT")
+                                .font(VialrTypography.captionBold)
+                                .foregroundColor(VialrColors.textTertiary)
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 10))
+                                .foregroundColor(VialrColors.accentTeal)
+                        }
+                        Text("$\(String(format: "%.0f", spend.totalSpentUsd))")
+                            .font(VialrTypography.metricMedium)
+                            .foregroundColor(VialrColors.accentEmerald)
+                    }
 
-                Spacer()
+                    Spacer()
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("DAILY PROTOCOL BURN")
-                        .font(VialrTypography.captionBold)
-                        .foregroundColor(VialrColors.textTertiary)
-                    Text("$\(String(format: "%.2f", spend.costPerDayUsd))/day")
-                        .font(VialrTypography.metricSmall)
-                        .foregroundColor(VialrColors.textPrimary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("DAILY PROTOCOL BURN")
+                            .font(VialrTypography.captionBold)
+                            .foregroundColor(VialrColors.textTertiary)
+                        Text("$\(String(format: "%.2f", spend.costPerDayUsd))/day")
+                            .font(VialrTypography.metricSmall)
+                            .foregroundColor(VialrColors.textPrimary)
+                    }
                 }
+                .padding(VialrSpacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .vialrCard()
             }
-            .padding(VialrSpacing.md)
-            .vialrCard()
+            .buttonStyle(.plain)
         }
     }
 }

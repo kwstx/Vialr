@@ -47,11 +47,16 @@ public final class ResultsTrackingViewModel: @unchecked Sendable {
 
     // Time-Series & Derived Analytics (Guaranteed decoupled from raw data)
     public var analyticsSummary: ComprehensiveMetricAnalytics?
+    public var masterReport: MasterAnalyticsReport?
     public var selectedTimeRange: TimeRangeFilter = .thirtyDays
     public var selectedMovingAverage: MovingAverageOverlayOption = .sma7
     public var showRawPointsOnChart: Bool = true
     public var showReferenceRangeBand: Bool = true
     public var showBaselineRule: Bool = true
+
+    // Explainability & Audit Inspection
+    public var selectedAuditTrail: CalculationAuditTrail?
+    public var isExplainabilitySheetPresented: Bool = false
 
     // Sheets & Dialogs
     public var isLogMeasurementSheetPresented: Bool = false
@@ -66,6 +71,7 @@ public final class ResultsTrackingViewModel: @unchecked Sendable {
     private let protocolRepo: ProtocolRepositoryProtocol
     private let doseRepo: DoseLogRepositoryProtocol
     private let engine = ResultsTrackingEngine()
+    private let analyticsEngine = AnalyticsEngine()
 
     public init(
         measurementRepo: MeasurementRepositoryProtocol = LocalMeasurementRepository(),
@@ -132,9 +138,25 @@ public final class ResultsTrackingViewModel: @unchecked Sendable {
                 doseLogs: doseLogs,
                 protocols: activeProtocols
             )
+
+            // Generate full deterministic master analytics report with explainability audit trails
+            masterReport = analyticsEngine.generateMasterAnalytics(
+                metric: metric,
+                measurements: filteredMeasurements,
+                doseLogs: doseLogs,
+                protocols: activeProtocols,
+                costs: [],
+                targetGoal: nil
+            )
         } catch {
             errorMessage = "Failed to compute analytics: \(error.localizedDescription)"
         }
+    }
+
+    // MARK: - Audit Trail Inspection Helper
+    public func presentAuditTrail(_ audit: CalculationAuditTrail) {
+        selectedAuditTrail = audit
+        isExplainabilitySheetPresented = true
     }
 
     // MARK: - Measurement Logging (Zero-Latency Local Write)

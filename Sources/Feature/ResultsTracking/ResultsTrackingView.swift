@@ -105,6 +105,11 @@ public struct ResultsTrackingView: View {
                     }
                 }
             }
+            .sheet(isPresented: $viewModel.isExplainabilitySheetPresented) {
+                if let audit = viewModel.selectedAuditTrail {
+                    ExplainabilityInspectionSheet(auditTrail: audit)
+                }
+            }
             .task {
                 await viewModel.loadData()
             }
@@ -234,16 +239,28 @@ public struct ResultsTrackingView: View {
                 Spacer()
 
                 if let base = summary.baselineResult {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("FROM BASELINE")
-                            .font(VialrTypography.captionBold)
-                            .foregroundColor(VialrColors.textTertiary)
+                    Button {
+                        if let audit = viewModel.masterReport?.baselineDifference?.auditTrail {
+                            viewModel.presentAuditTrail(audit)
+                        }
+                    } label: {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            HStack(spacing: 4) {
+                                Text("FROM BASELINE")
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.textTertiary)
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(VialrColors.accentTeal)
+                            }
 
-                        let sign = base.absoluteDifference > 0 ? "+" : ""
-                        Text("\(sign)\(String(format: "%.1f", base.absoluteDifference)) \(summary.definition.defaultUnit) (\(sign)\(String(format: "%.1f", base.percentageDifference))%)")
-                            .font(VialrTypography.bodyBold)
-                            .foregroundColor(base.evaluationStatus == .onTrack || base.evaluationStatus == .targetReached ? VialrColors.accentEmerald : VialrColors.accentRose)
+                            let sign = base.absoluteDifference > 0 ? "+" : ""
+                            Text("\(sign)\(String(format: "%.1f", base.absoluteDifference)) \(summary.definition.defaultUnit) (\(sign)\(String(format: "%.1f", base.percentageDifference))%)")
+                                .font(VialrTypography.bodyBold)
+                                .foregroundColor(base.evaluationStatus == .onTrack || base.evaluationStatus == .targetReached ? VialrColors.accentEmerald : VialrColors.accentRose)
+                        }
                     }
+                    .buttonStyle(.plain)
                 }
             }
 
@@ -450,47 +467,73 @@ public struct ResultsTrackingView: View {
                 // 7-Day SMA Card
                 if let sma7 = summary.movingAverages.first(where: { $0.windowDays == 7 }),
                    let current = sma7.currentSmoothedValue {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("7-DAY ROLLING AVERAGE")
-                            .font(VialrTypography.captionBold)
-                            .foregroundColor(VialrColors.textTertiary)
-                        Text("\(String(format: "%.1f", current)) \(summary.definition.defaultUnit)")
-                            .font(VialrTypography.metricSmall)
-                            .foregroundColor(VialrColors.accentTeal)
-
-                        if let vel = sma7.weeklyVelocity {
-                            let sign = vel > 0 ? "+" : ""
-                            Text("\(sign)\(String(format: "%.1f", vel)) \(summary.definition.defaultUnit)/wk")
-                                .font(VialrTypography.caption)
-                                .foregroundColor(VialrColors.textSecondary)
+                    Button {
+                        if let audit = viewModel.masterReport?.rollingAverages.first(where: { $0.windowDays == 7 })?.auditTrail {
+                            viewModel.presentAuditTrail(audit)
                         }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("7-DAY ROLLING AVERAGE")
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.textTertiary)
+                                Spacer()
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(VialrColors.accentTeal)
+                            }
+                            Text("\(String(format: "%.1f", current)) \(summary.definition.defaultUnit)")
+                                .font(VialrTypography.metricSmall)
+                                .foregroundColor(VialrColors.accentTeal)
+
+                            if let vel = sma7.weeklyVelocity {
+                                let sign = vel > 0 ? "+" : ""
+                                Text("\(sign)\(String(format: "%.1f", vel)) \(summary.definition.defaultUnit)/wk")
+                                    .font(VialrTypography.caption)
+                                    .foregroundColor(VialrColors.textSecondary)
+                            }
+                        }
+                        .padding(VialrSpacing.md)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .vialrCard()
                     }
-                    .padding(VialrSpacing.md)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .vialrCard()
+                    .buttonStyle(.plain)
                 }
 
                 // 30-Day SMA Card
                 if let sma30 = summary.movingAverages.first(where: { $0.windowDays == 30 }),
                    let current30 = sma30.currentSmoothedValue {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("30-DAY TRENDLINE")
-                            .font(VialrTypography.captionBold)
-                            .foregroundColor(VialrColors.textTertiary)
-                        Text("\(String(format: "%.1f", current30)) \(summary.definition.defaultUnit)")
-                            .font(VialrTypography.metricSmall)
-                            .foregroundColor(VialrColors.accentCyan)
-
-                        if let vel30 = sma30.weeklyVelocity {
-                            let sign = vel30 > 0 ? "+" : ""
-                            Text("\(sign)\(String(format: "%.1f", vel30)) \(summary.definition.defaultUnit)/wk")
-                                .font(VialrTypography.caption)
-                                .foregroundColor(VialrColors.textSecondary)
+                    Button {
+                        if let audit = viewModel.masterReport?.rollingAverages.first(where: { $0.windowDays == 30 })?.auditTrail {
+                            viewModel.presentAuditTrail(audit)
                         }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("30-DAY TRENDLINE")
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.textTertiary)
+                                Spacer()
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(VialrColors.accentCyan)
+                            }
+                            Text("\(String(format: "%.1f", current30)) \(summary.definition.defaultUnit)")
+                                .font(VialrTypography.metricSmall)
+                                .foregroundColor(VialrColors.accentCyan)
+
+                            if let vel30 = sma30.weeklyVelocity {
+                                let sign = vel30 > 0 ? "+" : ""
+                                Text("\(sign)\(String(format: "%.1f", vel30)) \(summary.definition.defaultUnit)/wk")
+                                    .font(VialrTypography.caption)
+                                    .foregroundColor(VialrColors.textSecondary)
+                            }
+                        }
+                        .padding(VialrSpacing.md)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .vialrCard()
                     }
-                    .padding(VialrSpacing.md)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .vialrCard()
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -505,29 +548,37 @@ public struct ResultsTrackingView: View {
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: VialrSpacing.sm) {
                 ForEach(summary.percentageChanges) { change in
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text(change.periodName.uppercased())
-                                .font(VialrTypography.captionBold)
-                                .foregroundColor(VialrColors.textTertiary)
-                            Spacer()
-                            MetricBadge(.custom(
-                                title: change.trendDirection.rawValue,
-                                color: Color(hex: change.trendDirection.badgeColorHex),
-                                icon: nil
-                            ))
+                    Button {
+                        if let audit = viewModel.masterReport?.standardPeriodPercentageChanges.first(where: { $0.periodName == change.periodName })?.auditTrail {
+                            viewModel.presentAuditTrail(audit)
                         }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(change.periodName.uppercased())
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.textTertiary)
+                                Spacer()
+                                MetricBadge(.custom(
+                                    title: change.trendDirection.rawValue,
+                                    color: Color(hex: change.trendDirection.badgeColorHex),
+                                    icon: nil
+                                ))
+                            }
 
-                        Text(change.formattedPercentage)
-                            .font(VialrTypography.metricSmall)
-                            .foregroundColor(Color(hex: change.trendDirection.badgeColorHex))
+                            Text(change.formattedPercentage)
+                                .font(VialrTypography.metricSmall)
+                                .foregroundColor(Color(hex: change.trendDirection.badgeColorHex))
 
-                        Text("\(String(format: "%.1f", change.startValue)) → \(String(format: "%.1f", change.endValue)) \(summary.definition.defaultUnit)")
-                            .font(VialrTypography.caption)
-                            .foregroundColor(VialrColors.textSecondary)
+                            Text("\(String(format: "%.1f", change.startValue)) → \(String(format: "%.1f", change.endValue)) \(summary.definition.defaultUnit)")
+                                .font(VialrTypography.caption)
+                                .foregroundColor(VialrColors.textSecondary)
+                        }
+                        .padding(VialrSpacing.md)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .vialrCard()
                     }
-                    .padding(VialrSpacing.md)
-                    .vialrCard()
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -540,48 +591,56 @@ public struct ResultsTrackingView: View {
                 .font(VialrTypography.title3)
                 .foregroundColor(VialrColors.textPrimary)
 
-            VStack(alignment: .leading, spacing: VialrSpacing.md) {
-                HStack {
-                    Image(systemName: "flame.fill")
-                        .foregroundColor(VialrColors.accentTeal)
-                    Text("\(Int(adh.overallAdherencePercentage))% Protocol Compliance")
-                        .font(VialrTypography.headline)
-                        .foregroundColor(VialrColors.textPrimary)
-                    Spacer()
-                    MetricBadge(.custom(title: adh.statisticalSignificance, color: VialrColors.accentEmerald, icon: nil))
+            Button {
+                if let audit = viewModel.masterReport?.adherence?.auditTrail {
+                    viewModel.presentAuditTrail(audit)
                 }
-
-                if let hAvg = adh.highAdherenceAverageValue, let lAvg = adh.lowAdherenceAverageValue {
-                    HStack(spacing: VialrSpacing.md) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("HIGH ADHERENCE (≥80%)")
-                                .font(VialrTypography.captionBold)
-                                .foregroundColor(VialrColors.textTertiary)
-                            Text("\(String(format: "%.1f", hAvg)) \(viewModel.selectedMetric?.defaultUnit ?? "")")
-                                .font(VialrTypography.metricSmall)
-                                .foregroundColor(VialrColors.accentEmerald)
-                        }
-
+            } label: {
+                VStack(alignment: .leading, spacing: VialrSpacing.md) {
+                    HStack {
+                        Image(systemName: "flame.fill")
+                            .foregroundColor(VialrColors.accentTeal)
+                        Text("\(Int(adh.overallAdherencePercentage))% Protocol Compliance")
+                            .font(VialrTypography.headline)
+                            .foregroundColor(VialrColors.textPrimary)
                         Spacer()
-
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text("LOWER ADHERENCE (<80%)")
-                                .font(VialrTypography.captionBold)
-                                .foregroundColor(VialrColors.textTertiary)
-                            Text("\(String(format: "%.1f", lAvg)) \(viewModel.selectedMetric?.defaultUnit ?? "")")
-                                .font(VialrTypography.metricSmall)
-                                .foregroundColor(VialrColors.accentRose)
-                        }
+                        MetricBadge(.custom(title: adh.statisticalSignificance, color: VialrColors.accentEmerald, icon: nil))
                     }
-                    .padding(.vertical, 4)
-                }
 
-                Text(adh.clinicalInsight)
-                    .font(VialrTypography.footnote)
-                    .foregroundColor(VialrColors.textSecondary)
+                    if let hAvg = adh.highAdherenceAverageValue, let lAvg = adh.lowAdherenceAverageValue {
+                        HStack(spacing: VialrSpacing.md) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("HIGH ADHERENCE (≥80%)")
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.textTertiary)
+                                Text("\(String(format: "%.1f", hAvg)) \(viewModel.selectedMetric?.defaultUnit ?? "")")
+                                    .font(VialrTypography.metricSmall)
+                                    .foregroundColor(VialrColors.accentEmerald)
+                            }
+
+                            Spacer()
+
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text("LOWER ADHERENCE (<80%)")
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.textTertiary)
+                                Text("\(String(format: "%.1f", lAvg)) \(viewModel.selectedMetric?.defaultUnit ?? "")")
+                                    .font(VialrTypography.metricSmall)
+                                    .foregroundColor(VialrColors.accentRose)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+
+                    Text(adh.clinicalInsight)
+                        .font(VialrTypography.footnote)
+                        .foregroundColor(VialrColors.textSecondary)
+                }
+                .padding(VialrSpacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .vialrCard()
             }
-            .padding(VialrSpacing.md)
-            .vialrCard()
+            .buttonStyle(.plain)
         }
     }
 
@@ -593,59 +652,70 @@ public struct ResultsTrackingView: View {
                 .foregroundColor(VialrColors.textPrimary)
 
             ForEach(comparisons) { comp in
-                VStack(alignment: .leading, spacing: VialrSpacing.md) {
-                    HStack {
-                        Image(systemName: "arrow.left.arrow.right")
-                            .foregroundColor(VialrColors.accentTeal)
-                        Text("\(comp.protocolAName) vs \(comp.protocolBName)")
-                            .font(VialrTypography.headline)
-                            .foregroundColor(VialrColors.textPrimary)
-                        Spacer()
+                Button {
+                    if let audit = viewModel.masterReport?.periodComparisons.first(where: { $0.periodAName == comp.protocolAName })?.auditTrail {
+                        viewModel.presentAuditTrail(audit)
                     }
-
-                    HStack(spacing: VialrSpacing.md) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(comp.protocolAName.uppercased())
-                                .font(VialrTypography.captionBold)
-                                .foregroundColor(VialrColors.textTertiary)
-                            Text("\(String(format: "%.1f", comp.periodAStats.meanValue)) \(comp.unit)")
-                                .font(VialrTypography.metricSmall)
-                                .foregroundColor(VialrColors.textPrimary)
-                            Text("Δ: \(String(format: "%.1f", comp.periodAStats.netChange)) (\(String(format: "%.1f", comp.periodAStats.percentageChange))%)")
-                                .font(VialrTypography.caption)
-                                .foregroundColor(VialrColors.textSecondary)
-                        }
-
-                        Spacer()
-
-                        VStack(alignment: .trailing, spacing: 4) {
-                            Text(comp.protocolBName.uppercased())
-                                .font(VialrTypography.captionBold)
-                                .foregroundColor(VialrColors.textTertiary)
-                            Text("\(String(format: "%.1f", comp.periodBStats.meanValue)) \(comp.unit)")
-                                .font(VialrTypography.metricSmall)
-                                .foregroundColor(VialrColors.accentTeal)
-                            Text("Δ: \(String(format: "%.1f", comp.periodBStats.netChange)) (\(String(format: "%.1f", comp.periodBStats.percentageChange))%)")
-                                .font(VialrTypography.caption)
-                                .foregroundColor(VialrColors.textSecondary)
-                        }
-                    }
-
-                    if let cohenD = comp.cohensDEffectSize {
+                } label: {
+                    VStack(alignment: .leading, spacing: VialrSpacing.md) {
                         HStack {
-                            Text("Cohen's d Effect Size: \(String(format: "%.2f", cohenD))")
-                                .font(VialrTypography.captionBold)
-                                .foregroundColor(VialrColors.accentCyan)
+                            Image(systemName: "arrow.left.arrow.right")
+                                .foregroundColor(VialrColors.accentTeal)
+                            Text("\(comp.protocolAName) vs \(comp.protocolBName)")
+                                .font(VialrTypography.headline)
+                                .foregroundColor(VialrColors.textPrimary)
                             Spacer()
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 12))
+                                .foregroundColor(VialrColors.accentTeal)
                         }
-                    }
 
-                    Text(comp.summaryConclusion)
-                        .font(VialrTypography.footnote)
-                        .foregroundColor(VialrColors.textSecondary)
+                        HStack(spacing: VialrSpacing.md) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(comp.protocolAName.uppercased())
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.textTertiary)
+                                Text("\(String(format: "%.1f", comp.periodAStats.meanValue)) \(comp.unit)")
+                                    .font(VialrTypography.metricSmall)
+                                    .foregroundColor(VialrColors.textPrimary)
+                                Text("Δ: \(String(format: "%.1f", comp.periodAStats.netChange)) (\(String(format: "%.1f", comp.periodAStats.percentageChange))%)")
+                                    .font(VialrTypography.caption)
+                                    .foregroundColor(VialrColors.textSecondary)
+                            }
+
+                            Spacer()
+
+                            VStack(alignment: .trailing, spacing: 4) {
+                                Text(comp.protocolBName.uppercased())
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.textTertiary)
+                                Text("\(String(format: "%.1f", comp.periodBStats.meanValue)) \(comp.unit)")
+                                    .font(VialrTypography.metricSmall)
+                                    .foregroundColor(VialrColors.accentTeal)
+                                Text("Δ: \(String(format: "%.1f", comp.periodBStats.netChange)) (\(String(format: "%.1f", comp.periodBStats.percentageChange))%)")
+                                    .font(VialrTypography.caption)
+                                    .foregroundColor(VialrColors.textSecondary)
+                            }
+                        }
+
+                        if let cohenD = comp.cohensDEffectSize {
+                            HStack {
+                                Text("Cohen's d Effect Size: \(String(format: "%.2f", cohenD))")
+                                    .font(VialrTypography.captionBold)
+                                    .foregroundColor(VialrColors.accentCyan)
+                                Spacer()
+                            }
+                        }
+
+                        Text(comp.summaryConclusion)
+                            .font(VialrTypography.footnote)
+                            .foregroundColor(VialrColors.textSecondary)
+                    }
+                    .padding(VialrSpacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .vialrCard()
                 }
-                .padding(VialrSpacing.md)
-                .vialrCard()
+                .buttonStyle(.plain)
             }
         }
     }
