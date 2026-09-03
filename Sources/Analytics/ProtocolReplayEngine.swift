@@ -2,6 +2,8 @@ import Foundation
 import Domain
 import CalculationEngine
 
+public typealias Measurement = Domain.Measurement
+
 /// High-performance analytics engine for the Protocol Replay feature.
 ///
 /// Collects, aligns, and normalizes all historical events associated with a protocol

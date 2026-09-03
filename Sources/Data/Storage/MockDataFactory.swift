@@ -1,6 +1,8 @@
 import Foundation
 import Domain
 
+public typealias Measurement = Domain.Measurement
+
 /// Provides realistic, pre-populated seed data for Vialr demonstrations, tests, and preview canvases.
 public struct MockDataFactory: Sendable {
     public init() {}

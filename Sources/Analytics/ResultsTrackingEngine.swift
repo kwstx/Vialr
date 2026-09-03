@@ -2,6 +2,8 @@ import Foundation
 import Domain
 import CalculationEngine
 
+public typealias Measurement = Domain.Measurement
+
 /// High-performance analytics and statistical computation engine for longitudinal results tracking.
 /// Computes moving averages, percentage changes, baseline comparisons, adherence correlations,
 /// and protocol-period comparisons without ever mutating or overwriting raw measurement data.

@@ -3,6 +3,8 @@ import Domain
 import CalculationEngine
 import Data
 
+public typealias Measurement = Domain.Measurement
+
 /// High-performance local-first analytics engine that synthesizes longitudinal patient data
 /// into a structured clinical protocol report for medical professionals.
 public struct ClinicianReportGenerator: Sendable {

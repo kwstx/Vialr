@@ -1,6 +1,8 @@
 import Foundation
 import Domain
 
+public typealias Measurement = Domain.Measurement
+
 /// Repository responsible for orchestrating Apple Health data synchronization,
 /// transforming raw HealthKit samples into application domain `Measurement` models,
 /// preserving full source provenance metadata, and managing local storage and user preferences.

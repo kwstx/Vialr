@@ -1,6 +1,8 @@
 import Foundation
 import Domain
 
+public typealias Measurement = Domain.Measurement
+
 #if canImport(SwiftData)
 import SwiftData
 #endif

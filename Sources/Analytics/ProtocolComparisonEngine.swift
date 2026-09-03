@@ -2,6 +2,8 @@ import Foundation
 import Domain
 import CalculationEngine
 
+public typealias Measurement = Domain.Measurement
+
 /// Sophisticated time-series comparison engine for protocol and date range analytics.
 ///
 /// Features:

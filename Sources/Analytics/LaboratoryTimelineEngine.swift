@@ -2,6 +2,8 @@ import Foundation
 import Domain
 import CalculationEngine
 
+public typealias Measurement = Domain.Measurement
+
 /// High-performance analytics engine for Event Alignment and Laboratory Timeline correlation.
 ///
 /// Places every laboratory result, dose event, protocol transition, and biometric measurement

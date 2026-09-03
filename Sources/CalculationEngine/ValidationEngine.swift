@@ -1,6 +1,8 @@
 import Foundation
 import Domain
 
+public typealias Measurement = Domain.Measurement
+
 // MARK: - Validation Engine Protocol
 
 /// Architectural boundary defining domain-wide validation rules across all user and system inputs.

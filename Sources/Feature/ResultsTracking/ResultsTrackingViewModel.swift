@@ -4,6 +4,8 @@ import Domain
 import Analytics
 import Data
 
+public typealias Measurement = Domain.Measurement
+
 public enum TimeRangeFilter: String, CaseIterable, Identifiable, Sendable {
     case sevenDays = "7D"
     case fourteenDays = "14D"

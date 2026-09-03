@@ -1,6 +1,8 @@
 import Foundation
 import Domain
 
+public typealias Measurement = Domain.Measurement
+
 // MARK: - Compound Repository
 public final class LocalCompoundRepository: CompoundRepositoryProtocol, @unchecked Sendable {
     private let store: LocalStore

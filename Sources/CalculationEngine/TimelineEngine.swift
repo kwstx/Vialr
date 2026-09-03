@@ -1,6 +1,8 @@
 import Foundation
 import Domain
 
+public typealias Measurement = Domain.Measurement
+
 /// High-performance calculation engine for multi-domain event normalization, sorting,
 /// calendar day-grouping, filtering, and statistical analysis across the entire patient history.
 public protocol TimelineEngineProtocol: Sendable {

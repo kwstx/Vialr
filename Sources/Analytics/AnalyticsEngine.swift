@@ -2,6 +2,8 @@ import Foundation
 import Domain
 import CalculationEngine
 
+public typealias Measurement = Domain.Measurement
+
 // MARK: - Analytics Engine Protocol
 
 /// Defines deterministic, pure analytical operations on raw time-series data.
