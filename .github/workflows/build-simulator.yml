@@ -32,6 +32,7 @@ jobs:
 
       - name: Build App for iOS Simulator
         run: |
+          set -o pipefail
           xcodebuild build \
             -project Vialr.xcodeproj \
             -scheme Vialr \
@@ -40,7 +41,15 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
+            CODE_SIGN_IDENTITY="" 2>&1 | tee xcodebuild.log || {
+              echo ""
+              echo "========================================================"
+              echo "  COMPILATION ERRORS OCCURRED:                          "
+              echo "========================================================"
+              grep -E "error:" xcodebuild.log || tail -n 50 xcodebuild.log
+              echo "========================================================"
+              exit 1
+            }
 
       - name: Zip .app Bundle for Appetize.io
         run: |
