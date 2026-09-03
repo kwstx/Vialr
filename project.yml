@@ -7,6 +7,10 @@ settings:
   SWIFT_VERSION: "6.0"
   IPHONEOS_DEPLOYMENT_TARGET: "17.0"
   ENABLE_USER_SCRIPT_SANDBOXING: NO
+  DEFINES_MODULE: YES
+  SWIFT_INSTALL_OBJC_HEADER: NO
+  CLANG_ENABLE_MODULES: YES
+
 targets:
   Domain:
     type: framework
@@ -22,6 +26,8 @@ targets:
     platform: iOS
     sources:
       - path: Sources/DesignSystem
+    dependencies:
+      - target: Domain
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.vialr.DesignSystem
       GENERATE_INFOPLIST_FILE: YES
@@ -68,6 +74,7 @@ targets:
     dependencies:
       - target: Domain
       - target: CalculationEngine
+      - target: Data
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.vialr.Analytics
       GENERATE_INFOPLIST_FILE: YES
