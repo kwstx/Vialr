@@ -89,41 +89,6 @@ public struct TimelineEvent: Identifiable, Codable, Sendable, Hashable {
         )
     }
 
-    /// Builds a timeline event from a legacy or stored `DoseLog`.
-    public init(from doseLog: DoseLog) {
-        let isTaken = doseLog.status == .taken
-        let time = doseLog.loggedDate ?? doseLog.scheduledDate
-        let amountStr = String(format: doseLog.doseAmount.truncatingRemainder(dividingBy: 1) == 0 ? "%.0f" : "%.1f", doseLog.doseAmount)
-        
-        var subParts: [String] = ["\(amountStr) \(doseLog.doseUnit.rawValue)", doseLog.administrationRoute.rawValue]
-        if let site = doseLog.injectionSiteName {
-            subParts.append(site)
-        }
-
-        self.init(
-            id: UUID(),
-            timestamp: time,
-            category: .dose,
-            title: "\(doseLog.compoundName) Dose",
-            subtitle: subParts.joined(separator: " • "),
-            detailText: doseLog.skippedReason ?? (doseLog.notes.isEmpty ? nil : doseLog.notes),
-            badgeText: doseLog.status.rawValue,
-            badgeColorHex: doseLog.status.badgeColorHex,
-            iconName: doseLog.status.iconName,
-            associatedEntityId: doseLog.id,
-            associatedEntityType: .doseEvent,
-            isHighlighted: doseLog.status == .missed || doseLog.status == .partialDose,
-            metadata: [
-                "compoundName": doseLog.compoundName,
-                "amount": "\(doseLog.doseAmount)",
-                "unit": doseLog.doseUnit.rawValue,
-                "status": doseLog.status.rawValue,
-                "route": doseLog.administrationRoute.rawValue,
-                "isTaken": "\(isTaken)"
-            ]
-        )
-    }
-
     /// Builds a timeline event from a physical or subjective `Measurement`.
     public init(from measurement: Measurement) {
         self.init(
