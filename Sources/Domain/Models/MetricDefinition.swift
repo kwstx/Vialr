@@ -355,6 +355,114 @@ public struct MetricDefinition: Identifiable, Codable, Sendable, Hashable {
         decimalPlaces: 2
     )
 
+    public static let workout = MetricDefinition(
+        name: "Workout / Activity",
+        code: "workout_activity",
+        category: .athletic,
+        type: .workout,
+        defaultUnit: "min",
+        supportedUnits: ["min", "hrs"],
+        isCustom: false,
+        referenceRangeMin: 30.0,
+        referenceRangeMax: 120.0,
+        targetDirection: .increase,
+        iconName: "figure.run",
+        colorHex: "#3B82F6",
+        metricDescription: "Physical exercise duration and session tracking.",
+        preferredAggregation: .sum,
+        decimalPlaces: 0
+    )
+
+    public static let stepCount = MetricDefinition(
+        name: "Daily Steps",
+        code: "step_count",
+        category: .athletic,
+        type: .stepCount,
+        defaultUnit: "steps",
+        supportedUnits: ["steps"],
+        isCustom: false,
+        referenceRangeMin: 8000.0,
+        referenceRangeMax: 15000.0,
+        targetDirection: .increase,
+        iconName: "shoeprints.fill",
+        colorHex: "#10B981",
+        metricDescription: "Total steps recorded daily.",
+        preferredAggregation: .sum,
+        decimalPlaces: 0
+    )
+
+    public static let activeEnergy = MetricDefinition(
+        name: "Active Calories",
+        code: "active_energy",
+        category: .athletic,
+        type: .activeEnergy,
+        defaultUnit: "kcal",
+        supportedUnits: ["kcal", "kJ"],
+        isCustom: false,
+        referenceRangeMin: 300.0,
+        referenceRangeMax: 1000.0,
+        targetDirection: .increase,
+        iconName: "flame.fill",
+        colorHex: "#EF4444",
+        metricDescription: "Active energy expenditure burned through movement.",
+        preferredAggregation: .sum,
+        decimalPlaces: 0
+    )
+
+    public static let oxygenSaturation = MetricDefinition(
+        name: "Oxygen Saturation (SpO2)",
+        code: "oxygen_saturation",
+        category: .cardiovascular,
+        type: .oxygenSaturation,
+        defaultUnit: "%",
+        supportedUnits: ["%"],
+        isCustom: false,
+        referenceRangeMin: 95.0,
+        referenceRangeMax: 100.0,
+        targetDirection: .increase,
+        iconName: "lungs.fill",
+        colorHex: "#06B6D4",
+        metricDescription: "Peripheral blood oxygen saturation percentage.",
+        preferredAggregation: .average,
+        decimalPlaces: 1
+    )
+
+    public static let respiratoryRate = MetricDefinition(
+        name: "Respiratory Rate",
+        code: "respiratory_rate",
+        category: .cardiovascular,
+        type: .respiratoryRate,
+        defaultUnit: "brpm",
+        supportedUnits: ["brpm"],
+        isCustom: false,
+        referenceRangeMin: 12.0,
+        referenceRangeMax: 20.0,
+        targetDirection: .maintain,
+        iconName: "wind",
+        colorHex: "#8B5CF6",
+        metricDescription: "Resting breaths per minute.",
+        preferredAggregation: .average,
+        decimalPlaces: 1
+    )
+
+    public static let bodyTemperature = MetricDefinition(
+        name: "Body Temperature",
+        code: "body_temperature",
+        category: .cardiovascular,
+        type: .bodyTemperature,
+        defaultUnit: "°C",
+        supportedUnits: ["°C", "°F"],
+        isCustom: false,
+        referenceRangeMin: 36.1,
+        referenceRangeMax: 37.2,
+        targetDirection: .maintain,
+        iconName: "thermometer.medium",
+        colorHex: "#EC4899",
+        metricDescription: "Basal or core body temperature.",
+        preferredAggregation: .average,
+        decimalPlaces: 1
+    )
+
     /// Comprehensive list of all pre-packaged built-in metrics.
     public static let allBuiltIns: [MetricDefinition] = [
         .bodyWeight,
@@ -365,6 +473,12 @@ public struct MetricDefinition: Identifiable, Codable, Sendable, Hashable {
         .heartRateVariability,
         .fastingBloodGlucose,
         .sleepDuration,
+        .workout,
+        .stepCount,
+        .activeEnergy,
+        .oxygenSaturation,
+        .respiratoryRate,
+        .bodyTemperature,
         .energyLevel,
         .appetiteRating,
         .painIndex,
@@ -385,6 +499,12 @@ public struct MetricDefinition: Identifiable, Codable, Sendable, Hashable {
         case .hrv: return .heartRateVariability
         case .bloodGlucose: return .fastingBloodGlucose
         case .sleep: return .sleepDuration
+        case .workout: return .workout
+        case .stepCount: return .stepCount
+        case .activeEnergy: return .activeEnergy
+        case .oxygenSaturation: return .oxygenSaturation
+        case .respiratoryRate: return .respiratoryRate
+        case .bodyTemperature: return .bodyTemperature
         case .energy: return .energyLevel
         case .appetite: return .appetiteRating
         case .pain: return .painIndex
