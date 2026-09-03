@@ -41,12 +41,12 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" 2>&1 | tee xcodebuild.log || {
+            CODE_SIGN_IDENTITY="" > xcodebuild.log 2>&1 || {
               echo ""
               echo "========================================================"
               echo "  COMPILATION ERRORS OCCURRED:                          "
               echo "========================================================"
-              grep -E "error:" xcodebuild.log || tail -n 50 xcodebuild.log
+              grep -E ": (error|fatal error):" xcodebuild.log || tail -n 60 xcodebuild.log
               echo "========================================================"
               exit 1
             }
