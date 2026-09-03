@@ -97,7 +97,7 @@ public struct VialrButton: View {
         // Accessibility annotations
         .accessibilityLabel(accessibilityLabelOverride ?? title)
         .accessibilityHint(accessibilityHintText ?? (isLoading ? "Please wait, in progress" : "Double tap to \(title.lowercased())"))
-        .accessibilityAddTraits(isDisabled ? [.isButton, .notEnabled] : .isButton)
+        .accessibilityAddTraits(.isButton)
         .accessibilityValue(isLoading ? "Loading" : "")
     }
 

@@ -154,7 +154,7 @@ public struct VialrStepper: View {
                 .disabled(value <= range.lowerBound)
                 .accessibilityLabel("Decrease \(title)")
                 .accessibilityHint("Decreases value by \(String(format: format, step)) \(unit)")
-                .accessibilityAddTraits(value <= range.lowerBound ? [.isButton, .notEnabled] : .isButton)
+                .accessibilityAddTraits(.isButton)
 
                 // Increment Button (min 44x44pt hit target)
                 Button {
@@ -172,7 +172,7 @@ public struct VialrStepper: View {
                 .disabled(value >= range.upperBound)
                 .accessibilityLabel("Increase \(title)")
                 .accessibilityHint("Increases value by \(String(format: format, step)) \(unit)")
-                .accessibilityAddTraits(value >= range.upperBound ? [.isButton, .notEnabled] : .isButton)
+                .accessibilityAddTraits(.isButton)
             }
         }
         .padding(VialrSpacing.cardPadding)
