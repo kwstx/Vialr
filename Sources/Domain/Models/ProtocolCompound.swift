@@ -42,6 +42,18 @@ public struct ProtocolCompound: Identifiable, Codable, Sendable, Hashable {
         set { route = newValue }
     }
 
+    /// Compatibility accessor for `dosageAmount`
+    public var dosageAmount: Double {
+        get { doseAmount }
+        set { doseAmount = newValue }
+    }
+
+    /// Compatibility accessor for `unit`
+    public var unit: DoseUnit {
+        get { doseUnit }
+        set { doseUnit = newValue }
+    }
+
     public init(
         id: UUID = UUID(),
         protocolId: UUID? = nil,

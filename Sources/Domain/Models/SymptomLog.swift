@@ -18,6 +18,12 @@ public struct SymptomLog: SyncableRecord, Identifiable, Codable, Sendable, Hasha
     public var version: Int
     public var syncState: SyncState
 
+    /// Compatibility accessor for `symptomNames`
+    public var symptomNames: [String] {
+        get { sideEffects }
+        set { sideEffects = newValue }
+    }
+
     public init(
         id: UUID = UUID(),
         timestamp: Date = Date(),

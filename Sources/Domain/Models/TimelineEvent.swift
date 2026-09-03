@@ -277,24 +277,29 @@ public struct TimelineEvent: Identifiable, Codable, Sendable, Hashable {
 
     /// Builds a timeline event from a `SymptomLog`.
     public init(from symptomLog: SymptomLog) {
-        let sub = symptomLog.symptomNames.joined(separator: ", ")
+        let sideEffectsSummary = symptomLog.sideEffects.joined(separator: ", ")
+        let scoreSummary = "Energy: \(symptomLog.energyLevel)/10 • Sleep: \(symptomLog.sleepQuality)/10 • Mood: \(symptomLog.moodScore)/10"
+        let sub = sideEffectsSummary.isEmpty ? scoreSummary : "\(sideEffectsSummary) (\(scoreSummary))"
+        let hasAdverse = !symptomLog.sideEffects.isEmpty || (symptomLog.painScore ?? 0) >= 5
+
         self.init(
             id: UUID(),
             timestamp: symptomLog.timestamp,
             category: .symptom,
-            title: "Subjective Log (\(symptomLog.severity.rawValue))",
-            subtitle: sub.isEmpty ? "Energy: \(symptomLog.energyLevel)/10 • Mood: \(symptomLog.moodScore)/10" : sub,
+            title: hasAdverse ? "Symptom & Well-Being Log" : "Daily Well-Being Check-In",
+            subtitle: sub,
             detailText: symptomLog.notes.isEmpty ? nil : symptomLog.notes,
-            badgeText: symptomLog.severity.rawValue,
-            badgeColorHex: symptomLog.severity.badgeColorHex,
+            badgeText: "\(Int(symptomLog.overallWellbeingScore))% Wellbeing",
+            badgeColorHex: symptomLog.overallWellbeingScore >= 70 ? "#10B981" : (symptomLog.overallWellbeingScore >= 40 ? "#F59E0B" : "#EF4444"),
             iconName: "waveform.path.ecg",
             associatedEntityId: symptomLog.id,
             associatedEntityType: .symptomLog,
-            isHighlighted: symptomLog.severity == .severe || symptomLog.severity == .moderate,
+            isHighlighted: hasAdverse,
             metadata: [
-                "severity": symptomLog.severity.rawValue,
                 "energy": "\(symptomLog.energyLevel)",
-                "mood": "\(symptomLog.moodScore)"
+                "sleep": "\(symptomLog.sleepQuality)",
+                "mood": "\(symptomLog.moodScore)",
+                "wellbeingScore": "\(symptomLog.overallWellbeingScore)"
             ]
         )
     }

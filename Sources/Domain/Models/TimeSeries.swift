@@ -79,7 +79,7 @@ public struct TimeSeries<Point: TimeSeriesDataPoint>: Sendable, Codable, Hashabl
     public var durationDays: Int {
         guard let start = startDate, let end = endDate else { return 0 }
         let diff = Calendar.current.dateComponents([.day], from: start, to: end).day ?? 0
-        return max(0, diff)
+        return Swift.max(0, diff)
     }
 
     public var firstPoint: Point? { points.first }
@@ -240,7 +240,7 @@ public struct TimeSeries<Point: TimeSeriesDataPoint>: Sendable, Codable, Hashabl
             }
         }
 
-        let upperIndex = min(points.count - 1, lowerIndex + 1)
+        let upperIndex = Swift.min(points.count - 1, lowerIndex + 1)
         let p0 = points[lowerIndex]
         let p1 = points[upperIndex]
 
@@ -265,7 +265,7 @@ public struct TimeSeries<Point: TimeSeriesDataPoint>: Sendable, Codable, Hashabl
         let bucketSize = Double(points.count - 2) / Double(targetCount - 2)
         for i in 0..<(targetCount - 2) {
             let startIdx = Int(Double(i) * bucketSize) + 1
-            let endIdx = min(points.count - 1, Int(Double(i + 1) * bucketSize) + 1)
+            let endIdx = Swift.min(points.count - 1, Int(Double(i + 1) * bucketSize) + 1)
             let slice = points[startIdx..<endIdx]
             if let rep = slice.first {
                 sampled.append(rep)
