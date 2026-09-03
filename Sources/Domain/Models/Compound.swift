@@ -225,6 +225,7 @@ public enum DoseUnit: String, Codable, Sendable, CaseIterable, Identifiable {
     case ml = "mL"
 
     public var id: String { rawValue }
+    public var symbol: String { rawValue }
 
     public var displayName: String {
         switch self {
